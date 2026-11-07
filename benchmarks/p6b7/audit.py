@@ -25,6 +25,33 @@ def get(root:Path, family:str, version:str)->dict:
     original=directory/"original_stdio.jsonl"
     o=json.loads((directory/"origin.json").read_bytes())
     r=json.loads((directory/"risu.json").read_bytes())
+    secondary=json.loads((directory/"risu_projected.json").read_bytes())
+    projection=json.loads((directory/"projection.json").read_bytes())
+    projected_bytes=(directory/"projected_trace.jsonl").read_bytes()
+    raw_bytes=original.read_bytes()
+    assert projection["schema"]=="risu-p6b7-secondary-projected-catalog-v1"
+    assert projection["CANNOT_CLAIM_ACTUAL_RAW_CAPTURE"] is True
+    assert projection["source_raw_sha256"]==hashlib.sha256(raw_bytes).hexdigest()
+    assert projection["projected_sha256"]==hashlib.sha256(projected_bytes).hexdigest()
+    assert secondary["schema"]=="risu-mcp-jsonrpc-trace-audit-v1"
+    assert secondary["capture_sha256"]==projection["projected_sha256"]
+    original_rows=[json.loads(z) for z in raw_bytes.splitlines() if z.strip()]
+    reduced_rows=[json.loads(z) for z in projected_bytes.splitlines() if z.strip()]
+    assert len(original_rows)==len(reduced_rows)
+    changed=0
+    for source,trimmed in zip(original_rows,reduced_rows):
+        if source==trimmed:continue
+        assert "result" in source and "result" in trimmed
+        a=source["result"];b=trimmed["result"]
+        assert "tools" in a and "tools" in b
+        assert len(b["tools"])==1
+        assert a["tools"]==[b["tools"][0]] or b["tools"][0] in a["tools"]
+        without_a={k:v for k,v in a.items() if k!="tools"}
+        without_b={k:v for k,v in b.items() if k!="tools"}
+        assert without_a==without_b
+        assert {k:v for k,v in source.items() if k!="result"}=={k:v for k,v in trimmed.items() if k!="result"}
+        changed+=1
+    assert changed==1,"Exactly one tools/list may be projected"
     assert o["schema"]=="p6b7-upstream-actual-stdio-v1"
     assert o["family"]==family and o["version"]==version
     assert o["repo"]==EXPECTED[family]["source_repo"]
@@ -32,14 +59,19 @@ def get(root:Path, family:str, version:str)->dict:
     assert o["trace_sha256"]==hashlib.sha256(original.read_bytes()).hexdigest()
     assert o["production_data_used"] is False and o["external_mcp_endpoint_called"] is False
     assert o["source"]=="PINNED_PUBLIC_UPSTREAM_SOURCE_EXECUTED_WITH_SYNTHETIC_INPUT"
-    assert r["schema"]=="risu-mcp-jsonrpc-trace-audit-v1"
-    assert r["capture_sha256"]==o["trace_sha256"]
-    assert r["origin_integrity"]=="UNATTESTED_LOCAL_CAPTURE"
-    assert r["summary"]["tool_call_requests"]==len(o["outcomes"])
-    assert r["summary"]["messages_parsed"]==o["message_count"]
-    for f in r["findings"]:
-        assert f["rule_id"] in {"RMC501","RMC502","RMC503","RMC504"}
-    return {"origin":o,"risu":r}
+    if r["schema"]=="risu-mcp-jsonrpc-trace-audit-v1":
+        assert r["capture_sha256"]==o["trace_sha256"]
+        assert r["origin_integrity"]=="UNATTESTED_LOCAL_CAPTURE"
+        assert r["summary"]["tool_call_requests"]==len(o["outcomes"])
+        assert r["summary"]["messages_parsed"]==o["message_count"]
+    else:
+        assert r["schema"]=="risu-p6b7-raw-attempt-v1"
+        assert r["status"]=="UNVERIFIED_RAW_TRACE" and r["exit_code"]==2
+        assert r["findings"]==[]
+    for report in (r,secondary):
+        for finding in report["findings"]:
+            assert finding["rule_id"] in {"RMC501","RMC502","RMC503","RMC504"}
+    return {"origin":o,"risu":r,"secondary":secondary,"projection":projection}
 
 def primary(x:dict)->dict:
     return x["origin"]["outcomes"]["primary"]
@@ -84,12 +116,22 @@ def evaluate(root:Path)->dict:
         fixed=reports[fam]["fixed"]
         old_rules={r["rule_id"] for r in old["risu"]["findings"]}
         fixed_rules={r["rule_id"] for r in fixed["risu"]["findings"]}
+        old_projected={r["rule_id"] for r in old["secondary"]["findings"]}
+        fixed_projected={r["rule_id"] for r in fixed["secondary"]["findings"]}
         relevant=RELEVANT_RULES[fam]
         caught=bool(runtime[fam] and old_rules & relevant and not fixed_rules & relevant)
-        gaps=sum(v["risu"]["summary"]["unverified_count"] for v in (old,fixed))
+        projected_caught=bool(runtime[fam] and old_projected & relevant and not fixed_projected & relevant)
+        gaps=sum(v["risu"]["summary"].get("unverified_count",1) for v in (old,fixed))
+        secondary_gaps=sum(v["secondary"]["summary"]["unverified_count"] for v in (old,fixed))
         rows.append({
           "family":fam,"upstream_bug_reproduced":runtime[fam],
           "before_rules":sorted(old_rules),"fixed_rules":sorted(fixed_rules),
+          "secondary_projected_before_rules":sorted(old_projected),
+          "secondary_projected_fixed_rules":sorted(fixed_projected),
+          "secondary_projected_issue_detected":projected_caught,
+          "secondary_projected_unverified_items":secondary_gaps,
+          "raw_attempt_status_old":old["risu"].get("status","PARSED"),
+          "raw_attempt_status_fixed":fixed["risu"].get("status","PARSED"),
           "issue_relevant_detected":caught,
           "false_alarm_on_official_fix":bool(fixed_rules & relevant),
           "unverified_evidence_items":gaps,
@@ -118,6 +160,9 @@ def evaluate(root:Path)->dict:
          "issue_relevant_false_negative":len(eligible)-tp,
          "holdout_recall":tp/len(eligible),
          "official_fixed_negative_pairs":len(eligible),
+         "raw_trace_scanner_refusals":sum(1 for r in rows if r["raw_attempt_status_old"]=="UNVERIFIED_RAW_TRACE"),
+         "secondary_projected_true_positives":sum(r["secondary_projected_issue_detected"] for r in rows),
+         "projection_is_not_raw_wire":True,
          "false_alarm_on_fixed":fixed_alarm,
          "normal_head_two_call_controls":2,
          "unverified_capture_items":sum(r["unverified_evidence_items"] for r in rows),
