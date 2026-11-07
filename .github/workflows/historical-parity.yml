@@ -38,7 +38,13 @@ jobs:
           curl --proto '=https' --tlsv1.2 --fail --location --retry 3 \
             https://raw.githubusercontent.com/risu-research/openapi-mcp-problem-semantics/2968ee7bd1e55cce3a459c4700eef08945e63bd2/p6a/reference/risu_probe_preview-0.9.20.dev0-py3-none-any.whl \
             -o .ci-parity/risu_probe_preview-0.9.20.dev0-py3-none-any.whl
-          printf '%s  %s\n' '56eb547c924c9b89d6d5a9fa760de99df95d7c8d4b872899a3fa70c4e45099d6' '.ci-parity/risu_probe_preview-0.9.20.dev0-py3-none-any.whl' | sha256sum --check
+          python - <<'PYHASH'
+          from hashlib import sha256
+          from pathlib import Path
+          p=Path('.ci-parity/risu_probe_preview-0.9.20.dev0-py3-none-any.whl')
+          assert sha256(p.read_bytes()).hexdigest() == '56eb547c924c9b89d6d5a9fa760de99df95d7c8d4b872899a3fa70c4e45099d6', 'Historical public wheel SHA mismatch'
+          print('PINNED_PUBLIC_P5E_SHA256_PASS')
+          PYHASH
           python provenance/verify_distribution.py \
             --product . \
             --wheel .ci-parity/wheels/risu_probe_preview-0.9.20.dev0-py3-none-any.whl \
