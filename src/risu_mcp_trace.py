@@ -19,6 +19,12 @@ MAX_SCHEMA_NODES = 512
 MAX_VALUE_NODES = 2048
 ALLOWED_PROTOCOLS = ('2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28', 'unknown')
 LEGACY_PROTOCOLS = frozenset(('2025-03-26', '2025-06-18', '2025-11-25'))
+DRAFT7_DIALECTS = frozenset(('http://json-schema.org/draft-07/schema#',
+                             'http://json-schema.org/draft-07/schema',
+                             'https://json-schema.org/draft-07/schema',
+                             'https://json-schema.org/draft-07/schema#'))
+DRAFT202012_DIALECTS = frozenset(('https://json-schema.org/draft/2020-12/schema',
+                                  'https://json-schema.org/draft/2020-12/schema#'))
 
 
 class TraceError(ValueError):
@@ -109,6 +115,10 @@ def _schema_capability(schema: Any) -> tuple[bool, str]:
         return False, 'Schema exceeds bounded validation budget'
     dangerous = {'$dynamicRef', '$recursiveRef', '$id', '$anchor', '$dynamicAnchor',
                  'pattern', 'patternProperties', 'contentSchema'}
+    root_dialect = schema.get('$schema', 'https://json-schema.org/draft/2020-12/schema')
+    if root_dialect not in DRAFT7_DIALECTS | DRAFT202012_DIALECTS:
+        return False, 'Unsupported root JSON Schema dialect'
+    root_family = 'draft7' if root_dialect in DRAFT7_DIALECTS else '2020-12'
     stack = [schema]
     while stack:
         item = stack.pop()
@@ -116,10 +126,14 @@ def _schema_capability(schema: Any) -> tuple[bool, str]:
             if any(k in item for k in dangerous):
                 return False, 'Schema contains unsupported remote/dynamic/regex keyword'
             dialect = item.get('$schema')
-            if dialect is not None and dialect != 'https://json-schema.org/draft/2020-12/schema':
-                return False, 'Schema dialect is not supported Draft 2020-12'
+            if dialect is not None:
+                if dialect not in DRAFT7_DIALECTS | DRAFT202012_DIALECTS:
+                    return False, 'Unsupported JSON Schema dialect'
+                family = 'draft7' if dialect in DRAFT7_DIALECTS else '2020-12'
+                if family != root_family:
+                    return False, 'Mixed JSON Schema dialects are not fully validated'
             ref = item.get('$ref')
-            if ref is not None and (not isinstance(ref, str) or not ref.startswith('#/$defs/') or len(ref)>256):
+            if ref is not None and (not isinstance(ref, str) or not ref.startswith(('#/$defs/', '#/definitions/')) or len(ref)>256):
                 return False, 'Remote or non-local JSON pointer reference refused'
             # Formats are annotations by default, so cannot claim format-level checking.
             if 'format' in item:
@@ -132,16 +146,17 @@ def _schema_capability(schema: Any) -> tuple[bool, str]:
 
 def _validate_schema(schema: dict, value: Any) -> tuple[str, dict | None]:
     try:
-        from jsonschema import Draft202012Validator
+        from jsonschema import Draft202012Validator, Draft7Validator
         from jsonschema.exceptions import SchemaError
     except ImportError:
         return 'UNVERIFIED', {'reason':'jsonschema package is not installed'}
+    validator_cls = Draft7Validator if schema.get('$schema') in DRAFT7_DIALECTS else Draft202012Validator
     try:
-        Draft202012Validator.check_schema(schema)
+        validator_cls.check_schema(schema)
     except (SchemaError, RecursionError, ValueError):
         return 'DECLARATION_INVALID', {'reason':'Invalid Draft 2020-12 schema'}
     try:
-        validator = Draft202012Validator(schema)
+        validator = validator_cls(schema)
         # Iterating only first error limits processing, while bounded schema/instance
         # nodes and disallowed costly regex/dynamic refs prevent common hazards.
         issue = next(validator.iter_errors(value), None)
@@ -378,7 +393,7 @@ def _text(report: dict) -> str:
 
 def _sarif(report: dict) -> dict:
     return {'version':'2.1.0','$schema':'https://json.schemastore.org/sarif-2.1.0.json',
-            'runs':[{'tool':{'driver':{'name':'RISU Probe','version':'0.9.24','rules':[
+            'runs':[{'tool':{'driver':{'name':'RISU Probe','version':'0.9.25','rules':[
                {'id':code,'shortDescription':{'text':desc}} for code,desc in (
                 ('RMC501','Missing successful structured output'),
                 ('RMC502','Structured output violates declared schema'),
