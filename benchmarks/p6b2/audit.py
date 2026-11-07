@@ -5,10 +5,11 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-from evaluate import freeze_check,git_blob,calculate,ISSUE_MATCHED_RULES
+from evaluate import freeze_check,git_blob,calculate,ISSUE_MATCHED_RULES,FROZEN_MANIFEST_SHA256
 
 def audit(manifest_path:Path, report_path:Path, source_dir:Path)->dict:
     raw=manifest_path.read_bytes()
+    assert hashlib.sha256(raw).hexdigest()==FROZEN_MANIFEST_SHA256,"FROZEN_MANIFEST_CHANGED"
     manifest=json.loads(raw)
     freeze_check(manifest)
     report=json.loads(report_path.read_bytes())
