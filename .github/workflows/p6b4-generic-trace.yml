@@ -2,9 +2,9 @@ name: RISU P6-B4 generic MCP recorded message validator
 on:
   push:
     branches: ['qualification/p6b4-*']
-    paths: ['src/**','tests/**','pyproject.toml','docs/P6B4*','benchmarks/p6b4/**','.github/workflows/p6b4-generic-trace.yml']
+    paths: ['src/**','tests/**','pyproject.toml','docs/P6B4*','benchmarks/record_released_sdk.py','benchmarks/audit_generated.py','.github/workflows/p6b4-generic-trace.yml']
   pull_request:
-    paths: ['src/**','tests/**','pyproject.toml','docs/P6B4*','benchmarks/p6b4/**','.github/workflows/p6b4-generic-trace.yml']
+    paths: ['src/**','tests/**','pyproject.toml','docs/P6B4*','benchmarks/record_released_sdk.py','benchmarks/audit_generated.py','.github/workflows/p6b4-generic-trace.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -95,13 +95,13 @@ jobs:
           .p6b4/sdk/bin/python -m pip install --disable-pip-version-check 'mcp==2.1.0' 'mcp-types==2.1.0'
           .p6b4/product/bin/python -m pip check
           .p6b4/sdk/bin/python -m pip check
-          .p6b4/sdk/bin/python benchmarks/p6b4/record_released_sdk.py --out-dir .p6b4/results
+          .p6b4/sdk/bin/python benchmarks/record_released_sdk.py --out-dir .p6b4/results
           for case in sdk_real_normalized mutation_missing_structured mutation_wrong_type mutation_error_exempt; do
             .p6b4/product/bin/risu-probe verify-mcp-trace \
               .p6b4/results/${case}.jsonl --protocol-version 2025-11-25 --format json \
               --out .p6b4/results/${case}_audit.json
           done
-          .p6b4/product/bin/python benchmarks/p6b4/audit_generated.py --results .p6b4/results \
+          .p6b4/product/bin/python benchmarks/audit_generated.py --results .p6b4/results \
             --out .p6b4/results/independent_audit.json
           echo P6B4_RELEASED_MCP_NORMALIZED_REPLAY_PASS
       - name: Store PUBLIC synthetic results only, never private captures
