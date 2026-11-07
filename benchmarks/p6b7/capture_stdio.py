@@ -47,7 +47,7 @@ async def capture(repo_root:Path, family:str, version:str, result_dir:Path)->dic
             argv.append(str(allowed))
         p=await asyncio.create_subprocess_exec(*argv,cwd=str(exe.parent),env=env,
             stdin=asyncio.subprocess.PIPE,stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL)
+            stderr=asyncio.subprocess.DEVNULL,limit=MAX_RESPONSE+2)
         trace:list[bytes]=[]
         async def rpc(message:dict)->dict:
             raw=(json.dumps(message,separators=(",",":"),ensure_ascii=False)+"\n").encode()
