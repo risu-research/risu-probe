@@ -13,6 +13,8 @@ import sys
 ALLOWED = {"modelcontextprotocol/python-sdk", "PrefectHQ/fastmcp", "modelcontextprotocol/typescript-sdk"}
 LABELS = {"known_defect", "official_fixed", "normal_control", "withdrawn_report", "unsupported"}
 SHA40 = re.compile(r"^[0-9a-f]{40}$")
+FROZEN_MANIFEST_SHA256 = "77d17e853127090e59d01579b930dba4518151b97bdce67015793ce83c138071"
+
 # No matching new issue-specific rules exist in the frozen 0.9.21 candidate.
 # Rules RPY201..RPY204 target different causal mechanisms. Unrelated warnings are not TPs.
 ISSUE_MATCHED_RULES = {
@@ -140,6 +142,8 @@ def main() -> None:
     ap.add_argument("--out",type=Path,required=True)
     args=ap.parse_args()
     raw=args.manifest.read_bytes()
+    if hashlib.sha256(raw).hexdigest()!=FROZEN_MANIFEST_SHA256:
+        raise ValueError("FROZEN_EVALUATION_MANIFEST_SHA256_MISMATCH")
     manifest=json.loads(raw)
     freeze_check(manifest)
     paths=materialize(manifest,args.scratch)
