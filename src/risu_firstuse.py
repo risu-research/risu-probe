@@ -108,7 +108,7 @@ def cli(argv: list[str] | None=None) -> int:
     start=time.perf_counter()
     try:
         report=check(Path(args.project), args.evidence)
-        report['version']='0.9.20-experimental'
+        report['version']='0.9.21-experimental'
         # Preserve evidence classifications. Incomplete status must be plainly visible.
         if report.get('unverified'):
             report['coverage_note']='Coverage incomplete: at least one file or saved evidence input was not verified. No pass/compatible claim.'
@@ -120,7 +120,7 @@ def cli(argv: list[str] | None=None) -> int:
             report['performance']={'scan_wall_ms':round((time.perf_counter()-start)*1000,3),
                                    'excludes_process_startup':True}
         if args.format=='text':
-            content=as_text(report).replace('RISU Probe check 0.9.18', 'RISU Probe check 0.9.20', 1)
+            content=as_text(report).replace('RISU Probe check 0.9.18', 'RISU Probe check 0.9.21', 1)
             if report.get('unverified'):
                 remedies=[]
                 for gap in report['unverified'][:8]:
@@ -135,7 +135,7 @@ def cli(argv: list[str] | None=None) -> int:
         elif args.format=='json':content=json.dumps(report,ensure_ascii=False,sort_keys=True,indent=2)+'\n'
         else:
             sarif=as_sarif(report)
-            sarif['runs'][0]['tool']['driver']['version']='0.9.20'
+            sarif['runs'][0]['tool']['driver']['version']='0.9.21'
             sarif['runs'][0]['properties']['coverage_note']=report['coverage_note']
             if args.timing:sarif['runs'][0]['properties']['performance']=report['performance']
             content=json.dumps(sarif,ensure_ascii=False,sort_keys=True,indent=2)+'\n'

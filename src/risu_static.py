@@ -31,6 +31,9 @@ RULES = {
     'RPY203': ('EXPLICIT_ERROR_BODY_TRUNCATION_POLICY', 'note',
                'An error-body helper appends a truncation marker to a bounded prefix.',
                'Review documented message-size policy and use dynamic fixture tests to determine whether required fields disappear.'),
+    'RPY204': ('SCHEMA_OUTPUT_SERIALIZATION_FALLBACK', 'warning',
+               'Output-schema-bearing tool may degrade serialization failure to text-only success.',
+               'Review the declared output schema, exception handler and actual MCP result; a source pattern is not proof of runtime loss.'),
 }
 SKIP_DIRS = {'.git','.hg','.svn','.venv','venv','env','node_modules','__pycache__',
              'dist','build','.mypy_cache','.ruff_cache','.pytest_cache','.tox',
@@ -105,6 +108,59 @@ def _error_only_return(node, response):
     return False
 
 
+
+def _p6b_guard_raises_for_declared_output_schema(handler):
+    """Recognize explicit output-schema-present guards with an error raise."""
+    for node in ast.walk(handler):
+        if not isinstance(node, ast.If):
+            continue
+        test=node.test
+        guard=(isinstance(test, ast.Attribute) and test.attr=='output_schema'
+               and isinstance(test.value,ast.Name) and test.value.id=='self')
+        if (isinstance(test,ast.Compare) and len(test.ops)==1
+            and isinstance(test.ops[0],(ast.IsNot,ast.NotEq))
+            and len(test.comparators)==1 and isinstance(test.comparators[0],ast.Constant)
+            and test.comparators[0].value is None
+            and isinstance(test.left,ast.Attribute) and test.left.attr=='output_schema'
+            and isinstance(test.left.value,ast.Name) and test.left.value.id=='self'):
+            guard=True
+        if guard and any(isinstance(n,ast.Raise) for stmt in node.body for n in ast.walk(stmt)):
+            return True
+    return False
+
+
+def _p6b_schema_serialization_fallback(fn, nodes):
+    """Bounded static hypothesis based on a public upstream repaired defect."""
+    if not any(isinstance(n,ast.Attribute) and n.attr=='output_schema'
+               and isinstance(n.value,ast.Name) and n.value.id=='self' for n in nodes):
+        return []
+    results=[]
+    for block in nodes:
+        if not isinstance(block,ast.Try):
+            continue
+        if not any(isinstance(n,ast.Call) and _call_name(n.func)=='_serialize_to_jsonable'
+                   for statement in block.body for n in ast.walk(statement)):
+            continue
+        for handler in block.handlers:
+            types=handler.type.elts if isinstance(handler.type,ast.Tuple) else [handler.type]
+            errors={_call_name(n) for n in types}
+            if not errors.intersection({'PydanticSerializationError','UnicodeDecodeError'}):
+                continue
+            if _p6b_guard_raises_for_declared_output_schema(handler):
+                continue
+            for statement in handler.body:
+                for ret in ast.walk(statement):
+                    if not isinstance(ret,ast.Return) or not isinstance(ret.value,ast.Call):
+                        continue
+                    call=ret.value
+                    if _call_name(call.func)!='ToolResult':
+                        continue
+                    kw={k.arg for k in call.keywords}
+                    if 'content' in kw and not kw.intersection({'structured_content','structuredContent','meta'}):
+                        results.append(ret)
+    return results
+
+
 def _path_for(path,root):
     try:return path.relative_to(root).as_posix()
     except ValueError:return path.name
@@ -154,6 +210,10 @@ def _python_rules(parsed,root):
                                     + ('The project also defines a make_api_request() path returning an explicit details field.'
                                        if has_details_helper else 'No matching details-producing helper was verified in scanned Python files.'))
                             findings.append(_finding(rule,path,root,ret.lineno,reason))
+            # P6-B public FastMCP #5030 development case, static-only hypothesis.
+            for ret in _p6b_schema_serialization_fallback(fn, fn_nodes):
+                findings.append(_finding('RPY204',path,root,ret.lineno,
+                    'A caught serialization error returns ToolResult(content=...) without structured content or a detected output-schema-present error guard.'))
             # Detect deliberate bounded error previews, e.g. FastMCP 4.1.6.
             # This is a policy signal, NOT evidence of an unknown bug.
             if 'error' in fn.name.lower() and 'body' in fn.name.lower():

@@ -60,3 +60,7 @@ We deliberately preserve top-level module names to avoid risky import rewrites. 
 Normal PR CI is read-only, runs no private code or secrets, and never publishes packages. Do not submit private source, customer data, credentials, raw nonpublic MCP/HTTP wire, or unpublished sensitive research. See [public-only policy](docs/PUBLIC_ONLY_POLICY.md), [SECURITY.md](SECURITY.md), and [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Older P4/P5 experimental masters, raw research evidence, and DOI-associated archives remain in the [research repository](https://github.com/risu-research/openapi-mcp-problem-semantics). The name RISU Probe remains provisional; no PyPI upload has occurred.
+
+## P6-B public defect benchmark
+
+The P6-B benchmark compares original public bug code against merged fixes and unsupported controls. Its first detector is a static hypothesis based on FastMCP #5030, not a verified runtime claim. See [benchmark](benchmarks/p6b/README.md). This is still an experimental preview, not a PyPI release.
