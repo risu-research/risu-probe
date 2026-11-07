@@ -1,0 +1,75 @@
+name: P6-B6 independent real Filesystem MCP normal control
+on:
+  push:
+    branches: ['qualification/p6b6-*']
+    paths: ['benchmarks/p6b6/normal_filesystem.py', '.github/workflows/p6b6-filesystem-control.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  filesystem-public-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: modelcontextprotocol/servers
+          ref: 72e11113edff5919e74de1d69b71203991fe2f05
+          path: .p6b6/filesystem-upstream
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build unmodified real public Filesystem MCP server
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          cd .p6b6/filesystem-upstream
+          test "$(git rev-parse HEAD)" = 72e11113edff5919e74de1d69b71203991fe2f05
+          test "$(git hash-object package-lock.json)" = 1ad7eae64faf23ee5d7c0a7dad8d64a120ed2372
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm run build --workspace @modelcontextprotocol/server-filesystem
+          test -f src/filesystem/dist/index.js
+      - name: Run separate process real stdio and compare two normal tool outputs
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m pip check
+          python benchmarks/p6b6/normal_filesystem.py --repo .p6b6/filesystem-upstream --out .p6b6/fs-evidence
+          risu-probe verify-mcp-trace .p6b6/fs-evidence/raw_stdio.jsonl --format json > .p6b6/fs-evidence/risu_report.json
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          p=Path('.p6b6/fs-evidence')
+          meta=json.loads((p/'origin.json').read_text())
+          report=json.loads((p/'risu_report.json').read_text())
+          assert meta['actual_stdio'] and meta['synthetic_only']
+          assert meta['commit']=='72e11113edff5919e74de1d69b71203991fe2f05'
+          assert meta['sha256']==report['capture_sha256']==hashlib.sha256((p/'raw_stdio.jsonl').read_bytes()).hexdigest()
+          assert report['summary']['tool_call_responses_matched']==2,report['summary']
+          assert report['summary']['structured_values_schema_checked']==2,report['summary']
+          assert report['summary']['findings']==0 and report['summary']['unverified_count']==0,report
+          assert report['semantic_verification']=='CHECKED_NO_MISMATCHES'
+          assert {key:val['independent_errors'] for key,val in meta['independent_results'].items()}=={'list_directory':0,'read_text_file':0}
+          print('P6B6_DIFFERENT_UPSTREAM_FILESYSTEM_FALSE_ALARMS_0_OF_2')
+          PY
+      - name: Save synthetic public normal-case traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p6b6-independent-public-filesystem-normal
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            .p6b6/fs-evidence/raw_stdio.jsonl
+            .p6b6/fs-evidence/origin.json
+            .p6b6/fs-evidence/risu_report.json
