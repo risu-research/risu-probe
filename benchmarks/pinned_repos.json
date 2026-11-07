@@ -1,0 +1,16 @@
+{
+  "schema": "risu-p5d-pinned-multirepo-first-use-v1",
+  "scope": "Ten independently developed public Python/MCP/OpenAPI projects; pinned immutable Git commits, no repo hooks, no code execution or imports; CI runner network only for checkout",
+  "repositories": [
+    {"name":"requests","repository":"psf/requests","commit":"3c7baaa05ab4aa49cc819ce3a819d260de19c157","kind":"python-library"},
+    {"name":"httpx","repository":"encode/httpx","commit":"b5addb64f0161ff6bfe94c124ef76f6a1fba5254","kind":"python-library"},
+    {"name":"click","repository":"pallets/click","commit":"8abb77a8432e03ed14a95f972b44f905279415a7","kind":"python-library"},
+    {"name":"meilisearch-python","repository":"meilisearch/meilisearch-python","commit":"6a6cc2596779a06f121ebb6d88dfa6943ee18d91","kind":"api-sdk"},
+    {"name":"fastapi","repository":"fastapi/fastapi","commit":"1ca09c13584ca45aa0921e5e40b31d49c5e3135a","kind":"api-framework"},
+    {"name":"cnoe-codegen","repository":"cnoe-io/openapi-mcp-codegen","commit":"8c2b065497cf32ecbb7cf7e28dad3a99c6706c3f","kind":"openapi-to-mcp-generator"},
+    {"name":"mcp-python-sdk","repository":"modelcontextprotocol/python-sdk","commit":"77001c96f9507be0f4d009b83210a384a5e08bda","kind":"mcp-framework"},
+    {"name":"fastmcp","repository":"PrefectHQ/fastmcp","commit":"936a9659d871318fc314e7210a191884eeeb8d80","kind":"mcp-framework"},
+    {"name":"pydantic-settings","repository":"pydantic/pydantic-settings","commit":"cfbe8ad08734bbbeb2dae568035f3f1997d6d5b6","kind":"config-library"},
+    {"name":"mcp-reference-servers","repository":"modelcontextprotocol/servers","commit":"36380287ed3b15d115b55f546617d723072b1296","kind":"mcp-server-collection"}
+  ]
+}

@@ -1,0 +1,67 @@
+name: RISU Probe public-only tests
+on:
+  push:
+    branches: [main, 'migration/**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: risu-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  public-wheel:
+    name: Installed public wheel and unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout public repository with no persisted credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check public-source hygiene
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+      - name: Build from source and install in clean virtual environment
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .ci-build
+          python -m pip wheel --no-deps --no-build-isolation -w .ci-build .
+          python -m venv .ci-venv
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.ci-venv/Scripts/python.exe
+            CLI=.ci-venv/Scripts/risu-probe.exe
+          else
+            PY=.ci-venv/bin/python
+            CLI=.ci-venv/bin/risu-probe
+          fi
+          "$PY" -m pip install .ci-build/risu_probe_preview-0.9.20.dev0-py3-none-any.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          "$CLI" doctor --format json
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo PUBLIC_WHEEL_REGRESSION_PASS
+      - name: Source distribution (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'build>=1.2,<3'
+          python -m build --sdist --no-isolation -o .ci-build .
+          test -f .ci-build/risu_probe_preview-0.9.20.dev0.tar.gz
+          echo PUBLIC_SOURCE_SDIST_PASS

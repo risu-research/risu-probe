@@ -1,0 +1,85 @@
+name: RISU Probe historical P5-E provenance (pinned PUBLIC repos)
+on:
+  push:
+    branches: ['migration/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verified-migration:
+    name: Original engine and ten-repo parity (${{ matrix.os }})
+    if: github.event_name != 'pull_request'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 70
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout only PUBLIC source; no persisted token
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build product and fetch SHA-verified historical PUBLIC wheel
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .ci-parity/wheels .ci-parity/results
+          python -m pip wheel --no-deps --no-build-isolation -w .ci-parity/wheels .
+          curl --proto '=https' --tlsv1.2 --fail --location --retry 3 \
+            https://raw.githubusercontent.com/risu-research/openapi-mcp-problem-semantics/2968ee7bd1e55cce3a459c4700eef08945e63bd2/p6a/reference/risu_probe_preview-0.9.20.dev0-py3-none-any.whl \
+            -o .ci-parity/risu_probe_preview-0.9.20.dev0-py3-none-any.whl
+          printf '%s  %s\n' '56eb547c924c9b89d6d5a9fa760de99df95d7c8d4b872899a3fa70c4e45099d6' '.ci-parity/risu_probe_preview-0.9.20.dev0-py3-none-any.whl' | sha256sum --check
+          python provenance/verify_distribution.py \
+            --product . \
+            --wheel .ci-parity/wheels/risu_probe_preview-0.9.20.dev0-py3-none-any.whl \
+            --reference .ci-parity/risu_probe_preview-0.9.20.dev0-py3-none-any.whl \
+            --out .ci-parity/results/provenance.json
+          python -m venv .ci-parity/baseline
+          python -m venv .ci-parity/candidate
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            OLD_PY=.ci-parity/baseline/Scripts/python.exe
+            NEW_PY=.ci-parity/candidate/Scripts/python.exe
+            OLD_CLI=.ci-parity/baseline/Scripts/risu-probe.exe
+            NEW_CLI=.ci-parity/candidate/Scripts/risu-probe.exe
+          else
+            OLD_PY=.ci-parity/baseline/bin/python
+            NEW_PY=.ci-parity/candidate/bin/python
+            OLD_CLI=.ci-parity/baseline/bin/risu-probe
+            NEW_CLI=.ci-parity/candidate/bin/risu-probe
+          fi
+          "$OLD_PY" -m pip install .ci-parity/risu_probe_preview-0.9.20.dev0-py3-none-any.whl
+          "$NEW_PY" -m pip install .ci-parity/wheels/risu_probe_preview-0.9.20.dev0-py3-none-any.whl
+          "$OLD_PY" -m pip check
+          "$NEW_PY" -m pip check
+          python benchmarks/parity.py \
+            --manifest benchmarks/pinned_repos.json \
+            --baseline "$OLD_CLI" --candidate "$NEW_CLI" \
+            --checkouts .ci-parity/checkouts \
+            --out .ci-parity/results/ten_repository_exact_parity.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('.ci-parity/results/ten_repository_exact_parity.json').read_text())
+          assert d['total']==d['exact_verdict_equal']==d['complete_source_scan']==10
+          print('TEN_PUBLIC_REPOS_EXACT_VERDICTS_MATCH',d['platform'])
+          PY
+      - name: Keep only non-sensitive public-source audit summaries
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-public-migration-parity-${{ runner.os }}
+          retention-days: 7
+          path: |
+            .ci-parity/results/provenance.json
+            .ci-parity/results/ten_repository_exact_parity.json
+          if-no-files-found: error

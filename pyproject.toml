@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "risu-probe-preview"
+version = "0.9.20.dev0"
+description = "Offline-first MCP compatibility and API-to-MCP data-loss diagnostics"
+requires-python = ">=3.11"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{name = "RISU Research"}]
+dependencies = ["PyYAML==6.0.2"]
+keywords = ["mcp", "openapi", "api", "static-analysis", "compatibility"]
+classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Topic :: Software Development :: Quality Assurance"]
+
+[project.scripts]
+risu-probe = "risu_p5d_cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = [
+  "risu_analyze",
+  "risu_arraymatch",
+  "risu_auto_plan",
+  "risu_baseline",
+  "risu_capture",
+  "risu_causality",
+  "risu_collect",
+  "risu_compat",
+  "risu_contract",
+  "risu_contract_history",
+  "risu_coverage",
+  "risu_decision",
+  "risu_diagnostics",
+  "risu_evidence",
+  "risu_firstuse",
+  "risu_fixverify",
+  "risu_minimize",
+  "risu_nested_schema",
+  "risu_obligations",
+  "risu_onboarding",
+  "risu_p4t_cli",
+  "risu_p5a_cli",
+  "risu_p5c_cli",
+  "risu_p5d_cli",
+  "risu_plan",
+  "risu_probe",
+  "risu_process",
+  "risu_project",
+  "risu_quickcheck",
+  "risu_recovery",
+  "risu_repair",
+  "risu_report",
+  "risu_reproduce",
+  "risu_residual",
+  "risu_semantics",
+  "risu_static",
+  "risu_verify",
+  "risu_witness",
+]
+include-package-data = false
