@@ -1,0 +1,117 @@
+name: RISU P6-B4 generic MCP recorded message validator
+on:
+  push:
+    branches: ['qualification/p6b4-*']
+    paths: ['src/**','tests/**','pyproject.toml','docs/P6B4*','benchmarks/p6b4/**','.github/workflows/p6b4-generic-trace.yml']
+  pull_request:
+    paths: ['src/**','tests/**','pyproject.toml','docs/P6B4*','benchmarks/p6b4/**','.github/workflows/p6b4-generic-trace.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: p6b4-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  cross-platform:
+    name: Installed wheel + original regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check public-only tracked files and unchanged original engines
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          frozen=json.loads(Path('P5E_SOURCE_PROVENANCE.json').read_text())['modules_sha256']
+          assert len(frozen)==38
+          changed={name for name,sha in frozen.items() if hashlib.sha256((Path('src')/name).read_bytes()).hexdigest()!=sha}
+          assert changed=={'risu_static.py','risu_probe.py','risu_firstuse.py','risu_p5d_cli.py'},changed
+          print('P6B4_ORIGINAL_P5E_CORE_PRESERVED',len(frozen)-len(changed),'unchanged')
+          PY
+      - name: Wheel build, isolated install, old and new regressions
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .p6b4/wheel
+          python -m pip wheel --no-deps --no-build-isolation -w .p6b4/wheel .
+          python -m venv .p6b4/venv
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            PY=.p6b4/venv/Scripts/python.exe
+            CLI=.p6b4/venv/Scripts/risu-probe.exe
+          else
+            PY=.p6b4/venv/bin/python
+            CLI=.p6b4/venv/bin/risu-probe
+          fi
+          "$PY" -m pip install --disable-pip-version-check .p6b4/wheel/risu_probe_preview-0.9.23.dev0-py3-none-any.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          "$CLI" verify-mcp-trace --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo P6B4_PUBLIC_CROSS_OS_PRODUCT_PASS
+
+  released-sdk-normalized:
+    name: Official SDK observed outputs and controlled mutations (no real wire claim)
+    if: github.event_name != 'pull_request'
+    needs: cross-platform
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install product + official SDK in separate clean environments
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          mkdir -p .p6b4/results
+          python -m venv .p6b4/product
+          python -m venv .p6b4/sdk
+          .p6b4/product/bin/python -m pip install --disable-pip-version-check .
+          .p6b4/sdk/bin/python -m pip install --disable-pip-version-check 'mcp==2.1.0' 'mcp-types==2.1.0'
+          .p6b4/product/bin/python -m pip check
+          .p6b4/sdk/bin/python -m pip check
+          .p6b4/sdk/bin/python benchmarks/p6b4/record_released_sdk.py --out-dir .p6b4/results
+          for case in sdk_real_normalized mutation_missing_structured mutation_wrong_type mutation_error_exempt; do
+            .p6b4/product/bin/risu-probe verify-mcp-trace \
+              .p6b4/results/${case}.jsonl --protocol-version 2025-11-25 --format json \
+              --out .p6b4/results/${case}_audit.json
+          done
+          .p6b4/product/bin/python benchmarks/p6b4/audit_generated.py --results .p6b4/results \
+            --out .p6b4/results/independent_audit.json
+          echo P6B4_RELEASED_MCP_NORMALIZED_REPLAY_PASS
+      - name: Store PUBLIC synthetic results only, never private captures
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b4-official-sdk-normalized-synthetic
+          retention-days: 14
+          if-no-files-found: error
+          path: |
+            .p6b4/results/*_audit.json
+            .p6b4/results/origin.json
+            .p6b4/results/independent_audit.json

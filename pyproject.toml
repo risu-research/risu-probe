@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "risu-probe-preview"
-version = "0.9.22.dev0"
+version = "0.9.23.dev0"
 description = "Offline-first MCP compatibility and API-to-MCP data-loss diagnostics"
 requires-python = ">=3.11"
 readme = "README.md"
 license = "Apache-2.0"
 authors = [{name = "RISU Research"}]
-dependencies = ["PyYAML==6.0.2"]
+dependencies = ["PyYAML==6.0.2", "jsonschema>=4.23,<5"]
 keywords = ["mcp", "openapi", "api", "static-analysis", "compatibility"]
 classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Topic :: Software Development :: Quality Assurance"]
 
@@ -38,6 +38,7 @@ py-modules = [
   "risu_fixverify",
   "risu_minimize",
   "risu_mcp_replay",
+  "risu_mcp_trace",
   "risu_nested_schema",
   "risu_obligations",
   "risu_onboarding",

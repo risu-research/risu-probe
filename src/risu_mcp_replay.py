@@ -198,7 +198,7 @@ def as_sarif(report:dict)->dict:
               'properties':{'confidence':c['verdict'],'test_boundary':c['test_boundary'],'issue':c['issue']}}
              for c in report['cases'] if c['verdict']=='CONFIRMED_IN_PINNED_PUBLIC_CI_REPLAY']
     return {'version':'2.1.0','$schema':'https://json.schemastore.org/sarif-2.1.0.json',
-            'runs':[{'tool':{'driver':{'name':'RISU Probe','version':'0.9.22','rules':rules}},
+            'runs':[{'tool':{'driver':{'name':'RISU Probe','version':'0.9.23','rules':rules}},
                      'results':results,'properties':{'semantic_verification':report['semantic_verification'],
                                                     'origin_integrity':report['origin_integrity'],
                                                     'coverage':report['coverage']}}]}

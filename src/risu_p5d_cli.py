@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='verify-mcp-trace':
+        from risu_mcp_trace import cli
+        return cli(args[1:])
     if args and args[0]=='verify-mcp':
         from risu_mcp_replay import cli
         return cli(args[1:])

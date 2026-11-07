@@ -68,3 +68,12 @@ The P6-B benchmark compares original public bug code against merged fixes and un
 ## Saved MCP semantic verification (P6-B3 preview)
 
 `risu-probe verify-mcp --old tests/fixtures/sdk_old.json --fixed tests/fixtures/sdk_fixed.json --format json` verifies **public, synthetic saved** official SDK 2.0.0 vs 2.1.0 replay. `check .` now keeps static source coverage separate from semantic-verification coverage, with explicit `--mcp-sdk-old` and `--mcp-sdk-fixed` inputs when appropriate. Only exact SHA-pinned, published public CI records can yield a confirmed-in-saved-replay finding. A modified or fabricated capture is never authenticated by a self-reported claim. This is **not current production server testing**. See [the evidence contract and limitations](docs/P6B3_PRODUCT_SEMANTIC_EVIDENCE.md).
+
+## P6-B4 · General recorded MCP JSON-RPC checks (experimental)
+
+```sh
+risu-probe verify-mcp-trace local-mcp.jsonl --protocol-version 2025-11-25 --format json
+risu-probe check . --mcp-trace local-mcp.jsonl --mcp-protocol-version 2025-11-25 --format json
+```
+
+The generic trace verifier matches `tools/list` with `tools/call` responses and checks declared output schemas without contacting an MCP server. Its reports distinguish source parse, captured semantic inconsistencies and incomplete evidence. **Captures are unauthenticated; observations in supplied files are not proof of production incidents.** The CI tests only synthetic public data. See [P6-B4 evidence and scope](docs/P6B4_GENERIC_MCP_TRACE.md).
