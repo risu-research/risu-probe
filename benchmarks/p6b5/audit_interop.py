@@ -10,7 +10,7 @@ def audit(source: Path, report: Path, out: Path) -> None:
     origin=json.loads((source/'origin.json').read_text())
     result=json.loads(report.read_text())
     assert origin['schema']=='risu-p6b5-interop-origin-v1'
-    assert origin['framework']=='fastmcp' and origin['version'] in ('2.13.2','3.1.1')
+    assert (origin['framework'],origin['version']) in (('fastmcp','2.13.2'),('fastmcp','3.1.1'),('mcp','1.29.1'))
     assert origin['transport']=='SEPARATE_PROCESS_LITERAL_STDIO_JSONRPC'
     assert origin['trace_sha256']==hashlib.sha256(raw).hexdigest()
     assert origin['messages']==11
