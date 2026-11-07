@@ -234,7 +234,7 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
                 st['initialize_ids'].discard(req_id)
                 result=msg.get('result')
                 negotiated=result.get('protocolVersion') if type(result) is dict else None
-                st['negotiated_protocol']=negotiated if isinstance(negotiated,str) else None
+                st['negotiated_protocol']=negotiated if negotiated in ALLOWED_PROTOCOLS and negotiated!='unknown' else None
                 if negotiated not in ALLOWED_PROTOCOLS or negotiated=='unknown':
                     st['protocol']='unknown'
                     st['protocol_source']='INIT_UNSUPPORTED'
@@ -378,7 +378,7 @@ def _text(report: dict) -> str:
 
 def _sarif(report: dict) -> dict:
     return {'version':'2.1.0','$schema':'https://json.schemastore.org/sarif-2.1.0.json',
-            'runs':[{'tool':{'driver':{'name':'RISU Probe','version':'0.9.23','rules':[
+            'runs':[{'tool':{'driver':{'name':'RISU Probe','version':'0.9.24','rules':[
                {'id':code,'shortDescription':{'text':desc}} for code,desc in (
                 ('RMC501','Missing successful structured output'),
                 ('RMC502','Structured output violates declared schema'),
