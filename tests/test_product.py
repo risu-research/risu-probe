@@ -17,7 +17,7 @@ class Smoke(unittest.TestCase):
         result=subprocess.run([CLI,*args],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=35)
         self.assertEqual(result.returncode,expected,(result.stdout,result.stderr));return result
     def test_version(self):
-        self.assertIn('0.9.24',self.call('--version').stdout)
+        self.assertIn('0.9.25',self.call('--version').stdout)
     def test_doctor(self):
         output=json.loads(self.call('doctor','--format','json').stdout)
         self.assertTrue(output['pypi_yaml_support_installed'])
