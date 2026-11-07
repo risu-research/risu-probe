@@ -1,0 +1,121 @@
+name: RISU P6-B2 independent public defects and released MCP SDK
+on:
+  push:
+    branches: ['qualification/p6b2-*']
+    paths: ['benchmarks/p6b2/**', '.github/workflows/p6b2-independent-runtime.yml', 'src/**', 'tests/**', 'pyproject.toml']
+  pull_request:
+    paths: ['benchmarks/p6b2/**', '.github/workflows/p6b2-independent-runtime.yml', 'src/**', 'tests/**', 'pyproject.toml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installed-regressions:
+    name: Safe installed product regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Public-only source and installed wheel checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          python -m pip wheel --no-deps --no-build-isolation -w /tmp .
+          python -m venv /tmp/p6b2-product
+          /tmp/p6b2-product/bin/python -m pip install /tmp/risu_probe_preview-0.9.21.dev0-py3-none-any.whl
+          /tmp/p6b2-product/bin/python -m pip check
+          /tmp/p6b2-product/bin/risu-probe --version
+          RISU_P6A_TEST_CLI=/tmp/p6b2-product/bin/risu-probe /tmp/p6b2-product/bin/python -m unittest discover -s tests -v
+
+  independent-static-holdout:
+    name: Frozen original Git blobs, no source execution
+    if: github.event_name != 'pull_request'
+    needs: installed-regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Read-only official source holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m pip install --disable-pip-version-check .
+          python -m pip check
+          mkdir -p .p6b2/results
+          python benchmarks/p6b2/evaluate.py --manifest benchmarks/p6b2/frozen_cases.json \
+            --cli "$(command -v risu-probe)" --scratch .p6b2/public-source --out .p6b2/results/static.json
+          python benchmarks/p6b2/audit.py --manifest benchmarks/p6b2/frozen_cases.json \
+            --report .p6b2/results/static.json --source-root .p6b2/public-source \
+            --out .p6b2/results/static_audit.json
+      - name: Save public-only score
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p6b2-independent-static
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b2/frozen_cases.json
+            .p6b2/results/static.json
+            .p6b2/results/static_audit.json
+
+  real-mcp-sdk:
+    name: Released SDK legacy MCP protocol replay
+    if: github.event_name != 'pull_request'
+    needs: installed-regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Execute real official MCP SDK 2.0 and 2.1 with local synthetic tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          mkdir -p .p6b2/results
+          python -m venv .p6b2/sdk-old
+          python -m venv .p6b2/sdk-fixed
+          .p6b2/sdk-old/bin/python -m pip install --disable-pip-version-check 'mcp==2.0.0' 'mcp-types==2.0.0'
+          .p6b2/sdk-fixed/bin/python -m pip install --disable-pip-version-check 'mcp==2.1.0' 'mcp-types==2.1.0'
+          .p6b2/sdk-old/bin/python -m pip check
+          .p6b2/sdk-fixed/bin/python -m pip check
+          .p6b2/sdk-old/bin/python benchmarks/p6b2/runtime_mcp.py --out .p6b2/results/sdk_old.json
+          .p6b2/sdk-fixed/bin/python benchmarks/p6b2/runtime_mcp.py --out .p6b2/results/sdk_fixed.json
+          python benchmarks/p6b2/audit_runtime.py --old .p6b2/results/sdk_old.json \
+            --new .p6b2/results/sdk_fixed.json --out .p6b2/results/sdk_audit.json
+          .p6b2/sdk-old/bin/python -m pip freeze > .p6b2/results/sdk_old_freeze.txt
+          .p6b2/sdk-fixed/bin/python -m pip freeze > .p6b2/results/sdk_fixed_freeze.txt
+      - name: Save synthetic released SDK evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p6b2-native-MCP
+          retention-days: 14
+          if-no-files-found: warn
+          path: .p6b2/results/sdk_*
