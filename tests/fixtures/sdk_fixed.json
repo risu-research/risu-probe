@@ -1,0 +1,51 @@
+{
+  "claim_boundary": "Boolean case is actual SDK validator, not a wire session. Recursive case is real MCP in-memory legacy JSON-RPC client/server, not external stdio.",
+  "model_calls": false,
+  "official_package_versions": {
+    "mcp": "2.1.0",
+    "mcp-types": "2.1.0"
+  },
+  "official_release_tag": "https://github.com/modelcontextprotocol/python-sdk/releases/tag/v2.1.0",
+  "production_server_contacted": false,
+  "scenario_bool": {
+    "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3353",
+    "native_validation": {
+      "2025-11-25": {
+        "accepted": true,
+        "error": null
+      },
+      "2026-07-28": {
+        "accepted": true,
+        "error": null
+      }
+    }
+  },
+  "scenario_recursive": {
+    "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3337",
+    "live_mcp": {
+      "call_tool_success": true,
+      "client_mode": "legacy",
+      "emitted_output_schema_root_ref": null,
+      "emitted_output_schema_root_type": "object",
+      "error": null,
+      "list_tools_success": true,
+      "negotiated_protocol": "2025-11-25",
+      "protocol_transport": "MCP_SDK_IN_MEMORY_LEGACY_JSONRPC",
+      "result": {
+        "children": [
+          {
+            "children": [],
+            "name": "leaf"
+          }
+        ],
+        "name": "root"
+      },
+      "tool_names": [
+        "heartbeat",
+        "tree"
+      ]
+    }
+  },
+  "schema": "risu-p6b2-public-mcp-native-runtime-v1",
+  "third_party_checkout_executed": false
+}
