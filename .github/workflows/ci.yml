@@ -51,7 +51,7 @@ jobs:
             PY=.ci-venv/bin/python
             CLI=.ci-venv/bin/risu-probe
           fi
-          "$PY" -m pip install .ci-build/risu_probe_preview-0.9.20.dev0-py3-none-any.whl
+          "$PY" -m pip install .ci-build/risu_probe_preview-*.whl
           "$PY" -m pip check
           "$CLI" --version
           "$CLI" doctor --format json
@@ -63,5 +63,5 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check 'build>=1.2,<3'
           python -m build --sdist --no-isolation -o .ci-build .
-          test -f .ci-build/risu_probe_preview-0.9.20.dev0.tar.gz
+          ls .ci-build/risu_probe_preview-*.tar.gz >/dev/null
           echo PUBLIC_SOURCE_SDIST_PASS
