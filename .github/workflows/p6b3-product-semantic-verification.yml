@@ -1,0 +1,92 @@
+name: RISU P6-B3 - product semantic verification (public-only)
+on:
+  push:
+    branches: ['qualification/p6b3-*']
+    paths: ['src/**','tests/**','pyproject.toml','docs/**','.github/workflows/p6b3-product-semantic-verification.yml']
+  pull_request:
+    paths: ['src/**','tests/**','pyproject.toml','docs/**','.github/workflows/p6b3-product-semantic-verification.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: p6b3-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  three-os-wheel:
+    name: Installed wheel + proof safety (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Public-only hygiene and original-engine preservation
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          frozen=json.loads(Path('P5E_SOURCE_PROVENANCE.json').read_text())['modules_sha256']
+          assert len(frozen)==38
+          changed={name for name,digest in frozen.items() if hashlib.sha256((Path('src')/name).read_bytes()).hexdigest()!=digest}
+          assert changed=={'risu_static.py','risu_probe.py','risu_firstuse.py','risu_p5d_cli.py'}, changed
+          print('P6B3_PREVIOUS_ENGINE_34_OF_38_MODULES_BYTE_IDENTICAL')
+          PY
+      - name: Fresh wheel install + full regression
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .p6b3/wheel
+          python -m pip wheel --no-deps --no-build-isolation -w .p6b3/wheel .
+          python -m venv .p6b3/product
+          if [[ "${{ runner.os }}" == 'Windows' ]]; then
+            PY=.p6b3/product/Scripts/python.exe
+            CLI=.p6b3/product/Scripts/risu-probe.exe
+          else
+            PY=.p6b3/product/bin/python
+            CLI=.p6b3/product/bin/risu-probe
+          fi
+          "$PY" -m pip install .p6b3/wheel/risu_probe_preview-0.9.22.dev0-py3-none-any.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          mkdir -p .p6b3/reports
+          "$CLI" verify-mcp --old tests/fixtures/sdk_old.json --fixed tests/fixtures/sdk_fixed.json --format json > .p6b3/reports/evidence.json
+          "$PY" - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('.p6b3/reports/evidence.json').read_text())
+          assert r['verified_case_count']==2 and r['origin_integrity']=='PINNED_PUBLIC_CI_SHA256_PAIR'
+          assert {x['rule_id'] for x in r['cases']}=={'RMC401','RMC402'}
+          assert r['coverage']['external_mcp_server']=='NOT_TESTED'
+          print('P6B3_PINNED_SDK_SEMANTIC_VERDICTS_PASS')
+          PY
+          if "$CLI" verify-mcp --old tests/fixtures/sdk_old.json --fixed tests/fixtures/sdk_fixed.json --fail-on-confirmed > /dev/null; then
+            echo 'FAIL expected blocking exit 1'; exit 1
+          else
+            code=$?
+            test "$code" -eq 1
+          fi
+          echo 'P6B3_INSTALLED_3OS_AND_SAFE_GATES_PASS'
+      - name: Publish public-only score (not secrets or private CI output)
+        if: success() && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b3-product-semantic-${{ runner.os }}
+          retention-days: 14
+          path: .p6b3/reports/evidence.json
+          if-no-files-found: error
