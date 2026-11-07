@@ -1,0 +1,108 @@
+name: RISU P6-B7 actual public upstream bug/fix heldout
+on:
+  push:
+    branches: ['qualification/p6b7-*']
+    paths: ['benchmarks/p6b7/**','.github/workflows/p6b7-independent-upstream.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-external-stdio:
+    name: Four pinned, isolated upstream MCP server executions
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Freeze product and preregistered sources before execution
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 554e2060af9deedc013b9338f837c6fd46318406
+          test "$(git hash-object pyproject.toml)" = 86af0c9285f786a8a71e08ab8a0497f7199873e6
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('benchmarks/p6b7/frozen_upstream_cases.json').read_text())
+          assert m['schema']=='risu-p6b7-independent-upstream-v1'
+          assert m['frozen_product_sha']=='601f086903b20b61df2f44e8a569d82df67f03a7'
+          assert [c['id'] for c in m['families']]==['A11Y205','FS5184']
+          print('P6B7_PRIOR_SOURCE_FROZEN')
+          PY
+          python -m venv .p6b7-venv
+          .p6b7-venv/bin/python -m pip install --disable-pip-version-check .
+          .p6b7-venv/bin/python -m pip check
+          .p6b7-venv/bin/risu-probe --version
+          RISU_P6A_TEST_CLI=.p6b7-venv/bin/risu-probe .p6b7-venv/bin/python -m unittest discover -s tests -v >/tmp/p6b7-regressions.txt 2>&1
+          tail -n 6 /tmp/p6b7-regressions.txt
+      - name: Install and execute each original pinned server (public synthetic only)
+        run: |
+          set -euo pipefail
+          for FAMILY in A11Y205 FS5184; do
+            for REV in old fixed; do
+              case "$FAMILY/$REV" in
+                A11Y205/old) REPO='Community-Access/accessibility-agents'; SHA='284865a7e07b847972b63447a6b17020f08bb618'; BLOB='ed39eb73cb5f5068d737c797a808559bd5555892'; FILE='mcp-server/server-core.js' ;;
+                A11Y205/fixed) REPO='Community-Access/accessibility-agents'; SHA='decf6bac7f086c19afb242797b4974671ceff597'; BLOB='f28ee37ed8f52e0fb852ff0537698699eb8568cb'; FILE='mcp-server/server-core.js' ;;
+                FS5184/old) REPO='modelcontextprotocol/servers'; SHA='3bd1337713c796ada8a3dbb088dd911aa83dc932'; BLOB='b1a90a409469fb34e7580cce3356d02908be34b3'; FILE='src/filesystem/server.ts' ;;
+                FS5184/fixed) REPO='modelcontextprotocol/servers'; SHA='0dce8bd9b65d91a6f7afe1d8f99ffea5d5cf8fe4'; BLOB='266801190ce1cc461c2c770b756161cc4ca03b99'; FILE='src/filesystem/server.ts' ;;
+                *) echo invalid-immutable-case; exit 2 ;;
+              esac
+              UP=".p6b7-upstream-$FAMILY-$REV"
+              mkdir -p "$UP"
+              git -C "$UP" init -q
+              git -C "$UP" -c core.hooksPath=/dev/null remote add origin "https://github.com/$REPO.git"
+              GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+              git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+              test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+              test "$(git -C "$UP" rev-parse "HEAD:$FILE")" = "$BLOB"
+              if [[ "$FAMILY" = A11Y205 ]]; then
+                (cd "$UP/mcp-server" && npm ci --ignore-scripts --omit=optional --no-audit --no-fund)
+              else
+                (cd "$UP" && npm ci --ignore-scripts --omit=optional --no-audit --no-fund && npm run build --workspace=@modelcontextprotocol/server-filesystem)
+              fi
+              .p6b7-venv/bin/python benchmarks/p6b7/capture_stdio.py --repo "$UP" --family "$FAMILY" --version "$REV" --out ".p6b7-score/$FAMILY/$REV"
+              .p6b7-venv/bin/risu-probe verify-mcp-trace ".p6b7-score/$FAMILY/$REV/original_stdio.jsonl" --format json > ".p6b7-score/$FAMILY/$REV/risu.json"
+              echo "P6B7_FROZEN_OLD_PRODUCT_CAPTURED $FAMILY $REV"
+              rm -rf "$UP"
+            done
+          done
+      - name: Independent score of actual upstream issue and official fix
+        run: |
+          set -euo pipefail
+          .p6b7-venv/bin/python benchmarks/p6b7/audit.py \
+             --root .p6b7-score --out .p6b7-independent-score.json
+          .p6b7-venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path('.p6b7-independent-score.json').read_text())
+          assert x['engine_modified_for_evaluation'] is False
+          assert x['metrics']['reproduced_independent_defect_families']==2
+          assert x['source_product_sha']=='601f086903b20b61df2f44e8a569d82df67f03a7'
+          print('P6B7_INDEPENDENT_CLAIM_BOUNDARY_OK')
+          PY
+      - name: Publish minimal synthetic public upstream evidence and score
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b7-preregistered-heldout-public
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b7/frozen_upstream_cases.json
+            .p6b7-independent-score.json
+            .p6b7-score/*/*/origin.json
+            .p6b7-score/*/*/risu.json
+            .p6b7-score/*/*/original_stdio.jsonl
