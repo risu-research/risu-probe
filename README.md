@@ -1,6 +1,6 @@
 # RISU Probe
 
-**Status: experimental preview (`0.9.20.dev0`).** Official product source migrated from the verified P6-A branch. This is the public developer repository. This is the readable product source for the code that passed P5-E's Windows/Linux qualification. Do not confuse this preview with a PyPI release or MCP standards certification.
+**Status: experimental preview (`0.9.22.dev0`).** Official product source migrated from the verified P6-A branch. This is the public developer repository. This is the readable product source for the code that passed P5-E's Windows/Linux qualification. Do not confuse this preview with a PyPI release or MCP standards certification.
 
 ## Install from this source checkout
 
@@ -51,7 +51,7 @@ We deliberately preserve top-level module names to avoid risky import rewrites. 
 ## Evidence boundaries
 
 - The P5-E audit proved matching reported diagnostics on 10 fixed repositories across Windows and Linux. P6-A separately verifies the reconstructed package's same diagnostic output.
-- The 38 product modules are byte-identical to the Linux P5-E CI wheel. The Windows P5-E wheel represented three identical-text modules with CRLF line endings; the single source tree fixes the cross-platform line-ending discrepancy with `.gitattributes`.
+- The P6-A baseline retained 38 modules byte-identical to P5-E. The P6-B3 experimental branch intentionally differs in four pre-existing modules: the static RPY204 addition, version metadata and CLI routing. The other 34 original modules remain byte-identical. The Windows P5-E wheel represented three identical-text modules with CRLF line endings; the single source tree fixes the cross-platform line-ending discrepancy with `.gitattributes`.
 - Preserved historical experimental branches, published research RC1, previous CI outputs, and DOIs are **not modified**.
 - License: Apache-2.0.
 
@@ -64,3 +64,7 @@ Older P4/P5 experimental masters, raw research evidence, and DOI-associated arch
 ## P6-B public defect benchmark
 
 The P6-B benchmark compares original public bug code against merged fixes and unsupported controls. Its first detector is a static hypothesis based on FastMCP #5030, not a verified runtime claim. See [benchmark](benchmarks/p6b/README.md). This is still an experimental preview, not a PyPI release.
+
+## Saved MCP semantic verification (P6-B3 preview)
+
+`risu-probe verify-mcp --old tests/fixtures/sdk_old.json --fixed tests/fixtures/sdk_fixed.json --format json` verifies **public, synthetic saved** official SDK 2.0.0 vs 2.1.0 replay. `check .` now keeps static source coverage separate from semantic-verification coverage, with explicit `--mcp-sdk-old` and `--mcp-sdk-fixed` inputs when appropriate. Only exact SHA-pinned, published public CI records can yield a confirmed-in-saved-replay finding. A modified or fabricated capture is never authenticated by a self-reported claim. This is **not current production server testing**. See [the evidence contract and limitations](docs/P6B3_PRODUCT_SEMANTIC_EVIDENCE.md).
