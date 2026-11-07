@@ -1,0 +1,56 @@
+{
+  "schema": "risu-p6b7-independent-upstream-v1",
+  "freeze_utc": "2026-11-07",
+  "frozen_product_sha": "601f086903b20b61df2f44e8a569d82df67f03a7",
+  "frozen_version": "0.9.25.dev0",
+  "selection_scope": "Previously unused upstream defects; fixture observations captured before touching product rules. The same root cause is counted once, not once per tool invocation.",
+  "execution_safety": "Only public fixed Git trees, no credentials, synthetic-only file content, no external services; subprocesses isolated, bounded. No third-party target code execution on PR events.",
+  "families": [
+    {
+      "id": "A11Y205",
+      "repo": "Community-Access/accessibility-agents",
+      "issue": "https://github.com/Community-Access/accessibility-agents/issues/205",
+      "fix_commit": "decf6bac7f086c19afb242797b4974671ceff597",
+      "before": "284865a7e07b847972b63447a6b17020f08bb618",
+      "after": "decf6bac7f086c19afb242797b4974671ceff597",
+      "pin_path": "mcp-server/server-core.js",
+      "before_blob": "ed39eb73cb5f5068d737c797a808559bd5555892",
+      "after_blob": "f28ee37ed8f52e0fb852ff0537698699eb8568cb",
+      "bug_description": "MCP server lists outputSchema but handler returns text-only; server SDK converts to isError true on successful tool invocation",
+      "safe_tool": "check_contrast",
+      "args": {
+        "foreground": "#767676",
+        "background": "#ffffff"
+      },
+      "expected_before": "TOOL_ERROR_OUTPUT_VALIDATION",
+      "expected_after": "SUCCESS_SCHEMA_CONFORMANT",
+      "target_scope": "Output validation rejected by real SDK; RISU must not conflate isError from server with schema violation itself."
+    },
+    {
+      "id": "FS5184",
+      "repo": "modelcontextprotocol/servers",
+      "issue": "https://github.com/modelcontextprotocol/servers/issues/5184",
+      "fix_pr": "https://github.com/modelcontextprotocol/servers/pull/5377",
+      "before": "3bd1337713c796ada8a3dbb088dd911aa83dc932",
+      "after": "0dce8bd9b65d91a6f7afe1d8f99ffea5d5cf8fe4",
+      "pin_path": "src/filesystem/server.ts",
+      "before_blob": "b1a90a409469fb34e7580cce3356d02908be34b3",
+      "after_blob": "266801190ce1cc461c2c770b756161cc4ca03b99",
+      "bug_description": "read_text_file head=0 incorrectly treated as absent; returns entire file instead of empty text",
+      "safe_tool": "read_text_file",
+      "args": {
+        "head": 0
+      },
+      "expected_before": "SUCCESS_BUT_WRONG_TEXT",
+      "expected_after": "SUCCESS_CORRECT_TEXT",
+      "target_scope": "No schema violation; behavioral oracle required. An MCP schema validator cannot infer head=0 semantic intent without extra contract."
+    }
+  ],
+  "outcomes_definition": {
+    "detected": "Existing RISU 0.9.25 emits an issue-relevant finding against genuine BEFORE stdio, with no same finding on AFTER.",
+    "missed": "Confirmed upstream defect manifested in BEFORE stdio but no issue-relevant RISU finding.",
+    "unverified": "Capture could not establish the official defect within bounded isolated execution. Excluded from recall denominator.",
+    "false_positive": "Issue-specific finding on matched AFTER normal record. Distinct from unrelated warnings."
+  },
+  "limitations": "Two upstream cases are hand-selected (nonrandom), recall is only on verified cases, no universal performance claim. No engine changes permitted before baseline score is recorded."
+}
