@@ -39,8 +39,8 @@ jobs:
           from pathlib import Path
           known=json.loads(Path('P5E_SOURCE_PROVENANCE.json').read_text())['modules_sha256']
           changed={name for name,expected in known.items() if hashlib.sha256((Path('src')/name).read_bytes()).hexdigest()!=expected}
-          assert len(known)==38 and changed=={'risu_static.py','risu_probe.py','risu_firstuse.py'},changed
-          print('P6B_35_CORE_MODULES_BITWISE_UNCHANGED')
+          assert len(known)==38 and changed=={'risu_static.py','risu_probe.py','risu_firstuse.py','risu_p5d_cli.py'},changed
+          print('P6B3_34_CORE_MODULES_BITWISE_UNCHANGED')
           PY
       - name: Build, install and test actual candidate wheel
         run: |
@@ -56,7 +56,7 @@ jobs:
             PY=.ci-p6b/venv/bin/python
             CLI=.ci-p6b/venv/bin/risu-probe
           fi
-          "$PY" -m pip install .ci-p6b/wheels/risu_probe_preview-0.9.21.dev0-py3-none-any.whl
+          "$PY" -m pip install .ci-p6b/wheels/risu_probe_preview-0.9.22.dev0-py3-none-any.whl
           "$PY" -m pip check
           "$CLI" doctor --format json
           RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
@@ -91,7 +91,7 @@ jobs:
           python -m venv .ci-p6b/baseline
           python -m venv .ci-p6b/candidate
           .ci-p6b/baseline/bin/python -m pip install .ci-p6b/wheels-base/risu_probe_preview-0.9.20.dev0-py3-none-any.whl
-          .ci-p6b/candidate/bin/python -m pip install .ci-p6b/wheels-new/risu_probe_preview-0.9.21.dev0-py3-none-any.whl
+          .ci-p6b/candidate/bin/python -m pip install .ci-p6b/wheels-new/risu_probe_preview-0.9.22.dev0-py3-none-any.whl
           .ci-p6b/baseline/bin/python -m pip check
           .ci-p6b/candidate/bin/python -m pip check
       - name: Scan source from immutable public Git objects, never run third-party code
