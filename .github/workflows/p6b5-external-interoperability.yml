@@ -1,4 +1,4 @@
-name: RISU P6-B5 public external FastMCP stdio reliability
+name: RISU P6-B5 public cross-framework stdio reliability
 on:
   push:
     branches: ['qualification/p6b5-*']
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   product-regression:
-    name: Installed product 3OS regression (${{ matrix.os }})
+    name: Installed product (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     permissions:
@@ -34,7 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Build installed wheel and full regression
+      - name: Fresh wheel and full regression
         run: |
           set -euo pipefail
           python tools/public_ci_audit.py
@@ -56,16 +56,24 @@ jobs:
           echo 'P6B5_3OS_INSTALLED_PRODUCT_PASS'
 
   external-stdio:
-    name: Independent FastMCP raw stdio (${{ matrix.framework }})
+    name: Real stdio (${{ matrix.framework_name }} ${{ matrix.framework_version }} ${{ matrix.os }})
     if: github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        framework: ['2.13.2','3.1.1']
+        include:
+          - {os: ubuntu-latest, framework_name: fastmcp, framework_version: '2.13.2'}
+          - {os: ubuntu-latest, framework_name: fastmcp, framework_version: '3.1.1'}
+          - {os: windows-latest, framework_name: fastmcp, framework_version: '3.1.1'}
+          - {os: macos-latest, framework_name: fastmcp, framework_version: '3.1.1'}
+          - {os: ubuntu-latest, framework_name: mcp, framework_version: '1.29.1'}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
         with:
@@ -74,34 +82,48 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Real pinned third-party framework, local synthetic server only
-        shell: bash
+      - name: Pinned third-party SDK, local synthetic public-only stdio server
         env:
-          FRAMEWORK_VERSION: ${{ matrix.framework }}
+          FRAMEWORK_NAME: ${{ matrix.framework_name }}
+          FRAMEWORK_VERSION: ${{ matrix.framework_version }}
         run: |
           set -euo pipefail
           python tools/public_ci_audit.py
           python -m venv .p6b5/framework
           python -m venv .p6b5/product
-          .p6b5/framework/bin/python -m pip install --disable-pip-version-check "fastmcp==$FRAMEWORK_VERSION"
-          .p6b5/framework/bin/python -m pip check
-          .p6b5/product/bin/python -m pip install --disable-pip-version-check .
-          .p6b5/product/bin/python -m pip check
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then
+            FPY=.p6b5/framework/Scripts/python.exe
+            PPY=.p6b5/product/Scripts/python.exe
+            CLI=.p6b5/product/Scripts/risu-probe.exe
+          else
+            FPY=.p6b5/framework/bin/python
+            PPY=.p6b5/product/bin/python
+            CLI=.p6b5/product/bin/risu-probe
+          fi
+          if [[ "$FRAMEWORK_NAME" == 'mcp' ]]; then
+            STYLE='official-v1'
+          else
+            STYLE='fastmcp'
+          fi
+          "$FPY" -m pip install --disable-pip-version-check "$FRAMEWORK_NAME==$FRAMEWORK_VERSION"
+          "$FPY" -m pip check
+          "$PPY" -m pip install --disable-pip-version-check .
+          "$PPY" -m pip check
           mkdir -p .p6b5/reports
-          .p6b5/framework/bin/python benchmarks/p6b5/capture_stdio.py --out .p6b5/reports
-          .p6b5/product/bin/risu-probe verify-mcp-trace .p6b5/reports/raw_stdio.jsonl \
+          "$FPY" benchmarks/p6b5/capture_stdio.py --style "$STYLE" --out .p6b5/reports
+          "$CLI" verify-mcp-trace .p6b5/reports/raw_stdio.jsonl \
             --protocol-version unknown --format json \
             --out .p6b5/reports/risu_report.json
           python benchmarks/p6b5/audit_interop.py \
             --source .p6b5/reports \
             --report .p6b5/reports/risu_report.json \
             --out .p6b5/reports/independent_audit.json
-          .p6b5/framework/bin/python -m pip freeze > .p6b5/reports/framework_freeze.txt
-      - name: Save only non-sensitive synthetic stdio evidence
+          "$FPY" -m pip freeze > .p6b5/reports/framework_freeze.txt
+      - name: Save public-only synthetic stdio audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: risu-p6b5-fastmcp-${{ matrix.framework }}
+          name: risu-p6b5-${{ matrix.framework_name }}-${{ matrix.framework_version }}-${{ runner.os }}
           retention-days: 14
           if-no-files-found: warn
           path: .p6b5/reports/
