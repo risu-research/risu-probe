@@ -1,0 +1,121 @@
+name: RISU P6-B public-only original/fix benchmark
+on:
+  push:
+    branches: ['qualification/p6b-*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: risu-p6b-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  product-regressions:
+    name: Safe wheel and tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    permissions: {contents: read}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Public source audit and core code hash gate
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          known=json.loads(Path('P5E_SOURCE_PROVENANCE.json').read_text())['modules_sha256']
+          changed={name for name,expected in known.items() if hashlib.sha256((Path('src')/name).read_bytes()).hexdigest()!=expected}
+          assert len(known)==38 and changed=={'risu_static.py','risu_probe.py','risu_firstuse.py'},changed
+          print('P6B_35_CORE_MODULES_BITWISE_UNCHANGED')
+          PY
+      - name: Build, install and test actual candidate wheel
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .ci-p6b/wheels
+          python -m pip wheel --no-deps --no-build-isolation -w .ci-p6b/wheels .
+          python -m venv .ci-p6b/venv
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.ci-p6b/venv/Scripts/python.exe
+            CLI=.ci-p6b/venv/Scripts/risu-probe.exe
+          else
+            PY=.ci-p6b/venv/bin/python
+            CLI=.ci-p6b/venv/bin/risu-probe
+          fi
+          "$PY" -m pip install .ci-p6b/wheels/risu_probe_preview-0.9.21.dev0-py3-none-any.whl
+          "$PY" -m pip check
+          "$CLI" doctor --format json
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo P6B_THREE_OS_PUBLIC_ONLY_REGRESSION_PASS
+  original-public-defects:
+    name: Exact public Git before/fix pairs (Ubuntu)
+    if: github.event_name != 'pull_request'
+    needs: product-regressions
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions: {contents: read}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build previous and proposed product versions as separate wheels
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .ci-p6b/original .ci-p6b/wheels-base .ci-p6b/wheels-new .ci-p6b/results
+          git -c core.hooksPath=/dev/null fetch --no-tags --depth 1 origin 8d660aa11aa4a046b419c1e543dfc49e7a6fb837
+          git archive 8d660aa11aa4a046b419c1e543dfc49e7a6fb837 | tar -x -C .ci-p6b/original
+          python -m pip wheel --no-deps --no-build-isolation -w .ci-p6b/wheels-base .ci-p6b/original
+          python -m pip wheel --no-deps --no-build-isolation -w .ci-p6b/wheels-new .
+          python -m venv .ci-p6b/baseline
+          python -m venv .ci-p6b/candidate
+          .ci-p6b/baseline/bin/python -m pip install .ci-p6b/wheels-base/risu_probe_preview-0.9.20.dev0-py3-none-any.whl
+          .ci-p6b/candidate/bin/python -m pip install .ci-p6b/wheels-new/risu_probe_preview-0.9.21.dev0-py3-none-any.whl
+          .ci-p6b/baseline/bin/python -m pip check
+          .ci-p6b/candidate/bin/python -m pip check
+      - name: Scan source from immutable public Git objects, never run third-party code
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b/run.py \
+            --manifest benchmarks/p6b/cases.json \
+            --baseline-cli "$(pwd)/.ci-p6b/baseline/bin/risu-probe" \
+            --candidate-cli "$(pwd)/.ci-p6b/candidate/bin/risu-probe" \
+            --scratch .ci-p6b/public-snapshots \
+            --out .ci-p6b/results/report.json
+          python benchmarks/p6b/audit.py \
+            --manifest benchmarks/p6b/cases.json \
+            --report .ci-p6b/results/report.json \
+            --sources .ci-p6b/public-snapshots \
+            --out .ci-p6b/results/audit.json
+      - name: Upload score and SHA-only reproducibility artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b-public-defect-metrics
+          path: |
+            benchmarks/p6b/cases.json
+            .ci-p6b/results/report.json
+            .ci-p6b/results/audit.json
+          retention-days: 14
+          if-no-files-found: warn
