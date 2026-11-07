@@ -30,6 +30,13 @@ class PublicRule(unittest.TestCase):
         self.assertEqual(self.ids(FIX),[])
     def test_without_output_schema_read_not_flagged(self):
         self.assertEqual(self.ids(NO_SCHEMA),[])
+    def test_wrong_schema_guard_does_not_count_as_fix(self):
+        wrong=OLD.replace("except (pydantic_core.PydanticSerializationError, UnicodeDecodeError):",
+                          "except (pydantic_core.PydanticSerializationError, UnicodeDecodeError) as e:\n            if self.output_schema is None:\n                raise ToolError(str(e)) from e")
+        self.assertEqual(len(self.ids(wrong)),1)
+    def test_no_serialize_call_means_no_signal(self):
+        unrelated="class Adapter:\n    def method(self):\n        self.output_schema = None\n        return ToolResult(content='safe')\n"
+        self.assertEqual(self.ids(unrelated),[])
     def test_no_project_code_executed(self):
         with tempfile.TemporaryDirectory() as root:
             marker=Path(root)/'DO_NOT_CREATE'
