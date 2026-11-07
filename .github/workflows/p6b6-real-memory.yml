@@ -78,7 +78,7 @@ jobs:
         run: |
           set -euo pipefail
           for mode in old fixed; do
-            for scenario in seeded empty; do
+            for scenario in seeded extra empty; do
               dest=".p6b6/results/$mode-$scenario"
               python benchmarks/p6b6/capture_memory.py --repo ".p6b6/upstream/$mode" --mode "$mode" --scenario "$scenario" --out "$dest"
               risu-probe verify-mcp-trace "$dest/raw_stdio.jsonl" --format json > "$dest/risu_report.json"
