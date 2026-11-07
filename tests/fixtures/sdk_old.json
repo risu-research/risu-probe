@@ -1,0 +1,48 @@
+{
+  "claim_boundary": "Boolean case is actual SDK validator, not a wire session. Recursive case is real MCP in-memory legacy JSON-RPC client/server, not external stdio.",
+  "model_calls": false,
+  "official_package_versions": {
+    "mcp": "2.0.0",
+    "mcp-types": "2.0.0"
+  },
+  "official_release_tag": "https://github.com/modelcontextprotocol/python-sdk/releases/tag/v2.0.0",
+  "production_server_contacted": false,
+  "scenario_bool": {
+    "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3353",
+    "native_validation": {
+      "2025-11-25": {
+        "accepted": false,
+        "error": {
+          "class": "ValidationError",
+          "root_cause_in_message": true,
+          "snippet": "3 validation errors for ListToolsResult\ntools.0.inputSchema.properties.arg\n  Input should be a valid dictionary [type=dict_type, input_value=True, input_type=bool]\n    For further information visit https://errors.pydantic.dev/2.14/v/dict_type\ntools.0.outputSchema.properties.result\n  Input should be a valid dictionary [type=dict_type, input_value=True, input_type=bool]\n    For further information visit https://errors.pydantic.dev/2.14/v/dict_type\n"
+        }
+      },
+      "2026-07-28": {
+        "accepted": true,
+        "error": null
+      }
+    }
+  },
+  "scenario_recursive": {
+    "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3337",
+    "live_mcp": {
+      "call_tool_success": false,
+      "client_mode": "legacy",
+      "emitted_output_schema_root_ref": "#/$defs/Node",
+      "emitted_output_schema_root_type": null,
+      "error": {
+        "class": "ExceptionGroup",
+        "root_cause_in_message": false,
+        "snippet": "unhandled errors in a TaskGroup (1 sub-exception)"
+      },
+      "list_tools_success": false,
+      "negotiated_protocol": "2025-11-25",
+      "protocol_transport": "MCP_SDK_IN_MEMORY_LEGACY_JSONRPC",
+      "result": null,
+      "tool_names": []
+    }
+  },
+  "schema": "risu-p6b2-public-mcp-native-runtime-v1",
+  "third_party_checkout_executed": false
+}
