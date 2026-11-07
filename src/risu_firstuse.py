@@ -67,7 +67,7 @@ def doctor(format: str = 'text') -> dict[str, Any]:
         'architecture': platform.machine(),
         'pypi_yaml_support_installed': util.find_spec('yaml') is not None,
         'default_scope': 'STATIC_ONLY_NO_PROJECT_IMPORT_OR_NETWORK',
-        'commands': ['risu-probe check .', 'risu-probe check . --format json', 'risu-probe doctor'],
+        'commands': ['risu-probe check .', 'risu-probe verify-mcp --old old.json --fixed fixed.json', 'risu-probe doctor'],
         'help': 'The default RISU Probe installation includes PyYAML for OpenAPI YAML. If YAML is unavailable, reinstall the package with its declared dependencies; skipped files are UNVERIFIED.'
     }
 
@@ -98,6 +98,8 @@ def cli(argv: list[str] | None=None) -> int:
         description='First-use offline diagnostics; never imports or executes your project')
     p.add_argument('project',nargs='?',default='.',help='existing project folder or Python/OpenAPI file')
     p.add_argument('--evidence',type=Path,help='saved P5-B evidence report, with paired raw MCP transcripts')
+    p.add_argument('--mcp-sdk-old',type=Path,help='saved public MCP SDK 2.0.0 synthetic replay JSON (paired with --mcp-sdk-fixed)')
+    p.add_argument('--mcp-sdk-fixed',type=Path,help='saved public MCP SDK 2.1.0 synthetic replay JSON (paired with --mcp-sdk-old)')
     p.add_argument('--format',choices=('text','json','sarif'),default='text')
     p.add_argument('--out',type=Path,help='new output path (existing files are never overwritten)')
     p.add_argument('--fail-on-confirmed',action='store_true',help='exit 1 for verified SAVED-REPLAY consumer issues')
@@ -108,7 +110,20 @@ def cli(argv: list[str] | None=None) -> int:
     start=time.perf_counter()
     try:
         report=check(Path(args.project), args.evidence)
-        report['version']='0.9.21-experimental'
+        report['version']='0.9.22-experimental'
+        # An AST parse is distinct from semantic verification. Never invent the latter.
+        report['source_analysis']={'status':report['status'], 'python_parsed':report['summary']['python_parsed'],
+                                   'openapi_parsed':report['summary']['openapi_parsed'], 'unverified':report['summary']['unverified']}
+        if bool(args.mcp_sdk_old) != bool(args.mcp_sdk_fixed):
+            from risu_mcp_replay import ReplayEvidenceError
+            raise ReplayEvidenceError('Both --mcp-sdk-old and --mcp-sdk-fixed are required together')
+        if args.mcp_sdk_old:
+            from risu_mcp_replay import evaluate_pair
+            report['mcp_semantic_verification']=evaluate_pair(args.mcp_sdk_old,args.mcp_sdk_fixed)
+        else:
+            report['mcp_semantic_verification']={'semantic_verification':'NOT_RUN', 'verified_case_count':0,
+              'coverage':{'native_mcp_sdk_validator':'NOT_TESTED', 'in_memory_mcp_legacy_protocol':'NOT_TESTED',
+                          'stdio_mcp_wire':'NOT_TESTED','external_mcp_server':'NOT_TESTED'}}
         # Preserve evidence classifications. Incomplete status must be plainly visible.
         if report.get('unverified'):
             report['coverage_note']='Coverage incomplete: at least one file or saved evidence input was not verified. No pass/compatible claim.'
@@ -120,7 +135,11 @@ def cli(argv: list[str] | None=None) -> int:
             report['performance']={'scan_wall_ms':round((time.perf_counter()-start)*1000,3),
                                    'excludes_process_startup':True}
         if args.format=='text':
-            content=as_text(report).replace('RISU Probe check 0.9.18', 'RISU Probe check 0.9.21', 1)
+            content=as_text(report).replace('RISU Probe check 0.9.18', 'RISU Probe check 0.9.22', 1)
+            content+='\nSource parse and MCP semantic verification are separate.\n'
+            if args.mcp_sdk_old:
+                from risu_mcp_replay import as_text as mcp_as_text
+                content+='\n'+mcp_as_text(report['mcp_semantic_verification'])
             if report.get('unverified'):
                 remedies=[]
                 for gap in report['unverified'][:8]:
@@ -135,7 +154,13 @@ def cli(argv: list[str] | None=None) -> int:
         elif args.format=='json':content=json.dumps(report,ensure_ascii=False,sort_keys=True,indent=2)+'\n'
         else:
             sarif=as_sarif(report)
-            sarif['runs'][0]['tool']['driver']['version']='0.9.21'
+            sarif['runs'][0]['tool']['driver']['version']='0.9.22'
+            if args.mcp_sdk_old:
+                from risu_mcp_replay import as_sarif as mcp_as_sarif
+                sdk_run=mcp_as_sarif(report['mcp_semantic_verification'])['runs'][0]
+                sarif['runs'][0]['tool']['driver']['rules'].extend(sdk_run['tool']['driver']['rules'])
+                sarif['runs'][0]['results'].extend(sdk_run['results'])
+                sarif['runs'][0]['properties']['mcp_semantic_verification']=report['mcp_semantic_verification']['semantic_verification']
             sarif['runs'][0]['properties']['coverage_note']=report['coverage_note']
             if args.timing:sarif['runs'][0]['properties']['performance']=report['performance']
             content=json.dumps(sarif,ensure_ascii=False,sort_keys=True,indent=2)+'\n'
@@ -149,7 +174,8 @@ def cli(argv: list[str] | None=None) -> int:
         else:print(content,end='')
         if report['status']=='INCOMPLETE_EVIDENCE' or args.strict_incomplete and report['unverified']:
             return 2
-        if args.fail_on_confirmed and report['confirmed'] or args.fail_on_suspected and report['suspected']:
+        if (args.fail_on_confirmed and (report['confirmed'] or report['mcp_semantic_verification']['verified_case_count'])
+                or args.fail_on_suspected and report['suspected']):
             return 1
         return 0
     except (EvidenceError,ScanError,ValueError,TypeError,KeyError,OSError,UnicodeError,RecursionError) as exception:
