@@ -68,7 +68,7 @@ jobs:
           echo P6B4_PUBLIC_CROSS_OS_PRODUCT_PASS
 
   released-sdk-normalized:
-    name: Official SDK observed outputs and controlled mutations (no real wire claim)
+    name: Official SDK normalized and literal local stdio, synthetic controls
     if: github.event_name != 'pull_request'
     needs: cross-platform
     runs-on: ubuntu-latest
