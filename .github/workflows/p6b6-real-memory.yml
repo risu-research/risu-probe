@@ -1,0 +1,100 @@
+name: P6-B6 real official MCP Memory Server defect vs merged fix
+on:
+  push:
+    branches: ['qualification/p6b6-*']
+    paths: ['benchmarks/p6b6/**', '.github/workflows/p6b6-real-memory.yml', 'src/**', 'tests/**', 'pyproject.toml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  official-memory-server:
+    name: Public pinned upstream memory before vs after
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/checkout@v4
+        with:
+          repository: modelcontextprotocol/servers
+          ref: 861c11b786b3efbc87eb2e878a4039d33846a031
+          path: .p6b6/upstream/old
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+      - uses: actions/checkout@v4
+        with:
+          repository: modelcontextprotocol/servers
+          ref: 72e11113edff5919e74de1d69b71203991fe2f05
+          path: .p6b6/upstream/fixed
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify origin and frozen same lock file
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          for info in 'old 861c11b786b3efbc87eb2e878a4039d33846a031 c7d781d2c4315f8806b6c4d217a3be4e00774c1e' 'fixed 72e11113edff5919e74de1d69b71203991fe2f05 600a7edcc81e2b5b73d20c90f7502203c6c93956'; do
+            set -- $info
+            cd "$GITHUB_WORKSPACE/.p6b6/upstream/$1"
+            test "$(git rev-parse HEAD)" = "$2"
+            test "$(git hash-object src/memory/index.ts)" = "$3"
+            test "$(git hash-object package-lock.json)" = 1ad7eae64faf23ee5d7c0a7dad8d64a120ed2372
+            test "$(git hash-object src/memory/package.json)" = 5d1bc1dd8fea216a9e0e7bba2c323944bec78313
+          done
+          cd "$GITHUB_WORKSPACE"
+          echo PUBLIC_UPSTREAM_EXACT_COMMITS_AND_IDENTICAL_DEPS
+      - name: Install and build public upstream Memory Server in two isolated checkouts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for mode in old fixed; do
+            cd "$GITHUB_WORKSPACE/.p6b6/upstream/$mode"
+            npm ci --ignore-scripts --no-audit --no-fund
+            npm run build --workspace @modelcontextprotocol/server-memory
+            test -f src/memory/dist/index.js
+          done
+          cd "$GITHUB_WORKSPACE"
+      - name: Install product from source with clean dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m pip check
+          risu-probe --version
+      - name: Capture synthetic Memory source literal stdio requests and responses
+        shell: bash
+        run: |
+          set -euo pipefail
+          for mode in old fixed; do
+            for scenario in seeded empty; do
+              dest=".p6b6/results/$mode-$scenario"
+              python benchmarks/p6b6/capture_memory.py --repo ".p6b6/upstream/$mode" --mode "$mode" --scenario "$scenario" --out "$dest"
+              risu-probe verify-mcp-trace "$dest/raw_stdio.jsonl" --format json > "$dest/risu_report.json"
+            done
+          done
+          python benchmarks/p6b6/audit_pairs.py --root .p6b6/results --out .p6b6/results/independent_audit.json
+          echo P6B6_REAL_UPSTREAM_ORIGINAL_FIX_PASS
+      - name: Preserve only synthetic public evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p6b6-real-upstream-memory-before-after
+          retention-days: 14
+          if-no-files-found: warn
+          path: |
+            .p6b6/results/*/raw_stdio.jsonl
+            .p6b6/results/*/origin.json
+            .p6b6/results/*/risu_report.json
+            .p6b6/results/independent_audit.json
