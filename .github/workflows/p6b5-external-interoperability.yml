@@ -1,0 +1,107 @@
+name: RISU P6-B5 public external FastMCP stdio reliability
+on:
+  push:
+    branches: ['qualification/p6b5-*']
+    paths: ['benchmarks/p6b5/**','.github/workflows/p6b5-external-interoperability.yml','src/**','tests/**','pyproject.toml']
+  pull_request:
+    paths: ['benchmarks/p6b5/**','.github/workflows/p6b5-external-interoperability.yml','src/**','tests/**','pyproject.toml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: p6b5-public-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  product-regression:
+    name: Installed product 3OS regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest,windows-latest,macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build installed wheel and full regression
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .p6b5/wheels
+          python -m pip wheel --no-deps --no-build-isolation -w .p6b5/wheels .
+          python -m venv .p6b5/product
+          if [[ '${{ runner.os }}' == 'Windows' ]]; then
+            PY=.p6b5/product/Scripts/python.exe
+            CLI=.p6b5/product/Scripts/risu-probe.exe
+          else
+            PY=.p6b5/product/bin/python
+            CLI=.p6b5/product/bin/risu-probe
+          fi
+          "$PY" -m pip install .p6b5/wheels/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo 'P6B5_3OS_INSTALLED_PRODUCT_PASS'
+
+  external-stdio:
+    name: Independent FastMCP raw stdio (${{ matrix.framework }})
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        framework: ['2.13.2','3.1.1']
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Real pinned third-party framework, local synthetic server only
+        shell: bash
+        env:
+          FRAMEWORK_VERSION: ${{ matrix.framework }}
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m venv .p6b5/framework
+          python -m venv .p6b5/product
+          .p6b5/framework/bin/python -m pip install --disable-pip-version-check "fastmcp==$FRAMEWORK_VERSION"
+          .p6b5/framework/bin/python -m pip check
+          .p6b5/product/bin/python -m pip install --disable-pip-version-check .
+          .p6b5/product/bin/python -m pip check
+          mkdir -p .p6b5/reports
+          .p6b5/framework/bin/python benchmarks/p6b5/capture_stdio.py --out .p6b5/reports
+          .p6b5/product/bin/risu-probe verify-mcp-trace .p6b5/reports/raw_stdio.jsonl \
+            --protocol-version unknown --format json \
+            --out .p6b5/reports/risu_report.json
+          python benchmarks/p6b5/audit_interop.py \
+            --source .p6b5/reports \
+            --report .p6b5/reports/risu_report.json \
+            --out .p6b5/reports/independent_audit.json
+          .p6b5/framework/bin/python -m pip freeze > .p6b5/reports/framework_freeze.txt
+      - name: Save only non-sensitive synthetic stdio evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b5-fastmcp-${{ matrix.framework }}
+          retention-days: 14
+          if-no-files-found: warn
+          path: .p6b5/reports/
