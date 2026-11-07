@@ -79,7 +79,7 @@ jobs:
               RC=$?
               set -e
               if [[ "$RC" -eq 2 ]]; then
-                .p6b7-venv/bin/python -c 'import json,sys;from pathlib import Path;p=Path(sys.argv[1]);p.write_text(json.dumps({"schema":"risu-p6b7-raw-attempt-v1","status":"UNVERIFIED_RAW_TRACE","exit_code":2,"findings":[],"reason":"RISU scanner rejected raw input; no detection claim"})+"\\n")' ".p6b7-score/$FAMILY/$REV/risu.json"
+                .p6b7-venv/bin/python -c 'import json,sys;from pathlib import Path;p=Path(sys.argv[1]);p.write_text(json.dumps({"schema":"risu-p6b7-raw-attempt-v1","status":"UNVERIFIED_RAW_TRACE","exit_code":2,"findings":[],"reason":"RISU scanner rejected raw input; no detection claim"}))' ".p6b7-score/$FAMILY/$REV/risu.json"
               elif [[ "$RC" -eq 0 || "$RC" -eq 1 ]]; then
                 cp ".p6b7-score/$FAMILY/$REV/risu_raw_output.json" ".p6b7-score/$FAMILY/$REV/risu.json"
               else
