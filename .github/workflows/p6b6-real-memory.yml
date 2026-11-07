@@ -98,3 +98,57 @@ jobs:
             .p6b6/results/*/origin.json
             .p6b6/results/*/risu_report.json
             .p6b6/results/independent_audit.json
+
+  exact-public-source-snapshot:
+    name: Public source export, tracked files only
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify public tracked-source snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path.cwd()
+          out=root/'.p6b6'/'tracked-source-export'
+          out.mkdir(parents=True,exist_ok=True)
+          names=[p.decode('utf-8') for p in subprocess.check_output(['git','ls-files','-z']).split(b'\x00') if p]
+          assert len(names)>65
+          manifest={}
+          for name in names:
+              path=Path(name)
+              assert not path.is_absolute() and '..' not in path.parts
+              src=root/path
+              assert src.is_file() and not src.is_symlink()
+              raw=src.read_bytes()
+              assert len(raw)<600000
+              dest=out/path
+              dest.parent.mkdir(parents=True,exist_ok=True)
+              dest.write_bytes(raw)
+              manifest[name]=hashlib.sha256(raw).hexdigest()
+          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          (out/'TRACKED_SOURCE_MANIFEST.json').write_text(json.dumps({
+              'schema':'risu-p6b6-tracked-public-source-v1','commit':sha,
+              'files_sha256':manifest},sort_keys=True,indent=2)+'\n')
+          print('P6B6_EXACT_PUBLIC_SOURCE_EXPORT',len(manifest),sha)
+          PY
+      - name: Retain only tracked public product source
+        uses: actions/upload-artifact@v4
+        with:
+          name: p6b6-exact-public-repository-source
+          retention-days: 14
+          if-no-files-found: error
+          include-hidden-files: true
+          path: .p6b6/tracked-source-export/
