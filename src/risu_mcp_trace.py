@@ -17,7 +17,8 @@ MAX_LINE_BYTES = 524_288
 MAX_MESSAGES = 4096
 MAX_SCHEMA_NODES = 512
 MAX_VALUE_NODES = 2048
-ALLOWED_PROTOCOLS = ('2025-11-25', '2026-07-28', 'unknown')
+ALLOWED_PROTOCOLS = ('2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28', 'unknown')
+LEGACY_PROTOCOLS = frozenset(('2025-03-26', '2025-06-18', '2025-11-25'))
 
 
 class TraceError(ValueError):
@@ -54,8 +55,10 @@ def _walk_limited(obj: Any, limit: int) -> None:
 def _label(value: Any) -> str:
     """Do not echo arbitrary trace content in reports or logs."""
     if isinstance(value, str):
-        return ''.join(c if c.isprintable() and c not in '\\"' else '?' for c in value[:85])
-    return str(value)[:85]
+        # Treat user-supplied tool names as potentially sensitive. Preserve stable
+        # correlation without emitting arbitrary names into public CI reports.
+        return 'tool_sha256:' + hashlib.sha256(value.encode('utf-8')).hexdigest()[:16]
+    return 'tool_identifier_redacted'
 
 
 def _read_trace(path: Path) -> tuple[list[tuple[int, str, dict]], str]:
@@ -144,9 +147,12 @@ def _validate_schema(schema: dict, value: Any) -> tuple[str, dict | None]:
         issue = next(validator.iter_errors(value), None)
         if issue is None:
             return 'PASS', None
+        # Instance/property names may be secrets; emit only structural path
+        # segments and the validator keyword. Do not echo raw values or keys.
+        redacted_path='/'+'/'.join(str(p) if type(p) is int else '[key]' for p in issue.absolute_path)
         return 'MISMATCH', {'keyword':str(issue.validator or 'unknown')[:80],
-                            'instance_path':'/'+ '/'.join(str(p)[:50] for p in issue.absolute_path)[:180],
-                            'schema_path':'/'+ '/'.join(str(p)[:50] for p in issue.absolute_schema_path)[:180]}
+                            'instance_path':redacted_path[:180],
+                            'schema_path':'/[redacted]'}
     except (RecursionError, LookupError, ValueError, TypeError, KeyError) as exc:
         return 'UNVERIFIED', {'reason':'Schema validation could not safely complete ('+type(exc).__name__+')'}
 
@@ -173,7 +179,10 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
             findings.append({'rule_id':code,'verdict':'OBSERVED_IN_UNATTESTED_CAPTURE',
                              'message':reason,'tool':_label(tool),'line':line})
     for line, session, msg in records:
-        st=sessions.setdefault(session, {'pending':{},'tools':{},'ready':False,'invalid_ids':set(), 'protocol':protocol_version})
+        st=sessions.setdefault(session, {'pending':{},'tools':{},'ready':False,
+            'invalid_ids':set(),'protocol':protocol_version,
+            'protocol_source':'CALLER_DECLARED' if protocol_version!='unknown' else 'NOT_OBSERVED',
+            'initialize_ids':set(),'negotiated_protocol':None})
         req_id = msg.get('id')
         method = msg.get('method')
         if method == 'notifications/tools/list_changed':
@@ -182,6 +191,11 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
             continue
         if method is not None:
             if method not in ('tools/list','tools/call'):
+                # Initialize request/response is captured as actual protocol evidence.
+                # Unlike a CLI --protocol-version flag, the response can establish
+                # the negotiated protocol, conditional on the unauthenticated trace.
+                if method=='initialize' and req_id is not None:
+                    st['initialize_ids'].add(req_id)
                 # Other JSON-RPC requests have responses with their own IDs.
                 # Explicitly ignore those responses rather than count them as gaps.
                 if req_id is not None:
@@ -216,6 +230,22 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
             continue
         if req_id in st.get('other_ids',set()) and req_id not in st['pending']:
             st['other_ids'].discard(req_id)
+            if req_id in st['initialize_ids']:
+                st['initialize_ids'].discard(req_id)
+                result=msg.get('result')
+                negotiated=result.get('protocolVersion') if type(result) is dict else None
+                st['negotiated_protocol']=negotiated if isinstance(negotiated,str) else None
+                if negotiated not in ALLOWED_PROTOCOLS or negotiated=='unknown':
+                    st['protocol']='unknown'
+                    st['protocol_source']='INIT_UNSUPPORTED'
+                    gap('UNSUPPORTED_NEGOTIATED_PROTOCOL','Initialization response has unsupported/unknown protocol',line)
+                elif protocol_version!='unknown' and protocol_version!=negotiated:
+                    st['protocol']='unknown'
+                    st['protocol_source']='DECLARED_NEGOTIATED_CONFLICT'
+                    gap('PROTOCOL_VERSION_CONFLICT','Declared protocol disagrees with captured initialize response',line)
+                else:
+                    st['protocol']=negotiated
+                    st['protocol_source']='CAPTURED_INITIALIZE_RESULT'
             continue
         if req_id in st['invalid_ids']:
             st['invalid_ids'].discard(req_id)
@@ -284,7 +314,7 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
                 finding('RMC503','Declared outputSchema is not a JSON Schema object',line,name)
             else:gap('UNSUPPORTED_SCHEMA',reason,line,name)
             continue
-        if protocol_version=='2025-11-25' and schema.get('type')!='object':
+        if st['protocol'] in LEGACY_PROTOCOLS and schema.get('type')!='object':
             finding('RMC504','Legacy outputSchema must declare an object root',line,name)
             continue
         if 'structuredContent' not in result:
@@ -317,6 +347,11 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
             'capture_status':'PARSED_BOUNDED_JSONRPC','capture_sha256':digest,
             'origin_integrity':'UNATTESTED_LOCAL_CAPTURE',
             'protocol_version':protocol_version,
+            'session_protocols':[{'session_sha256':hashlib.sha256(name.encode()).hexdigest()[:16],
+                                  'negotiated_protocol':st['negotiated_protocol'],
+                                  'effective_protocol':st['protocol'],
+                                  'evidence':st['protocol_source']}
+                                 for name,st in sorted(sessions.items())],
             'semantic_verification':status,
             'source_analysis':'NOT_PERFORMED',
             'summary':{'messages_parsed':len(records),'sessions':len(sessions),
