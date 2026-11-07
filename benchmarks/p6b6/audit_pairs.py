@@ -19,7 +19,7 @@ def evaluate(root:Path)->dict:
     scored={}
     lock=None
     for mode in COMMITS:
-        for scenario in ('seeded','empty'):
+        for scenario in ('seeded','extra','empty'):
             src=root/(mode+'-'+scenario)
             origin=json.loads((src/'origin.json').read_text())
             raw=(src/'raw_stdio.jsonl').read_bytes()
@@ -36,7 +36,7 @@ def evaluate(root:Path)->dict:
             if lock is None:lock=origin['lock_sha256']
             assert lock==origin['lock_sha256'],'dependency lock changed across comparisons'
             assert origin['trace_sha256']==report['capture_sha256']==hashlib.sha256(raw).hexdigest()
-            assert origin['message_count']==len(rows)==(11 if scenario=='seeded' else 7)
+            assert origin['message_count']==len(rows)==(11 if scenario!='empty' else 7)
             assert rows[0]['method']=='initialize'
             assert rows[2]['method']=='notifications/initialized'
             assert rows[3]['method']=='tools/list' and rows[4]['id']==2
@@ -45,7 +45,7 @@ def evaluate(root:Path)->dict:
             assert report['capture_status']=='PARSED_BOUNDED_JSONRPC'
             catalog={t['name']:t for t in rows[4]['result']['tools']}
             outcomes=origin['tool_outcomes']
-            expected=READS if scenario=='seeded' else ('read_graph',)
+            expected=READS if scenario!='empty' else ('read_graph',)
             assert set(outcomes)==set(expected)
             raw_names=[x['params']['name'] for x in rows if x.get('method')=='tools/call']
             assert tuple(raw_names)==expected
@@ -63,22 +63,22 @@ def evaluate(root:Path)->dict:
                 # This is the independent oracle, NOT RISU's verdict.
                 errors=list(Draft7Validator(schema).iter_errors(value))
                 independent[name]=len(errors)
-                if mode=='old' and scenario=='seeded':
+                if mode=='old' and scenario!='empty':
                     assert len(errors)==EXPECTED_OLD_COUNTS[name]
                     assert all(e.validator=='additionalProperties' for e in errors)
                     # Stored type discriminator is forbidden by declared schema.
                     assert all('type' in e.instance for e in errors)
                 else:
                     assert not errors
-            expected_count=3 if scenario=='seeded' else 1
+            expected_count=3 if scenario!='empty' else 1
             assert report['summary']['tool_call_responses_matched']==expected_count
             assert report['summary']['structured_values_schema_checked']==expected_count
             assert report['summary']['unverified_count']==0,report['unverified']
             assert report['origin_integrity']=='UNATTESTED_LOCAL_CAPTURE'
-            expected_rules=['RMC502']*3 if mode=='old' and scenario=='seeded' else []
+            expected_rules=['RMC502']*3 if mode=='old' and scenario!='empty' else []
             actual_rules=[x['rule_id'] for x in report['findings']]
             assert actual_rules==expected_rules,(mode,scenario,actual_rules)
-            if mode=='old' and scenario=='seeded':
+            if mode=='old' and scenario!='empty':
                 assert report['semantic_verification']=='OBSERVED_MISMATCHES_IN_CAPTURE'
             else:
                 assert report['semantic_verification']=='CHECKED_NO_MISMATCHES'
@@ -92,7 +92,11 @@ def evaluate(root:Path)->dict:
                 'trace_sha256':origin['trace_sha256']}
     assert scored['old-seeded']['independent_schema_violation_instances']==7
     assert scored['old-seeded']['risu_issue_related_findings']==3
+    assert scored['old-extra']['independent_schema_violation_instances']==7
+    assert scored['old-extra']['risu_issue_related_findings']==3
     assert scored['fixed-seeded']['independent_schema_violation_instances']==0
+    assert scored['fixed-extra']['independent_schema_violation_instances']==0
+    assert scored['fixed-extra']['risu_issue_related_findings']==0
     assert scored['fixed-seeded']['risu_issue_related_findings']==0
     for control in ('old-empty','fixed-empty'):
         assert scored[control]['independent_schema_violation_instances']==0
@@ -103,9 +107,11 @@ def evaluate(root:Path)->dict:
         'issue':'https://github.com/modelcontextprotocol/servers/issues/3074',
         'official_merged_pr':'https://github.com/modelcontextprotocol/servers/pull/3213',
         'upstream_defect_families':1,
+        'second_report_same_root':'https://github.com/modelcontextprotocol/servers/issues/3144',
+        'buggy_data_variants':2,
         'before_buggy_operations':3,'after_buggy_operations':0,
         'independent_schema_errors_before':7,'independent_schema_errors_after':0,
-        'targeted_risu_RMC502_old':3,'targeted_risu_RMC502_fixed':0,
+        'targeted_risu_RMC502_old':6,'targeted_risu_RMC502_fixed':0,
         'empty_store_negative_controls':2,
         'independent_holdout_score':None,
         'qualification':'Targeted Draft-07 compatibility repair motivated by this known defect. NOT an unseen-bug recall estimate.',
