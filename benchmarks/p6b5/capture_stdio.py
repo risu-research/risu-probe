@@ -12,8 +12,9 @@ import json
 from pathlib import Path
 import sys
 
-async def capture(out: Path) -> None:
-    script = Path(__file__).with_name('external_server.py').resolve(strict=True)
+async def capture(out: Path, style: str = 'fastmcp') -> None:
+    if style not in ('fastmcp','official-v1'): raise ValueError('Unknown public fixture style')
+    script = Path(__file__).with_name('external_server.py' if style=='fastmcp' else 'official_v1_server.py').resolve(strict=True)
     proc = await asyncio.create_subprocess_exec(sys.executable, str(script),
         stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.DEVNULL, cwd=str(script.parent))
@@ -57,14 +58,15 @@ async def capture(out: Path) -> None:
         (out/'raw_stdio.jsonl').write_bytes(data)
         (out/'origin.json').write_text(json.dumps({
             'schema':'risu-p6b5-interop-origin-v1',
-            'framework':'fastmcp', 'version':importlib.metadata.version('fastmcp'),
+            'framework':'fastmcp' if style=='fastmcp' else 'mcp',
+            'version':importlib.metadata.version('fastmcp' if style=='fastmcp' else 'mcp'),
             'requested_protocol':'2025-11-25','negotiated_protocol':negotiated,
             'transport':'SEPARATE_PROCESS_LITERAL_STDIO_JSONRPC',
             'trace_sha256':hashlib.sha256(data).hexdigest(),'messages':len(raw),
             'data':'PUBLIC_SYNTHETIC_ONLY','remote_connections':False,
             'no_untrusted_servers':True,'server_code_from_public_fixture':True
         },indent=2,sort_keys=True)+'\n')
-        print('P6B5_RAW_STDIO_CAPTURE',importlib.metadata.version('fastmcp'),negotiated,len(raw),flush=True)
+        print('P6B5_RAW_STDIO_CAPTURE',style,negotiated,len(raw),flush=True)
     finally:
         if proc.returncode is None:
             proc.terminate()
@@ -73,4 +75,5 @@ async def capture(out: Path) -> None:
 
 if __name__=='__main__':
     ap=argparse.ArgumentParser();ap.add_argument('--out',type=Path,required=True)
-    args=ap.parse_args();asyncio.run(capture(args.out))
+    ap.add_argument('--style',choices=['fastmcp','official-v1'],default='fastmcp')
+    args=ap.parse_args();asyncio.run(capture(args.out,args.style))
