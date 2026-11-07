@@ -118,6 +118,12 @@ jobs:
             --source .p6b5/reports \
             --report .p6b5/reports/risu_report.json \
             --out .p6b5/reports/independent_audit.json
+          "$PPY" benchmarks/p6b5/controlled_mutations.py \
+            --source .p6b5/reports/raw_stdio.jsonl \
+            --cli "$CLI" --out .p6b5/reports/mutations
+          python benchmarks/p6b5/audit_mutations.py \
+            --dir .p6b5/reports/mutations \
+            --out .p6b5/reports/mutations/independent_audit.json
           "$FPY" -m pip freeze > .p6b5/reports/framework_freeze.txt
       - name: Save public-only synthetic stdio audit
         if: always()
