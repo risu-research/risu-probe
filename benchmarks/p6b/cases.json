@@ -1,0 +1,99 @@
+{
+  "schema": "risu-p6b-predeclared-public-source-benchmark-v1",
+  "date": "2026-11-06",
+  "scope": "Frozen source-only detection on public immutable Git objects; no external project is imported, installed, or executed",
+  "labels_fixed_before_candidate_change": true,
+  "safety": "PUBLIC Git sources only, SHA-pinned; no private data, no secrets, no runtime project execution; PR heavy benchmark disabled",
+  "caveats": [
+    "F5030 was used to design rule RPY204; development-set detection only, not independent generalization",
+    "F3717 official repair avoids client validation error via meta, not preservation of truncated structured content",
+    "LangChain #40471 remains open; PR #41566 closed unmerged; no official repaired counterpart claimed",
+    "Unlabeled controls and unsupported TypeScript never inflate false-positive specificity"
+  ],
+  "cases": [
+    {
+      "id": "F5030-before",
+      "split": "development",
+      "label": "known_defect",
+      "repo": "PrefectHQ/fastmcp",
+      "commit": "813e44d91b008fa17c68f89e2cb8cabc500c1a60",
+      "path": "fastmcp_slim/fastmcp/tools/base.py",
+      "git_blob": "9e11ad5c9b1693197a5acda85c3994848e65b7a8",
+      "target_rule": "RPY204",
+      "issue": "https://github.com/PrefectHQ/fastmcp/issues/5030",
+      "repair_pr": "https://github.com/PrefectHQ/fastmcp/pull/5063"
+    },
+    {
+      "id": "F5030-fixed",
+      "split": "development",
+      "label": "official_repaired",
+      "repo": "PrefectHQ/fastmcp",
+      "commit": "78e12564d42a7de5af551de67639777ba1f03b3f",
+      "path": "fastmcp_slim/fastmcp/tools/base.py",
+      "git_blob": "6c6d69d749643a6b8edb950f02f67e4550f567ad",
+      "target_rule": "RPY204",
+      "issue": "https://github.com/PrefectHQ/fastmcp/issues/5030",
+      "repair_pr": "https://github.com/PrefectHQ/fastmcp/pull/5063"
+    },
+    {
+      "id": "F3717-before",
+      "split": "holdout",
+      "label": "known_defect",
+      "repo": "PrefectHQ/fastmcp",
+      "commit": "34e632db7fad4ae00c8c763743ad2957867024b3",
+      "path": "src/fastmcp/server/middleware/response_limiting.py",
+      "git_blob": "3afaf0705f753f483517a24ce2f62cacdac91a67",
+      "target_rule": "RPY205",
+      "issue": "https://github.com/PrefectHQ/fastmcp/issues/3717",
+      "repair_pr": "https://github.com/PrefectHQ/fastmcp/pull/3756"
+    },
+    {
+      "id": "F3717-fixed",
+      "split": "holdout",
+      "label": "official_repaired",
+      "repo": "PrefectHQ/fastmcp",
+      "commit": "4bbc4eec3b1c1a977930504b6a78e61c7426783c",
+      "path": "src/fastmcp/server/middleware/response_limiting.py",
+      "git_blob": "24e1cbc124008063f8f16e5e3e997ca92e9eca30",
+      "target_rule": "RPY205",
+      "issue": "https://github.com/PrefectHQ/fastmcp/issues/3717",
+      "repair_pr": "https://github.com/PrefectHQ/fastmcp/pull/3756"
+    },
+    {
+      "id": "LC40471-open",
+      "split": "holdout",
+      "label": "known_defect",
+      "repo": "langchain-ai/langchain",
+      "commit": "bb6a25a878527136dcb1a20507d5c20049427f96",
+      "path": "libs/langchain_v1/langchain/mcp/tools.py",
+      "git_blob": "ad0c6b0c65226f88432246bad0edcebc63496623",
+      "target_rule": "RPY206",
+      "issue": "https://github.com/langchain-ai/langchain/issues/40471",
+      "repair_pr": null
+    },
+    {
+      "id": "requests-background",
+      "split": "background",
+      "label": "unlabeled_background",
+      "repo": "psf/requests",
+      "commit": "3c7baaa05ab4aa49cc819ce3a819d260de19c157",
+      "path": "src/requests/sessions.py",
+      "git_blob": "d11355be668b2dc03da02feb83c61ff24cc741f5",
+      "target_rule": null,
+      "issue": null,
+      "repair_pr": null
+    },
+    {
+      "id": "TS2614-unsupported",
+      "split": "unsupported",
+      "label": "out_of_scope",
+      "repo": "modelcontextprotocol/typescript-sdk",
+      "commit": "2d889f2b329e46680ec9bdd565de4616c497825a",
+      "path": "src/client/index.ts",
+      "git_blob": "ae0e698ec3d33adefb4a824cea31e68a8ec34024",
+      "target_rule": null,
+      "issue": "https://github.com/modelcontextprotocol/typescript-sdk/issues/2614",
+      "repair_pr": null
+    }
+  ]
+}
