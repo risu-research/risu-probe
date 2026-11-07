@@ -1,0 +1,109 @@
+{
+  "schema": "risu-p6b2-independent-holdout-v1",
+  "freeze_date": "2026-11-07",
+  "source_product_commit": "89db4b12a05e51fae475710133e254191c90657f",
+  "development_cases_excluded": [
+    "FastMCP #5030",
+    "FastMCP #3717",
+    "LangChain #40471"
+  ],
+  "design": "Two independently selected officially fixed Python SDK issues; official repairs and protocol-variant negative; one publicly withdrawn report; one unsupported-language control. Labels frozen before scanner evaluation. No rule adaptation permitted for the frozen score.",
+  "security": "PUBLIC Git sources only. No private repositories, credentials, live production APIs, tokens, or untrusted server targets.",
+  "counts": {
+    "known_defect": 2,
+    "official_fixed": 2,
+    "normal_control": 1,
+    "withdrawn_report": 1,
+    "unsupported": 1
+  },
+  "cases": [
+    {
+      "id": "M3353-old",
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3353",
+      "pr": "https://github.com/modelcontextprotocol/python-sdk/pull/3354",
+      "repo": "modelcontextprotocol/python-sdk",
+      "commit": "57394b0548d1e2dc2dce8d67d84985769df3b8bb",
+      "path": "src/mcp-types/mcp_types/_v2025_11_25/__init__.py",
+      "git_blob": "b639bf7af8becd91404c3876413ef0fa4f3c9c1a",
+      "label": "known_defect",
+      "family": "BOOL_PROPERTY_SCHEMA",
+      "split": "independent",
+      "reason": "pre-fix legacy tool schema has dict-only properties values"
+    },
+    {
+      "id": "M3353-fixed",
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3353",
+      "pr": "https://github.com/modelcontextprotocol/python-sdk/pull/3354",
+      "repo": "modelcontextprotocol/python-sdk",
+      "commit": "f1c40b062f2ba4bfdb0b7583e3ab6687e68b7cfc",
+      "path": "src/mcp-types/mcp_types/_v2025_11_25/__init__.py",
+      "git_blob": "b5f5b9673f14b105fd2eaf90863318b8e49be741",
+      "label": "official_fixed",
+      "family": "BOOL_PROPERTY_SCHEMA",
+      "split": "independent",
+      "reason": "official merged patch accepts boolean JSON Schema sub-schema"
+    },
+    {
+      "id": "M3337-old",
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3337",
+      "pr": "https://github.com/modelcontextprotocol/python-sdk/pull/3376",
+      "repo": "modelcontextprotocol/python-sdk",
+      "commit": "56af44727b291c5901d976bff6c6c8eff5649f23",
+      "path": "src/mcp/server/mcpserver/utilities/func_metadata.py",
+      "git_blob": "09e3d0a79542ebc090baaa0eec96e39917716fca",
+      "label": "known_defect",
+      "family": "RECURSIVE_SCHEMA_ROOT",
+      "split": "independent",
+      "reason": "recursive structured output schema has root $ref but no root object type"
+    },
+    {
+      "id": "M3337-fixed",
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3337",
+      "pr": "https://github.com/modelcontextprotocol/python-sdk/pull/3376",
+      "repo": "modelcontextprotocol/python-sdk",
+      "commit": "d8b638304ec6c65a583268eb4a1c691d7e77816f",
+      "path": "src/mcp/server/mcpserver/utilities/func_metadata.py",
+      "git_blob": "cc32433568916fb0a8fe12cf69057fbd21371596",
+      "label": "official_fixed",
+      "family": "RECURSIVE_SCHEMA_ROOT",
+      "split": "independent",
+      "reason": "official merged patch inlines local root $ref"
+    },
+    {
+      "id": "M3353-modern-control",
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3353",
+      "repo": "modelcontextprotocol/python-sdk",
+      "commit": "57394b0548d1e2dc2dce8d67d84985769df3b8bb",
+      "path": "src/mcp-types/mcp_types/_v2026_07_28/__init__.py",
+      "git_blob": "fb168b30590c62d33f452b79dc59d98b6959a902",
+      "label": "normal_control",
+      "family": "BOOL_PROPERTY_SCHEMA",
+      "split": "independent",
+      "reason": "contemporary protocol's free-form JSON Schema already accepts boolean sub-schemas"
+    },
+    {
+      "id": "F3590-withdrawn",
+      "issue": "https://github.com/PrefectHQ/fastmcp/issues/3590",
+      "repo": "PrefectHQ/fastmcp",
+      "commit": "53dab031e4fed759d4f271bd5266d041a106c8ce",
+      "path": "src/fastmcp/server/middleware/middleware.py",
+      "git_blob": "8022ee9ddec2cb3cebd593537942738478ab9bf9",
+      "label": "withdrawn_report",
+      "family": "MIDDLEWARE_RESULT_DISCARDED",
+      "split": "independent",
+      "reason": "upstream issue author acknowledged incorrect assumption: structuredContent vs text field"
+    },
+    {
+      "id": "TS2614-unsupported",
+      "issue": "https://github.com/modelcontextprotocol/typescript-sdk/issues/2614",
+      "repo": "modelcontextprotocol/typescript-sdk",
+      "commit": "2d889f2b329e46680ec9bdd565de4616c497825a",
+      "path": "src/client/index.ts",
+      "git_blob": "ae0e698ec3d33adefb4a824cea31e68a8ec34024",
+      "label": "unsupported",
+      "family": "CLIENT_CACHE_TOOL_METADATA",
+      "split": "independent",
+      "reason": "Python scanner does not analyze TypeScript; explicit unsupported exit outcome"
+    }
+  ]
+}
