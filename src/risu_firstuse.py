@@ -113,7 +113,7 @@ def cli(argv: list[str] | None=None) -> int:
     start=time.perf_counter()
     try:
         report=check(Path(args.project), args.evidence)
-        report['version']='0.9.23-experimental'
+        report['version']='0.9.24-experimental'
         # An AST parse is distinct from semantic verification. Never invent the latter.
         report['source_analysis']={'status':report['status'], 'python_parsed':report['summary']['python_parsed'],
                                    'openapi_parsed':report['summary']['openapi_parsed'], 'unverified':report['summary']['unverified']}
@@ -145,7 +145,7 @@ def cli(argv: list[str] | None=None) -> int:
             report['performance']={'scan_wall_ms':round((time.perf_counter()-start)*1000,3),
                                    'excludes_process_startup':True}
         if args.format=='text':
-            content=as_text(report).replace('RISU Probe check 0.9.18', 'RISU Probe check 0.9.23', 1)
+            content=as_text(report).replace('RISU Probe check 0.9.18', 'RISU Probe check 0.9.24', 1)
             content+='\nSource parse and MCP semantic verification are separate.\n'
             content+='MCP SDK replay: '+report['mcp_semantic_verification']['semantic_verification']+'\n'
             content+='MCP trace verification: '+report['mcp_trace_verification']['semantic_verification']+'\n'
@@ -169,7 +169,7 @@ def cli(argv: list[str] | None=None) -> int:
         elif args.format=='json':content=json.dumps(report,ensure_ascii=False,sort_keys=True,indent=2)+'\n'
         else:
             sarif=as_sarif(report)
-            sarif['runs'][0]['tool']['driver']['version']='0.9.23'
+            sarif['runs'][0]['tool']['driver']['version']='0.9.24'
             sarif['runs'][0]['properties']['mcp_semantic_verification']=report['mcp_semantic_verification']['semantic_verification']
             sarif['runs'][0]['properties']['mcp_trace_verification']=report['mcp_trace_verification']['semantic_verification']
             if args.mcp_sdk_old:
