@@ -74,7 +74,7 @@ paths:
 
     def test_check_success_uses_installed_wheel(self):
         from importlib import metadata
-        self.assertEqual(metadata.version('risu-probe-preview'),'0.9.23.dev0')
+        self.assertEqual(metadata.version('risu-probe-preview'),'0.9.24.dev0')
         (self.root/'p.py').write_text('x=1\n')
         self.assertEqual(cli([str(self.root)]),0)
     def test_sarif_supported(self):
