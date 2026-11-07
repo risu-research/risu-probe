@@ -60,17 +60,16 @@ def main():
     assert all(c['repo'] in ALLOWED and c['label'] in LABELS for c in cases)
     assert not a.scratch.exists()
     a.scratch.mkdir(parents=True)
-    roots={}
     rows=[]
-    for case in cases:
+    for index,case in enumerate(cases):
+        # Each pinned source gets its own shallow clone. Re-fetching multiple
+        # non-ancestor SHAs into one shallow checkout can corrupt shallow state
+        # and cause intermittent "shallow file has changed" Git errors.
         repo=case['repo']
-        if repo not in roots:
-            root=a.scratch/('git_'+str(len(roots)))
-            root.mkdir()
-            git(root,'init','-q')
-            git(root,'remote','add','origin','https://github.com/'+repo+'.git')
-            roots[repo]=root
-        root=roots[repo]
+        root=a.scratch/('git_'+str(index))
+        root.mkdir()
+        git(root,'init','-q')
+        git(root,'remote','add','origin','https://github.com/'+repo+'.git')
         commit=case['commit']
         blob=case['git_blob']
         assert len(commit)==len(blob)==40
