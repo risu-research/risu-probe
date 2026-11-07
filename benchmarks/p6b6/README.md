@@ -35,3 +35,10 @@ One upstream defect family, not 6 independent bugs; two different real upstream 
 The issue informed Draft-07 support, so this is a targeted before/fix regression; do not claim heldout recall. Previous P6-B2 independent static score 0/2 remains unchanged. A new source family and independent preregistered holdout are worthwhile before moving to P6-C.
 
 CI uses read-only contents permission, credentials are not persisted, and full upstream compilation runs on push/maintainer dispatch only, never on external PR.
+
+
+## Independent second real-server negative control
+
+The official **Filesystem Server** from the same pinned public upstream commit is compiled and executed separately. The fixture permits access only to a temporary synthetic directory. Two normal public-tool calls, list_directory and read_text_file, are captured from literal stdio. A separate jsonschema validator checks their original Draft-07 tool declarations and returned structuredContent, and RISU also checks the same bytes. Both calls were schema-conformant, with **0/2 RISU alarms and zero unverified assessments**. This is independent server implementation code but a related upstream SDK; it broadens the control group, not the independent defect count. Verified at https://github.com/risu-research/risu-probe/actions/runs/42381466592.
+
+The public-only workflow is .github/workflows/p6b6-filesystem-control.yml. Its checkout is read-only without retained credentials, uses the official fixed upstream commit, and never executes on fork pull requests.
