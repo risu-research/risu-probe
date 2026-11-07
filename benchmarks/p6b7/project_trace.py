@@ -24,8 +24,8 @@ def project(source:Path, family:str, output:Path, meta:Path)->dict:
             pairs[rec.get("id")]=idx
     changed=0;target=TOOLS[family];target_hash=None
     for idx,rec in enumerate(records):
-        if rec.get("id") in pairs and "result" in rec and
-           isinstance(rec["result"],dict) and isinstance(rec["result"].get("tools"),list):
+        if (rec.get("id") in pairs and "result" in rec and
+                isinstance(rec["result"],dict) and isinstance(rec["result"].get("tools"),list)):
             tools=rec["result"]["tools"]
             selected=[v for v in tools if isinstance(v,dict) and v.get("name")==target]
             if len(selected)!=1:raise ValueError("Frozen tool missing/ambiguous")
