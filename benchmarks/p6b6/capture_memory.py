@@ -22,7 +22,10 @@ async def capture(repo:Path,mode:str,scenario:str,out:Path)->dict:
     server=(repo/'src/memory/dist/index.js').resolve(strict=True)
     with tempfile.TemporaryDirectory(prefix='risu-public-memory-') as tmp:
         store=Path(tmp)/'synthetic.jsonl'
-        store.write_text(''.join(json.dumps(x,separators=(',',':'))+'\n' for x in SEED) if scenario=='seeded' else '')
+        entries=[dict(x) for x in SEED]
+        if scenario=='extra':
+            entries[0]['custom_id']='PUBLIC_SYNTHETIC_ID_123'
+        store.write_text(''.join(json.dumps(x,separators=(',',':'))+'\n' for x in entries) if scenario!='empty' else '')
         env={'HOME':tmp,'PATH':os.environ['PATH'],'MEMORY_FILE_PATH':str(store),
              'NODE_ENV':'production','CI':'true'}
         process=await asyncio.create_subprocess_exec('node',str(server),
@@ -54,7 +57,7 @@ async def capture(repo:Path,mode:str,scenario:str,out:Path)->dict:
             names={x['name'] for x in catalog['result']['tools']}
             assert {'read_graph','search_nodes','open_nodes'}<=names,names
             tests=[('read_graph',{}),('search_nodes',{'query':'Alice'}),
-                   ('open_nodes',{'names':['Alice']})] if scenario=='seeded' else [('read_graph',{})]
+                   ('open_nodes',{'names':['Alice']})] if scenario!='empty' else [('read_graph',{})]
             outcomes={}
             for id_,(name,args) in enumerate(tests,10):
                 response=await send({'jsonrpc':'2.0','id':id_,'method':'tools/call',
@@ -97,7 +100,7 @@ if __name__=='__main__':
     parser=argparse.ArgumentParser()
     parser.add_argument('--repo',type=Path,required=True)
     parser.add_argument('--mode',choices=UPSTREAM,required=True)
-    parser.add_argument('--scenario',choices=('seeded','empty'),required=True)
+    parser.add_argument('--scenario',choices=('seeded','extra','empty'),required=True)
     parser.add_argument('--out',type=Path,required=True)
     args=parser.parse_args()
     asyncio.run(capture(args.repo,args.mode,args.scenario,args.out))
