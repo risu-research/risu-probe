@@ -40,8 +40,10 @@ def _object_no_duplicates(pairs: list[tuple[str,Any]]) -> dict[str, Any]:
 def _read_json(path: Path) -> tuple[dict, str]:
     # Refuse symlinks in all ancestors, not just the final file.
     p = path.expanduser().absolute()
-    if any(candidate.is_symlink() for candidate in (p, *p.parents)):
-        raise ReplayEvidenceError('Symlinked capture paths are not accepted')
+    # macOS temp paths commonly traverse the system-managed /var -> /private/var alias.
+    # Refuse a symlink at the evidence file itself; parent aliases are valid OS paths.
+    if p.is_symlink():
+        raise ReplayEvidenceError('Symlinked capture files are not accepted')
     if not p.is_file():
         raise ReplayEvidenceError('Saved SDK capture not found: '+p.name[:80])
     if p.stat().st_size > MAX_CAPTURE_BYTES:
