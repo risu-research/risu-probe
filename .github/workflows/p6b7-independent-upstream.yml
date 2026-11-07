@@ -74,8 +74,20 @@ jobs:
                 (cd "$UP" && npm ci --ignore-scripts --omit=optional --no-audit --no-fund && npm run build --workspace=@modelcontextprotocol/server-filesystem)
               fi
               .p6b7-venv/bin/python benchmarks/p6b7/capture_stdio.py --repo "$UP" --family "$FAMILY" --version "$REV" --out ".p6b7-score/$FAMILY/$REV"
-              .p6b7-venv/bin/risu-probe verify-mcp-trace ".p6b7-score/$FAMILY/$REV/original_stdio.jsonl" --format json > ".p6b7-score/$FAMILY/$REV/risu.json"
-              echo "P6B7_FROZEN_OLD_PRODUCT_CAPTURED $FAMILY $REV"
+              set +e
+              .p6b7-venv/bin/risu-probe verify-mcp-trace ".p6b7-score/$FAMILY/$REV/original_stdio.jsonl" --format json > ".p6b7-score/$FAMILY/$REV/risu_raw_output.json" 2> ".p6b7-score/$FAMILY/$REV/risu_raw_stderr.txt"
+              RC=$?
+              set -e
+              if [[ "$RC" -eq 2 ]]; then
+                .p6b7-venv/bin/python -c 'import json,sys;from pathlib import Path;p=Path(sys.argv[1]);p.write_text(json.dumps({"schema":"risu-p6b7-raw-attempt-v1","status":"UNVERIFIED_RAW_TRACE","exit_code":2,"findings":[],"reason":"RISU scanner rejected raw input; no detection claim"})+"\\n")' ".p6b7-score/$FAMILY/$REV/risu.json"
+              elif [[ "$RC" -eq 0 || "$RC" -eq 1 ]]; then
+                cp ".p6b7-score/$FAMILY/$REV/risu_raw_output.json" ".p6b7-score/$FAMILY/$REV/risu.json"
+              else
+                echo "Unexpected RISU CLI execution failure"; exit 2
+              fi
+              .p6b7-venv/bin/python benchmarks/p6b7/project_trace.py --raw ".p6b7-score/$FAMILY/$REV/original_stdio.jsonl" --family "$FAMILY" --out ".p6b7-score/$FAMILY/$REV/projected_trace.jsonl" --meta ".p6b7-score/$FAMILY/$REV/projection.json"
+              .p6b7-venv/bin/risu-probe verify-mcp-trace ".p6b7-score/$FAMILY/$REV/projected_trace.jsonl" --format json > ".p6b7-score/$FAMILY/$REV/risu_projected.json"
+              echo "P6B7_FROZEN_OLD_PRODUCT_CAPTURED $FAMILY $REV raw_exit=$RC projected_secondary=YES"
               rm -rf "$UP"
             done
           done
@@ -105,4 +117,7 @@ jobs:
             .p6b7-independent-score.json
             .p6b7-score/*/*/origin.json
             .p6b7-score/*/*/risu.json
+            .p6b7-score/*/*/risu_projected.json
+            .p6b7-score/*/*/projection.json
+            .p6b7-score/*/*/projected_trace.jsonl
             .p6b7-score/*/*/original_stdio.jsonl
