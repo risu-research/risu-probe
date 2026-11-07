@@ -1,0 +1,68 @@
+name: P6-B6 safe installed wheel, three operating systems
+on:
+  push:
+    branches: ['qualification/p6b6-*']
+    paths: ['src/**', 'tests/**', 'pyproject.toml', 'benchmarks/p6b6/predecessor_git_blobs.json', '.github/workflows/p6b6-three-os.yml']
+  pull_request:
+    paths: ['src/**', 'tests/**', 'pyproject.toml', '.github/workflows/p6b6-three-os.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  product-regression:
+    name: Public installed wheel and rule regression
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Public-source hygiene and 36 untouched modules
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python - <<'PY'
+          import json,subprocess
+          from pathlib import Path
+          m=json.loads(Path('benchmarks/p6b6/predecessor_git_blobs.json').read_text())
+          assert m['origin_commit']=='9e82798493d8222a014bd90bc830b8e4d0af4cba'
+          assert m['original_modules']==40 and len(m['git_blob_sha1'])==40
+          changed=[]
+          for path,old_sha in m['git_blob_sha1'].items():
+              actual=subprocess.check_output(['git','hash-object',path],text=True).strip()
+              if actual!=old_sha:changed.append(path)
+          assert sorted(changed)==sorted(m['allowed_changed']),changed
+          print('P6B6_PREDECESSOR_36_OF_40_MODULES_BYTE_IDENTICAL')
+          PY
+      - name: Build new wheel and execute all installed product regressions
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .ci-p6b6/wheels
+          python -m pip wheel --no-deps --no-build-isolation -w .ci-p6b6/wheels .
+          python -m venv .ci-p6b6/env
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            PY=.ci-p6b6/env/Scripts/python.exe
+            CLI=.ci-p6b6/env/Scripts/risu-probe.exe
+          else
+            PY=.ci-p6b6/env/bin/python
+            CLI=.ci-p6b6/env/bin/risu-probe
+          fi
+          "$PY" -m pip install .ci-p6b6/wheels/risu_probe_preview-0.9.25.dev0-py3-none-any.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo P6B6_INSTALLED_PRODUCT_ALL_REGRESSIONS_PASS
