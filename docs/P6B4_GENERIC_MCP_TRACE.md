@@ -43,7 +43,7 @@ The tool uses `jsonschema`'s Draft 2020-12 validator. It explicitly abstains on 
 
 `capture_status=PARSED_BOUNDED_JSONRPC` means the **record syntax** was accepted. It is not proof that the capture is complete or genuinely recorded from a running server. `semantic_verification` reflects what can be inferred from matched, untrusted messages. `origin_integrity=UNATTESTED_LOCAL_CAPTURE` applies even when an exact SHA-256 of the file is reported: a digest shows file identity, not authenticated provenance. The result intentionally avoids echoing full source payloads or structured content values.
 
-The P6-B4 benchmark includes **actual official MCP SDK 2.1.0 client/server calls in-memory**, but the supplied JSON-RPC-shaped file is **normalized from observed SDK objects**, not a literal STDIO or HTTP wire recording. The negative examples are **controlled synthetic mutations**, not undiscovered vulnerabilities. The CI uses only public packages, synthetic non-sensitive data, no third-party production endpoint, and read-only repository permissions. Heavy SDK replays are excluded from external PR jobs.
+P6-B4 has two separate protocol evidence controls. First it invokes **actual official MCP SDK 2.1.0 client/server calls in-memory** and normalizes observed SDK objects into JSON-RPC-shaped records; these are **not literal wire bytes**. Second, an official SDK 2.1.0 server is launched as a **separate, local stdio process** and an independently implemented test client writes real JSON-RPC requests and preserves the server's byte-exact JSON-RPC responses. The raw public fixture and separate audit files are saved with the CI artifacts. Both controls use only synthetic values. The negative cases in both tests are **explicitly injected mutations of the observed normal records**, not genuine upstream bugs or live-user failures. The CI uses only public packages, synthetic non-sensitive data, no third-party production endpoint, and read-only repository permissions. Heavy SDK replays are excluded from external PR jobs.
 
 ## Ideas reused, but claims scoped
 
@@ -55,9 +55,9 @@ The P6-B4 benchmark includes **actual official MCP SDK 2.1.0 client/server calls
 
 ## Future qualification gates
 
-1. Capture literal separate-process MCP stdio bytes from a fully local official SDK pair, with independent SHA manifests and controlled fault injection, explicitly separated from SDK-normalized records.
-2. Extend bounded schema support and multi-page tool discovery without changing the secure abstention rule.
-3. Evaluate unseen public defect/fix pairs frozen **before** introducing further detector rules. Existing two SDK benchmark defects used in designing P6-B3 are development cases, not holdout scores.
-4. Keep the original P6-B2 0/2 static detection measurement untouched.
+1. Extend bounded schema support and multi-page tool discovery without changing the secure abstention rule.
+2. Evaluate unseen public defect/fix pairs frozen **before** introducing further detector rules. Existing two SDK benchmark defects used in designing P6-B3 are development cases, not holdout scores.
+3. Keep the original P6-B2 0/2 static detection measurement untouched.
+4. Add imported official Inspector/SDK capture conversion, while retaining source/transport provenance and any uncertainty.
 
 Protocol reference: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2025-11-25/server/tools.mdx and https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/schema/2026-07-28/schema.json .
