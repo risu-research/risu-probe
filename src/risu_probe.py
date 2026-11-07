@@ -28,7 +28,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, parse_qsl
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
-VERSION = '0.9.23-experimental'
+VERSION = '0.9.24-experimental'
 PROBLEM = 'application/problem+json'
 MODERN = '2026-07-28'
 LEGACY = '2025-11-25'
