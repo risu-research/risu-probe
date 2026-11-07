@@ -137,6 +137,7 @@ def cli(argv: list[str] | None=None) -> int:
         if args.format=='text':
             content=as_text(report).replace('RISU Probe check 0.9.18', 'RISU Probe check 0.9.22', 1)
             content+='\nSource parse and MCP semantic verification are separate.\n'
+            content+='MCP semantic verification: '+report['mcp_semantic_verification']['semantic_verification']+'\n'
             if args.mcp_sdk_old:
                 from risu_mcp_replay import as_text as mcp_as_text
                 content+='\n'+mcp_as_text(report['mcp_semantic_verification'])
@@ -155,6 +156,7 @@ def cli(argv: list[str] | None=None) -> int:
         else:
             sarif=as_sarif(report)
             sarif['runs'][0]['tool']['driver']['version']='0.9.22'
+            sarif['runs'][0]['properties']['mcp_semantic_verification']=report['mcp_semantic_verification']['semantic_verification']
             if args.mcp_sdk_old:
                 from risu_mcp_replay import as_sarif as mcp_as_sarif
                 sdk_run=mcp_as_sarif(report['mcp_semantic_verification'])['runs'][0]
