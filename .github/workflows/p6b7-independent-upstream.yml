@@ -33,6 +33,7 @@ jobs:
           python tools/public_ci_audit.py
           test "$(git hash-object src/risu_mcp_trace.py)" = 554e2060af9deedc013b9338f837c6fd46318406
           test "$(git hash-object pyproject.toml)" = 86af0c9285f786a8a71e08ab8a0497f7199873e6
+          test "$(git hash-object benchmarks/p6b7/frozen_upstream_cases.json)" = f91f15fc8324ebe8741fb295bbd70f258197f136
           python - <<'PY'
           import json
           from pathlib import Path
@@ -111,6 +112,7 @@ jobs:
         with:
           name: risu-p6b7-preregistered-heldout-public
           retention-days: 21
+          include-hidden-files: true
           if-no-files-found: warn
           path: |
             benchmarks/p6b7/frozen_upstream_cases.json
