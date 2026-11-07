@@ -77,6 +77,12 @@ class TestP6B5(unittest.TestCase):
         self.assertEqual(r['session_protocols'][0]['effective_protocol'],'unknown')
         self.assertIn('UNSUPPORTED_NEGOTIATED_PROTOCOL',{x['code'] for x in r['unverified']})
 
+    def test_unsupported_protocol_secret_never_echoed(self):
+        value='PRIVATE_PROTOCOL_STRING_SHOULD_NOT_LEAK'
+        r=analyze(trace(value))
+        self.assertEqual(r['session_protocols'][0]['effective_protocol'],'unknown')
+        self.assertNotIn(value,json.dumps(r))
+
     def test_2025_03_26_supported(self):
         r=analyze(trace('2025-03-26'))
         self.assertEqual(r['session_protocols'][0]['effective_protocol'],'2025-03-26')
