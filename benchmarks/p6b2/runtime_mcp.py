@@ -11,6 +11,13 @@ import asyncio
 import importlib.metadata
 import json
 from pathlib import Path
+from pydantic import BaseModel
+
+class Node(BaseModel):
+    name: str
+    children: list["Node"] = []
+
+Node.model_rebuild()
 
 def exception_summary(exc: BaseException) -> dict:
     text=str(exc)
@@ -43,13 +50,6 @@ async def recursive_mcp_protocol() -> dict:
     from mcp.client import Client
     from mcp.server.mcpserver import MCPServer
     from mcp.server.mcpserver.utilities.func_metadata import func_metadata
-    from pydantic import BaseModel
-
-    class Node(BaseModel):
-        name: str
-        children: list["Node"] = []
-
-    Node.model_rebuild()
     def tree() -> Node:
         return Node(name="root",children=[Node(name="leaf")])
     mcp=MCPServer("p6b2-public-synthetic")
