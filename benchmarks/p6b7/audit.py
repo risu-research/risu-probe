@@ -121,7 +121,7 @@ def evaluate(root:Path)->dict:
         relevant=RELEVANT_RULES[fam]
         caught=bool(runtime[fam] and old_rules & relevant and not fixed_rules & relevant)
         projected_caught=bool(runtime[fam] and old_projected & relevant and not fixed_projected & relevant)
-        gaps=sum(v["risu"]["summary"].get("unverified_count",1) for v in (old,fixed))
+        gaps=sum(v["risu"].get("summary",{}).get("unverified_count",1) for v in (old,fixed))
         secondary_gaps=sum(v["secondary"]["summary"]["unverified_count"] for v in (old,fixed))
         rows.append({
           "family":fam,"upstream_bug_reproduced":runtime[fam],
