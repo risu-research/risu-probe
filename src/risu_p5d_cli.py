@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='verify-mcp':
+        from risu_mcp_replay import cli
+        return cli(args[1:])
     if args and args[0]=='doctor':
         from risu_firstuse import doctor_cli
         return doctor_cli(args[1:])
