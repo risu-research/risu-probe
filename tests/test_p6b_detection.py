@@ -12,7 +12,7 @@ OLD="""class Tool:
         return ToolResult(content=content, structured_content=value)
 """
 FIX=OLD.replace("except (pydantic_core.PydanticSerializationError, UnicodeDecodeError):",
-                "except (pydantic_core.PydanticSerializationError, UnicodeDecodeError) as e:\\n            if self.output_schema is not None:\\n                raise ToolError(str(e)) from e")
+                "except (pydantic_core.PydanticSerializationError, UnicodeDecodeError) as e:\n            if self.output_schema is not None:\n                raise ToolError(str(e)) from e")
 NO_SCHEMA=OLD.replace("if self.output_schema is None: pass","pass")
 class PublicRule(unittest.TestCase):
     def ids(self,source):
@@ -20,6 +20,7 @@ class PublicRule(unittest.TestCase):
             path=Path(root)/'probe.py'
             path.write_text(source)
             report=scan(path)
+            self.assertEqual(report['summary']['python_parsed'],1,'Fixture must be parseable Python')
             return [x for x in report['findings'] if x['rule_id']=='RPY204']
     def test_unprotected_fallback_suspected(self):
         results=self.ids(OLD)
@@ -32,7 +33,7 @@ class PublicRule(unittest.TestCase):
     def test_no_project_code_executed(self):
         with tempfile.TemporaryDirectory() as root:
             marker=Path(root)/'DO_NOT_CREATE'
-            (Path(root)/'probe.py').write_text(f"from pathlib import Path\\nPath({str(marker)!r}).touch()\\n")
+            (Path(root)/'probe.py').write_text(f"from pathlib import Path\nPath({str(marker)!r}).touch()\n")
             scan(Path(root))
             self.assertFalse(marker.exists())
 if __name__=='__main__':unittest.main()
