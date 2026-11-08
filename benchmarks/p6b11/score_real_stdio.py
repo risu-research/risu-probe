@@ -15,7 +15,7 @@ from risu_mcp_trace import verify_trace
 
 RAW_SCHEMA = "risu-b11-raw-stdio-frame-v1"
 
-def convert(raw:Path,trace:Path):
+def convert(raw:Path,trace:Path,expected_calls:int=12):
     frames=[]
     messages=[]
     seen=set()
@@ -58,7 +58,7 @@ def convert(raw:Path,trace:Path):
             if frame["direction"]!="server_to_client": raise ValueError("Unexpected server response direction")
             if mid in responses:raise ValueError("Duplicate response ID")
             responses[mid]=msg
-    if len(calls)!=12 or any(id_ not in responses for id_ in req):
+    if len(calls)!=expected_calls or any(id_ not in responses for id_ in req):
         raise ValueError("Original SDK request/response correspondence incomplete")
     if len([v for v in req.values() if v["method"]=="tools/list"])!=1:
         raise ValueError("Actual tools/list not observed exactly once")
