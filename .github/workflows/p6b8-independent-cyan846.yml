@@ -1,0 +1,149 @@
+name: RISU P6-B8 independent CYAN846 pinned SDK holdout
+on:
+  push:
+    branches: ['qualification/p6b8-*']
+    paths:
+      - 'benchmarks/p6b8/independent_holdout_frozen.json'
+      - 'benchmarks/p6b8/cyan846_adapter.test.append.ts'
+      - '.github/workflows/p6b8-independent-cyan846.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-upstream-fixed-pair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+      - name: Verify prior-frozen product and manifest
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = f11a080976688b7e4076b0e2ab9f83b350b6bf3a
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          m=json.loads(Path('benchmarks/p6b8/independent_holdout_frozen.json').read_text())
+          assert m['frozen_engine_commit']=='a6a23c7c77c626ec53256eb998e61c06bf7f69ed'
+          assert m['case']['id']=='CYAN846'
+          assert m['status']=='FROZEN_NOT_YET_EXECUTED'
+          print('CYAN846_SELECTION_PREREGISTERED_BEFORE_EXECUTION')
+          PY
+          python -m venv .b8-holdout-venv
+          .b8-holdout-venv/bin/python -m pip install --disable-pip-version-check .
+      - name: Run untouched pinned upstream framework old and fixed with SDK client
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            if [[ "$REV" == old ]]; then
+              SHA=876d69313e1b06662e459c2fdc802bb860f11eb7
+              EXPECT_BLOB=2ebdc722be9e8f1662699d52df02dc6bc252ea54
+            else
+              SHA=15c478caf0d865d6cfc9fa7f6beb9f2ddc87eb6a
+              EXPECT_BLOB=eebc4db0f9b61062f85148f6c8bd55624ac6b0aa
+            fi
+            UP=".cyan846-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/cyanheads/mcp-ts-core.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:src/mcp-server/tools/utils/toolHandlerFactory.ts)" = "$EXPECT_BLOB"
+            cp "$UP/tests/unit/mcp-server/tools/tool-registration.test.ts" "$UP/.original-upstream-test.ts"
+            cat benchmarks/p6b8/cyan846_adapter.test.append.ts >> "$UP/tests/unit/mcp-server/tools/tool-registration.test.ts"
+            (cd "$UP" && bun install --frozen-lockfile --ignore-scripts)
+            mkdir -p ".cyan846-results/$REV"
+            CAPTURE="$GITHUB_WORKSPACE/.cyan846-results/$REV/sdk-capture.json"
+            (cd "$UP" && RISU_B8_CAPTURE_PATH="$CAPTURE" bunx vitest run tests/unit/mcp-server/tools/tool-registration.test.ts -t 'RISU P6B8 CYAN846 frozen capture' --reporter=dot)
+            .b8-holdout-venv/bin/python - "$CAPTURE" ".cyan846-results/$REV/trace.jsonl" <<'PY'
+          import json,sys
+          from pathlib import Path
+          r=json.loads(Path(sys.argv[1]).read_text())
+          if r['status']=='SDK_RESULT':
+              Path(sys.argv[2]).write_text(''.join(json.dumps(x,sort_keys=True)+'\n' for x in r['rows']))
+          else:
+              Path(sys.argv[2]).write_text('')
+          print('CYAN846_SDK_CAPTURE',r['status'])
+          PY
+            if [[ -s ".cyan846-results/$REV/trace.jsonl" ]]; then
+              .b8-holdout-venv/bin/risu-probe verify-mcp-trace ".cyan846-results/$REV/trace.jsonl" --format json > ".cyan846-results/$REV/risu.json"
+            fi
+            rm -rf "$UP"
+          done
+      - name: Independently adjudicate upstream reproduction before RISU detection
+        run: |
+          set -euo pipefail
+          .b8-holdout-venv/bin/python - <<'PY'
+          from pathlib import Path
+          import json
+          def read(rev,key):
+              p=Path('.cyan846-results')/rev/key
+              return json.loads(p.read_text()) if p.exists() else None
+          b,f=read('old','sdk-capture.json'),read('fixed','sdk-capture.json')
+          result={'schema':'risu-p6b8-cyan846-heldout-score-v1',
+                  'role':'NEW_INDEPENDENT_FAMILY_NOT_USED_TO_TUNE_ENGINE',
+                  'original_engine_git_blob':'f11a080976688b7e4076b0e2ab9f83b350b6bf3a',
+                  'source_transport':'REAL_UPSTREAM_SDK_IN_MEMORY_WITH_RECONSTRUCTED_JSONRPC_ENVELOPE',
+                  'issue':'https://github.com/cyanheads/mcp-ts-core/issues/846',
+                  'reproduction':'UNVERIFIED','diagnostic_detection':'NOT_SCORED',
+                  'normal_control':'UNVERIFIED'}
+          if b['status']=='SDK_RESULT' and f['status']=='SDK_RESULT':
+              old=b['rows'][3]['result']; fixed=f['rows'][3]['result']
+              old_text=' '.join(c.get('text','') for c in old.get('content',[]) if isinstance(c,dict))
+              upstream_bug=(old.get('isError') is True and 'output validation' in old_text.lower()
+                            and fixed.get('isError') is not True
+                            and fixed.get('structuredContent',{}).get('flag') is True)
+              result['reproduction']='VERIFIED_BUG_FIX' if upstream_bug else 'DID_NOT_REPRODUCE'
+              normal_b=b['rows'][5]['result']; normal_f=f['rows'][5]['result']
+              normal_ok=(normal_b.get('isError') is not True and normal_f.get('isError') is not True
+                         and normal_b.get('structuredContent',{}).get('value')=='ok'
+                         and normal_f.get('structuredContent',{}).get('value')=='ok')
+              result['normal_control']='PASS' if normal_ok else 'FAIL'
+              if upstream_bug:
+                  ro=read('old','risu.json');rf=read('fixed','risu.json')
+                  oldcodes={v['code'] for v in ro['unverified']}
+                  newcodes={v['code'] for v in rf['unverified']}
+                  result['diagnostic_detection']=('SERVER_REPORTED_REJECTION_CLASSIFIED'
+                      if 'REPORTED_OUTPUT_VALIDATION_REJECTION' in oldcodes
+                      and 'REPORTED_OUTPUT_VALIDATION_REJECTION' not in newcodes
+                      else 'MISSED')
+                  result['independently_proven_schema_mismatch_by_risu']=False
+                  result['new_rule_confirmed_mismatch_count']=len(ro['findings'])
+          Path('.cyan846-heldout-score.json').write_text(json.dumps(result,indent=2)+'\n')
+          print(json.dumps(result,indent=2))
+          if result['reproduction']!='VERIFIED_BUG_FIX':
+              print('Upstream reproduction unavailable: not awarding detection success')
+          if result['normal_control']=='FAIL':
+              raise SystemExit('Normal control failed')
+          if result['diagnostic_detection']=='MISSED':
+              raise SystemExit('Heldout diagnostic miss (do not retune frozen engine)')
+          PY
+      - name: Archive synthetic public holdout evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b8-cyan846-independent-public
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b8/independent_holdout_frozen.json
+            .cyan846-results/*/sdk-capture.json
+            .cyan846-results/*/trace.jsonl
+            .cyan846-results/*/risu.json
+            .cyan846-heldout-score.json
