@@ -33,10 +33,28 @@ jobs:
           test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
           python -m venv .b11-normal-env
           .b11-normal-env/bin/python -m pip install --disable-pip-version-check '.[fidelity]'
-      - name: Evaluate precommitted seeded 1100 normal and 200 injected examples
+      - name: Preserve and adjudicate original frozen B10 failures (never overwrite)
         run: |
           set -euo pipefail
+          set +e
           .b11-normal-env/bin/python benchmarks/p6b11/normal_stress.py .b11-normal-results
+          ORIGINAL_RC=$?
+          set -e
+          ORIGINAL_RC="$ORIGINAL_RC" .b11-normal-env/bin/python - <<'PY'
+          import os, json
+          from pathlib import Path
+          score=json.loads(Path('.b11-normal-results/normal_stress_score.json').read_text())
+          assert int(os.environ['ORIGINAL_RC'])==1, "Frozen baseline failure must stay visible"
+          assert score['summary']=={
+              'normal_total':1100, 'normal_false_positive':50,
+              'injected_total':200, 'injected_missed':0, 'unverified':0,
+          }, 'Unexpected change in original frozen B10 corpus score'
+          print('B11_B10_FROZEN_BASELINE_HAS_50_REAL_UNICODE_LINE_FALSE_POSITIVES')
+          PY
+      - name: Compare new B11 physical-line repair and post-discovery 640/120 challenge
+        run: |
+          set -euo pipefail
+          .b11-normal-env/bin/python benchmarks/p6b11/compare_repaired.py .b11-repair-results
       - name: Preserve normal stress scores even when a baseline fails
         if: always()
         uses: actions/upload-artifact@v4
@@ -47,7 +65,9 @@ jobs:
           if-no-files-found: warn
           path: |
             .b11-normal-results
+            .b11-repair-results
             benchmarks/p6b11/frozen_experiment.json
+            benchmarks/p6b11/followup_challenge_prelock.json
 
   genuine-official-sdk-stdio:
     runs-on: ubuntu-latest
