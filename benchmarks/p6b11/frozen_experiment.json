@@ -1,0 +1,37 @@
+{
+  "schema": "risu-p6b11-frozen-normal-and-live-stdio-experiment-v1",
+  "frozen_at_utc": "2026-11-08",
+  "base_branch": "qualification/p6b10-rendered-fidelity-heldout-20261108",
+  "base_commit": "f7f3701442e4928387ff49056265d5960ba8294d",
+  "frozen_display_module_git_blob": "8bc96f64eba96a314479dfaea17af46b38e1ad0a",
+  "frozen_mcp_trace_module_git_blob": "b709cc61e37657ff18f90b15113aa500334e6762",
+  "mcp_python_sdk_pin": "mcp==1.28.0",
+  "sdk_source": "https://github.com/modelcontextprotocol/python-sdk/tree/v1.28.0",
+  "normal_corpus": {
+    "seed": 20261108,
+    "target_normal": 1100,
+    "target_intentional_invalid": 200,
+    "types": [
+      "markdown-literal",
+      "code-copy",
+      "json-string-special"
+    ],
+    "labeling": "GENERATOR_DEFINED_NOT_THIRD_PARTY_REVIEWED",
+    "scoring": "False positive means observed RDF601 on declared-valid synthetic relationship; unverified is counted separately, never excluded"
+  },
+  "wire": {
+    "server": "Python lowlevel MCP SDK authentic stdio child, offline synthetic server",
+    "client": "Python MCP SDK ClientSession over stdio_client launched proxy",
+    "evidence": "raw_byte_b64 direct tee of both subprocess transport directions; sha256 every frame; normalized JSON-RPC copy accompanied by raw bytes and exact equality recheck",
+    "controls": [
+      "schema-valid content and structuredContent",
+      "deliberately corrupted display with valid schema",
+      "absent declared literal -> unverified only"
+    ],
+    "scope": "Actual SDK stdio with synthetic local server, not validation of diverse third-party servers"
+  },
+  "source_constraints": "Never execute remotely configured or user-provided commands; fixed local server path only; no network or credentials; bounded output and 4 MiB trace; avoid raw user values",
+  "rules": "Do not modify either frozen analyzer. If a heldout normal fails, report it honestly as baseline and separate any follow-on fixed engine from this baseline",
+  "history": "P6-B9 and B10 previous ledgers preserved as frozen scores",
+  "status": "FROZEN_BEFORE_B11_SUITE_OR_REAL_STDIO_RUN"
+}
