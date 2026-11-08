@@ -43,6 +43,7 @@ py-modules = [
   "risu_mcp_replay",
   "risu_mcp_trace",
   "risu_display_fidelity",
+  "risu_display_fidelity_b11",
   "risu_nested_schema",
   "risu_obligations",
   "risu_onboarding",
