@@ -1,0 +1,85 @@
+name: RISU P6-B9 original mcp-ts-core Markdown and enrichment heldouts
+on:
+  push:
+    branches: ['qualification/p6b9-*']
+    paths:
+      - 'benchmarks/p6b9/cyan760_785_append.test.ts'
+      - 'benchmarks/p6b9/evaluate_cyan760_785.py'
+      - '.github/workflows/p6b9-cyan760-785-holdout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-upstream-cyan-twin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+      - name: Enforce immutable engine and public source-only guard
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m venv .p6b9-cyan-env
+          .p6b9-cyan-env/bin/python -m pip install --disable-pip-version-check .
+          mkdir -p .p6b9-cyan
+      - name: Execute actual pinned source old/fixed with synthetic input
+        run: |
+          set -euo pipefail
+          for FAMILY in CYAN760 CYAN785; do
+            for REV in old fixed; do
+              case "$FAMILY/$REV" in
+                CYAN760/old) SHA=f0fbfff65290113a4a5c5c161fc018a7ba397e53; BLOB=6984ba8b2aa9e479da95058e59dadca08ef01463 ;;
+                CYAN760/fixed) SHA=d7ab46c5d4ff107690c6d2f2b12487b84345df5e; BLOB=2c9aaa086a99d0e82417dd8a312b0bbb6d5b9710 ;;
+                CYAN785/old) SHA=91a0b66d7273b25aa713a72d78d23345c6a9f468; BLOB=21bead1d9667ed0ff21628e44e68b446f306923a ;;
+                CYAN785/fixed) SHA=3e0b36795c1d9086532f55dcbec842b2af5146ad; BLOB=16ce7e0d9d8ca5c1ef1da26e4d92f4f938db292f ;;
+                *) exit 2 ;;
+              esac
+              UP=".p6b9-cyan-$FAMILY-$REV"
+              mkdir -p "$UP" ".p6b9-cyan/$FAMILY"
+              git -C "$UP" init -q
+              git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/cyanheads/mcp-ts-core.git
+              GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+              git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+              test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+              test "$(git -C "$UP" rev-parse HEAD:src/mcp-server/tools/utils/toolResult.ts)" = "$BLOB"
+              cat benchmarks/p6b9/cyan760_785_append.test.ts >> "$UP/tests/unit/mcp-server/tools/enrichment.test.ts"
+              (cd "$UP" && bun install --frozen-lockfile --ignore-scripts)
+              OUT="$GITHUB_WORKSPACE/.p6b9-cyan/$FAMILY/$REV.json"
+              (cd "$UP" && RISU_B9_CYAN_FAMILY="$FAMILY" RISU_B9_CYAN_CAPTURE="$OUT" \
+                bunx vitest run tests/unit/mcp-server/tools/enrichment.test.ts -t 'RISU P6B9 PINNED actual upstream component capture' --reporter=dot)
+              .p6b9-cyan-env/bin/python benchmarks/p6b9/evaluate_cyan760_785.py trace ".p6b9-cyan/$FAMILY/$REV.json" ".p6b9-cyan/$FAMILY/$REV.jsonl"
+              .p6b9-cyan-env/bin/risu-probe verify-mcp-trace ".p6b9-cyan/$FAMILY/$REV.jsonl" --protocol-version 2025-11-25 --format json > ".p6b9-cyan/$FAMILY/$REV-risu.json"
+              rm -rf "$UP"
+            done
+            .p6b9-cyan-env/bin/python benchmarks/p6b9/evaluate_cyan760_785.py score \
+              ".p6b9-cyan/$FAMILY/old.json" ".p6b9-cyan/$FAMILY/fixed.json" \
+              ".p6b9-cyan/$FAMILY/old-risu.json" ".p6b9-cyan/$FAMILY/fixed-risu.json" \
+              ".p6b9-cyan/$FAMILY/independent_score.json"
+          done
+      - name: Archive genuine upstream component evidence and honest misses
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b9-cyan760-785-independent-public
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b9/prelocked_seven_families.json
+            .p6b9-cyan/*/*.json
+            .p6b9-cyan/*/*.jsonl
