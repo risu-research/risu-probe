@@ -1,0 +1,139 @@
+name: RISU P6-B9 aggregate seven preregistered independent GitHub artifacts
+on:
+  push:
+    branches: ['qualification/p6b9-*']
+    paths:
+      - 'benchmarks/p6b9/aggregate_scores.py'
+      - 'benchmarks/p6b9/prelocked_seven_families.json'
+      - 'tests/test_p6b9_score_aggregation.py'
+      - '.github/workflows/p6b9-aggregate-seven.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-seven-family-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify frozen product, manifest and ledger tests
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m unittest discover -s tests -p test_p6b9_score_aggregation.py -v
+      - name: Download immutable source-run artifact php
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42508748186
+          github-token: ${{ github.token }}
+          name: risu-p6b9-php673-public-independent
+          path: .p6b9-source-artifacts/php
+      - name: Download immutable source-run artifact go
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42508965048
+          github-token: ${{ github.token }}
+          name: risu-p6b9-go1139-public-independent
+          path: .p6b9-source-artifacts/go
+      - name: Download immutable source-run artifact proxy
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42509194567
+          github-token: ${{ github.token }}
+          name: risu-p6b9-proxy253-public-independent
+          path: .p6b9-source-artifacts/proxy
+      - name: Download immutable source-run artifact cyan
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42509461777
+          github-token: ${{ github.token }}
+          name: risu-p6b9-cyan760-785-independent-public
+          path: .p6b9-source-artifacts/cyan
+      - name: Download immutable source-run artifact ag2
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42509724198
+          github-token: ${{ github.token }}
+          name: risu-p6b9-ag23262-public-independent
+          path: .p6b9-source-artifacts/ag2
+      - name: Download immutable source-run artifact rust
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42509963619
+          github-token: ${{ github.token }}
+          name: risu-p6b9-rust137-public-independent
+          path: .p6b9-source-artifacts/rust
+      - name: Fail-closed seven-family score aggregation, with all missing and missed cases included
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import importlib.util,json
+          from pathlib import Path
+          root=Path('.p6b9-source-artifacts')
+          groups={
+            'PHP673':'php','GO1139':'go','PROXY253':'proxy',
+            'CYAN760':'cyan','CYAN785':'cyan',
+            'AG23262':'ag2','RUST137':'rust',
+          }
+          scores={}
+          for family,group in groups.items():
+              matches=list((root/group).rglob('independent_score.json'))
+              if group=='cyan':
+                  matches=[p for p in matches if p.parent.name==family]
+              if len(matches)!=1:
+                  raise RuntimeError('Missing or ambiguous independent source score: '+family+
+                      ' count='+str(len(matches)))
+              scores[family]=matches[0]
+              print('PINNED_SCORE',family,str(matches[0]))
+          spec=importlib.util.spec_from_file_location(
+              'seven_prelocked_family_scorebook',
+              'benchmarks/p6b9/aggregate_scores.py')
+          mod=importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(mod)
+          result=mod.audit(Path('benchmarks/p6b9/prelocked_seven_families.json'),scores)
+          s=result['summary']
+          assert s['families_preselected']==7,s
+          assert s['families_scored']==7,s
+          assert s['verified_reproduced_families']==7,s
+          assert s['not_verified_or_not_executed']==0,s
+          assert s['issue_relevant_detected_families']==5,s
+          assert s['observed_direct_adapter_mismatches']==3,s
+          assert s['observed_incomplete_catalog_diagnostics']==2,s
+          assert s['reproduced_families_missed']==2,s
+          assert s['normal_controls_failed_families']==0,s
+          assert set(x['family'] for x in result['case_rows'])==set(scores)
+          Path('p6b9-seven-family-ledger.json').write_text(
+              json.dumps(result,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps(s,indent=2,sort_keys=True))
+          print('P6B9_ALL_SEVEN_INDEPENDENT_SOURCE_SCORES_AUDITED')
+          PY
+      - name: Publish independent public-only score ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b9-seven-family-frozen-ledger
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b9/prelocked_seven_families.json
+            p6b9-seven-family-ledger.json
