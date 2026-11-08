@@ -121,7 +121,7 @@ class TestGenericMCPTrace(unittest.TestCase):
     def test_incomplete_list_page_not_false_positive(self):
         rows=sample();rows[1]['result']['nextCursor']='next'
         r=run(rows)
-        self.assertIn('PAGINATED_TOOLS_LIST',{x['code'] for x in r['unverified']})
+        self.assertIn('INCOMPLETE_CATALOG_PAGINATION',{x['code'] for x in r['unverified']})
         self.assertEqual(r['summary']['findings'],0)
     def test_catalog_changed_invalidates(self):
         rows=sample()
