@@ -1,0 +1,13 @@
+{
+  "schema": "risu-mcp-behavior-contract-v1",
+  "rules": [
+    {
+      "id": "explicit_read_text_head_zero_empty",
+      "tool": "read_text_file",
+      "when": {
+        "head": 0
+      },
+      "text_equals": ""
+    }
+  ]
+}
