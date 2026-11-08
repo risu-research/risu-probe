@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='verify-display-fidelity-b11':
+        from risu_display_fidelity_b11 import cli
+        return cli(args[1:])
     if args and args[0]=='verify-display-fidelity':
         from risu_display_fidelity import cli
         return cli(args[1:])
