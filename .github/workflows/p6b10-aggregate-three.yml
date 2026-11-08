@@ -78,6 +78,7 @@ jobs:
         with:
           name: risu-p6b10-three-source-independent-score
           retention-days: 21
+          include-hidden-files: true
           if-no-files-found: warn
           path: |
             .b10-two-id.txt
