@@ -61,6 +61,17 @@ This is genuine cross-project evidence that the general-purpose JSON-RPC contrac
 
 A second lesson is equally important: the two reproduced but missed TypeScript text/Markdown cases reveal a general family of **value fidelity** errors that are invisible to basic JSON Schema checking. Fixing this requires a separate, explicitly justified text-to-value relation (raw object versus rendered value), and a new prelocked independent holdout. Reusing CYAN760 and CYAN785 as an *independent* validation after adding such a rule would be leakage.
 
+
+## Separate synthetic stress controls: 1,200 deterministic traces
+
+This suite is **not** part of the seven-source holdout score and never alters its denominator.
+
+- 800 normal synthetic trace records varied tool names, declared JSON Schema primitive types nested within object results, protocol versions, order of unrelated declarations, and arbitrary textual `content[]`. All 800 schema checks completed and emitted **0 unexpected findings**.
+- 400 additional synthetic records deliberately changed a single output field to a JSON Schema-invalid type. All 400 were flagged by the existing `RMC502` rule. Unverified/unchecked records: **0**.
+- Seed: `20261108`. Source: `benchmarks/p6b9/synthetic_control_stress.py`. Frozen analyzer blob: `b709cc61e37657ff18f90b15113aa500334e6762`.
+- GitHub Actions: https://github.com/risu-research/risu-probe/actions/runs/42511048231. Artifact: `risu-p6b9-1200-deterministic-synthetic-controls`.
+- **Caution:** Generated cases are conditional on the generator's supported schema types; passing is evidence of internal reliability on this controlled corpus only. Do not infer population specificity, false-positive rate, or success on unmodeled software behaviors.
+
 ## Next engineering gate
 
 1. Turn two misses into *development* cases; make an optional, bounded and non-LLM `display-fidelity` checker where both original scalar value and rendered text exist and an explicit decoding policy is supplied. Never attempt to infer semantic equality from arbitrary prose or tool names.
