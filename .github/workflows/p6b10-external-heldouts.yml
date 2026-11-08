@@ -1,0 +1,138 @@
+name: RISU P6-B10 pinned external literal fidelity holdout
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+    paths:
+      - '.github/workflows/p6b10-external-heldouts.yml'
+      - 'benchmarks/p6b10/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-pair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+      - name: Verify detector frozen before any independent source execution
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_display_fidelity.py)" = 8bc96f64eba96a314479dfaea17af46b38e1ad0a
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          f=json.loads(Path('benchmarks/p6b10/detector_freeze.json').read_text())
+          m=json.loads(Path('benchmarks/p6b10/prelocked_three_display_fidelity.json').read_text())
+          assert f['frozen_detector_module_git_blob']=='8bc96f64eba96a314479dfaea17af46b38e1ad0a'
+          assert [x['id'] for x in m['families']]==['GEONAMES28','CLINICAL177','FDIC25']
+          print('B10_PRELOCKED_SOURCE_AND_ANALYZER')
+          PY
+          python -m venv .b10-upstream-venv
+          .b10-upstream-venv/bin/python -m pip install --disable-pip-version-check '.[fidelity]'
+          .b10-upstream-venv/bin/python -m pip check
+      - name: Run actual pinned source modules without upstream edits
+        run: |
+          set -euo pipefail
+          for FAMILY in GEONAMES28 FDIC25; do
+            for REV in old fixed; do
+              case "$FAMILY/$REV" in
+                GEONAMES28/old) REPO=cyanheads/geonames-mcp-server; SHA=41f908aa208f3fe59f8bb62665951289ec7c70eb; SOURCE=src/utils/inline-text.ts; BLOB=3a4ca3d3aba1c51e1db4b05fcfa9802bd454d107 ;;
+                GEONAMES28/fixed) REPO=cyanheads/geonames-mcp-server; SHA=1c098963763d6e90f7fe5e1d7f53caca57fa8c7f; SOURCE=src/utils/inline-text.ts; BLOB=e3800e3055d697ebbe2dad91b632135bacac3510 ;;
+                FDIC25/old) REPO=cyanheads/fdic-banks-mcp-server; SHA=6f78d8c6be836c8a39f71f9b3a93e14c1f43dc42; SOURCE=src/mcp-server/tools/markdown.ts; BLOB=fc66d768a781a169340cf6424673da409233c05c ;;
+                FDIC25/fixed) REPO=cyanheads/fdic-banks-mcp-server; SHA=925807ed75e4cecfd6dd2cd87375bea7529b6cfb; SOURCE=src/mcp-server/tools/markdown.ts; BLOB=1e164aeeade234d2aaee4f79780ebdfcd01a05b1 ;;
+                *) echo "Invalid selected source"; exit 2 ;;
+              esac
+              UP=".b10-$FAMILY-$REV"
+              mkdir -p "$UP" ".b10-out/$FAMILY"
+              git -C "$UP" init -q
+              git -C "$UP" -c core.hooksPath=/dev/null remote add origin "https://github.com/$REPO.git"
+              GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+              git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+              test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+              test "$(git -C "$UP" rev-parse "HEAD:$SOURCE")" = "$BLOB"
+              CAPTURE="$GITHUB_WORKSPACE/.b10-out/$FAMILY/$REV-source.json"
+              (
+                cd "$UP"
+                B10_FAMILY="$FAMILY" B10_REV="$REV" B10_CAPTURE="$CAPTURE" bun -e '
+                  import { writeFileSync } from "node:fs";
+                  const family = process.env.B10_FAMILY;
+                  const revision = process.env.B10_REV;
+                  let samples = [];
+                  if (family === "GEONAMES28") {
+                    const { inlineText } = await import("./src/utils/inline-text.ts");
+                    samples = [
+                      { id: "url", raw: "www.example.com", rendered: inlineText("www.example.com") },
+                      { id: "plain", raw: "Normal Name 123", rendered: inlineText("Normal Name 123") },
+                    ];
+                  } else if (family === "FDIC25") {
+                    const { inline } = await import("./src/mcp-server/tools/markdown.ts");
+                    samples = [
+                      { id: "linebreak", raw: "line1\nline2", rendered: inline("line1\nline2") },
+                      { id: "blank", raw: "", rendered: inline("") },
+                      { id: "plain", raw: "Normal Name 123", rendered: inline("Normal Name 123") },
+                    ];
+                  } else throw Error("Unselected family");
+                  writeFileSync(process.env.B10_CAPTURE, JSON.stringify({
+                    family, revision, source_execution: "ACTUAL_PINNED_TS_MODULE", samples
+                  }, null, 2) + "\n");
+                '
+              )
+              echo "CAPTURED_PINNED_REAL_SOURCE $FAMILY $REV $SHA"
+              rm -rf "$UP"
+            done
+            .b10-upstream-venv/bin/python benchmarks/p6b10/evaluate_pinned_renderers.py \
+              "$FAMILY" ".b10-out/$FAMILY/old-source.json" ".b10-out/$FAMILY/fixed-source.json" ".b10-out/$FAMILY"
+          done
+      - name: Aggregate selected source results including every preregistered case
+        run: |
+          set -euo pipefail
+          .b10-upstream-venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.loads(Path('benchmarks/p6b10/prelocked_three_display_fidelity.json').read_text())
+          ids=[x['id'] for x in m['families']]
+          rows=[]
+          for family in ids:
+              p=Path('.b10-out')/family/'score.json'
+              rows.append(json.loads(p.read_text()) if p.exists() else
+                  {'family':family,'source_defect_independently_reproduced':False,
+                   'frozen_rule_detected':None,'status':'UNVERIFIED_NOT_EXECUTED'})
+          valid=[r for r in rows if r.get('source_defect_independently_reproduced')]
+          detected=[r for r in valid if r.get('frozen_rule_detected')]
+          ledger={'schema':'risu-p6b10-selected-source-score-v1',
+             'selected':len(ids),'qualified_source_reproductions':len(valid),
+             'frozen_rule_detected':len(detected),
+             'unverified_or_not_executed':len(ids)-len(valid),
+             'frozen_rule_misses':len(valid)-len(detected),
+             'cases':rows,
+             'claim_boundary':'Selected actual upstream source modules with reconstructed JSONRPC; not end-to-end server wire or population recall'}
+          Path('.b10-source-ledger.json').write_text(json.dumps(ledger,indent=2)+'\n')
+          print(json.dumps(ledger,indent=2))
+          PY
+      - name: Archive test-only synthetic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b10-prelocked-source-holdouts
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b10/prelocked_three_display_fidelity.json
+            benchmarks/p6b10/detector_freeze.json
+            .b10-out
+            .b10-source-ledger.json
