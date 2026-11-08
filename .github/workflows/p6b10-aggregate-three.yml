@@ -1,0 +1,88 @@
+name: RISU P6-B10 independent three-source frozen-score aggregation
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+    paths:
+      - 'benchmarks/p6b10/aggregate_three.py'
+      - '.github/workflows/p6b10-aggregate-three.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  immutable-three-source-ledger:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Public source hygiene and unchanged rule freeze
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_display_fidelity.py)" = 8bc96f64eba96a314479dfaea17af46b38e1ad0a
+      - name: Verify immutable two source artifact identities and retrieve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/risu-research/risu-probe/actions/artifacts/13629644514 --jq '.name+" "+.digest' > .b10-two-id.txt
+          grep -Fx 'risu-p6b10-prelocked-source-holdouts sha256:57738259208228f8aaaf49c9e211db71e0c61586219427940bb68b405d3df94e' .b10-two-id.txt
+          gh api repos/risu-research/risu-probe/actions/artifacts/13630381362 --jq '.name+" "+.digest' > .b10-clinical-id.txt
+          grep -Fx 'risu-p6b10-clinical177-prelocked sha256:828817b241530d1a384d19da0761d7faeb7518d5e1aac4c97132ecbe7797f4ee' .b10-clinical-id.txt
+          mkdir -p .b10-agg/two .b10-agg/clinical
+          gh run download 42512698913 --repo risu-research/risu-probe --name risu-p6b10-prelocked-source-holdouts --dir .b10-agg/two
+          gh run download 42513152708 --repo risu-research/risu-probe --name risu-p6b10-clinical177-prelocked --dir .b10-agg/clinical
+      - name: Aggregate exact source scores without dropping any preregistered family
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          items={}
+          for root in (Path('.b10-agg/two'),Path('.b10-agg/clinical')):
+              for p in root.rglob('score.json'):
+                  s=json.loads(p.read_text())
+                  family=s.get('family')
+                  if family not in ('GEONAMES28','FDIC25','CLINICAL177') or family in items:
+                      raise SystemExit('Unselected/duplicate source score in immutable artifact')
+                  items[family]=str(p)
+          if set(items)!={'GEONAMES28','FDIC25','CLINICAL177'}:
+              raise SystemExit('Not all three preselected source scores present')
+          Path('.b10-source-index.json').write_text(json.dumps(items,indent=2)+'\n')
+          PY
+          python - <<'PY'
+          from pathlib import Path
+          import json,subprocess,sys
+          files=json.loads(Path('.b10-source-index.json').read_text())
+          args=[sys.executable,'benchmarks/p6b10/aggregate_three.py','--require-all','--out','.b10-three-source-score.json']
+          for family in ('GEONAMES28','CLINICAL177','FDIC25'):
+              args += ['--score', family+'='+files[family]]
+          subprocess.run(args,check=True)
+          print('P6B10_IMMUTABLE_THREE_SOURCE_LEDGER_VERIFIED')
+          PY
+      - name: Archive frozen read-only summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b10-three-source-independent-score
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            .b10-two-id.txt
+            .b10-clinical-id.txt
+            .b10-source-index.json
+            .b10-three-source-score.json
+            benchmarks/p6b10/prelocked_three_display_fidelity.json
+            benchmarks/p6b10/detector_freeze.json
