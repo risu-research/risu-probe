@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 import sys
 from typing import Any
@@ -199,9 +200,57 @@ def _reported_tool_error(result: dict) -> str:
     return 'EXECUTION_ERROR'
 
 
-def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
+def _check_behavior_contract(contract: dict | None) -> list[dict]:
+    """User opt-in exact text contracts; tool names and values never echoed."""
+    if contract is None:
+        return []
+    if type(contract) is not dict or set(contract) != {'schema', 'rules'}:
+        raise TraceError('Behavior contract must contain only schema and rules')
+    if contract['schema'] != 'risu-mcp-behavior-contract-v1':
+        raise TraceError('Unsupported explicit behavior contract schema')
+    rules = contract['rules']
+    if type(rules) is not list or len(rules) > 64:
+        raise TraceError('Behavior contract has too many rules')
+    seen: set[str] = set()
+    for rule in rules:
+        if type(rule) is not dict or set(rule) != {'id','tool','when','text_equals'}:
+            raise TraceError('Behavior rule has invalid fields')
+        ident, tool, when, expected = (rule[k] for k in ('id','tool','when','text_equals'))
+        if (type(ident) is not str or re.fullmatch(r'[A-Za-z0-9_-]{1,40}',ident) is None
+                or ident in seen):
+            raise TraceError('Behavior rule ID invalid or duplicate')
+        seen.add(ident)
+        if type(tool) is not str or not (1 <= len(tool) <= 128):
+            raise TraceError('Behavior rule tool name invalid')
+        if type(when) is not dict or not (1 <= len(when) <= 16):
+            raise TraceError('Behavior rule requires bounded, nonempty argument preconditions')
+        for key, value in when.items():
+            if (type(key) is not str or len(key)>128
+                    or type(value) not in (str,int,float,bool,type(None))
+                    or (type(value) is str and len(value)>256)):
+                raise TraceError('Behavior rule precondition must use short scalar fields')
+        if type(expected) is not str or len(expected)>512:
+            raise TraceError('Behavior rule must define bounded exact expected text')
+    return rules
+
+
+def _load_behavior_contract(path: Path) -> dict:
+    path=path.expanduser().absolute()
+    if path.is_symlink() or not path.is_file() or path.stat().st_size > 32768:
+        raise TraceError('Behavior contract must be a small regular file, not a symlink')
+    try:
+        data=json.loads(path.read_text(encoding='utf-8'),object_pairs_hook=_unique)
+    except (ValueError, UnicodeError, RecursionError) as exc:
+        raise TraceError('Invalid JSON behavior contract') from exc
+    _check_behavior_contract(data)
+    return data
+
+
+def verify_trace(path: Path, protocol_version: str = 'unknown',
+                 behavior_contract: dict | None = None) -> dict:
     if protocol_version not in ALLOWED_PROTOCOLS:
         raise TraceError('Unsupported declared MCP protocol version')
+    rules = _check_behavior_contract(behavior_contract)
     records, digest = _read_trace(path)
     # Keyed by session; a replay may multiplex requests and reuse IDs *sequentially*.
     sessions: dict[str, dict] = {}
@@ -212,6 +261,8 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
     successful_calls = 0
     call_requests = 0
     catalog_snapshots_indexed = 0
+    behavior_matched = 0
+    behavior_checked = 0
     def gap(code: str, reason: str, line: int, tool: str | None=None) -> None:
         if len(unverified)<256:
             row={'code':code,'reason':reason,'line':line}
@@ -260,14 +311,14 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
                 gap('AMBIGUOUS_REQUEST_ID','ID was previously reused concurrently',line)
                 continue
             if method == 'tools/list':
-                st['pending'][req_id] = ('list', None, line)
+                st['pending'][req_id] = ('list', None, line, None)
             else:
                 call_requests += 1
                 params=msg.get('params')
                 if type(params) is not dict or not isinstance(params.get('name'),str):
                     gap('MALFORMED_CALL_REQUEST','tools/call has no string tool name',line)
                     continue
-                st['pending'][req_id] = ('call', params['name'], line)
+                st['pending'][req_id] = ('call', params['name'], line, params.get('arguments'))
             continue
         if req_id is None or ('result' not in msg and 'error' not in msg):
             continue
@@ -297,7 +348,7 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
         if previous is None:
             gap('UNMATCHED_RESPONSE','Response has no matching captured request',line)
             continue
-        kind, name, _req_line=previous
+        kind, name, _req_line, call_args=previous
         if 'error' in msg or 'result' not in msg:
             gap('PROTOCOL_ERROR','JSON-RPC error response; tool execution semantics not assessed',line,name)
             if kind=='list':st['ready']=False;st['tools']={}
@@ -354,6 +405,28 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
                 gap('EXECUTION_ERROR','Tool reported isError=true; success output contract not asserted',line,name)
             continue
         successful_calls += 1
+        # Opt-in behavior assertions operate on observed arguments + *one* text
+        # response; no inference from tool names, no live execution, no raw values in report.
+        for rule in rules:
+            if rule['tool'] != name or type(call_args) is not dict:
+                continue
+            if not all(k in call_args and type(call_args[k]) is type(v)
+                       and call_args[k] == v for k,v in rule['when'].items()):
+                continue
+            behavior_matched += 1
+            content = result.get('content')
+            if (type(content) is not list or len(content) != 1
+                    or type(content[0]) is not dict or content[0].get('type') != 'text'
+                    or type(content[0].get('text')) is not str):
+                gap('BEHAVIOR_OUTPUT_UNAVAILABLE',
+                    'Explicit text assertion cannot be checked against this result envelope',line,name)
+                continue
+            behavior_checked += 1
+            if content[0]['text'] != rule['text_equals']:
+                finding('RMC506',
+                        'Recorded text violates opt-in user-declared behavioral expectation; rule_sha256:'+
+                        hashlib.sha256(rule['id'].encode()).hexdigest()[:12],
+                        line,name)
         if 'outputSchema' not in tool:
             gap('NO_OUTPUT_SCHEMA','The tool declared no outputSchema; no output type contract checked',line,name)
             continue
@@ -388,7 +461,7 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
         else:
             gap('UNVERIFIED_SCHEMA_VALIDATION',(detail or {}).get('reason','Unable to validate schema'),line,name)
     for session, st in sessions.items():
-        for kind, name, request_line in st['pending'].values():
+        for kind, name, request_line, _args in st['pending'].values():
             gap('MISSING_RESPONSE','Request lacks a corresponding captured response',request_line,name)
     # Do not conflate catalog metadata indexed with actual successful schema checks.
     latest_declarations = sum(len(st['tools']) for st in sessions.values() if st['ready'])
@@ -415,6 +488,9 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
                        'latest_catalog_declarations_indexed':latest_declarations,
                        'latest_catalog_declarations_schema_validated':latest_validated,
                        'latest_catalog_declarations_not_validated':max(0,latest_declarations-latest_validated),
+                       'explicit_behavior_rules_declared':len(rules),
+                       'explicit_behavior_assertions_matched':behavior_matched,
+                       'explicit_behavior_assertions_checked':behavior_checked,
                        'findings':len(findings),
                        'unverified_count':len(unverified)},
             'findings':findings,'unverified':unverified,
@@ -441,7 +517,8 @@ def _sarif(report: dict) -> dict:
                 ('RMC501','Missing successful structured output'),
                 ('RMC502','Structured output violates declared schema'),
                 ('RMC503','Invalid declared output schema'),
-                ('RMC504','Legacy output schema lacks object root'))]}},
+                ('RMC504','Legacy output schema lacks object root'),
+                ('RMC506','Violation of explicit caller-supplied text behavior contract'))]}},
              'results':[{'ruleId':f['rule_id'],'level':'error','message':{'text':f['message']},
                          'properties':{'origin_integrity':report['origin_integrity'],'tool':f['tool'],'trace_line':f['line']}} for f in report['findings']],
              'properties':{'semantic_verification':report['semantic_verification'],
@@ -456,6 +533,8 @@ def cli(argv: list[str] | None=None) -> int:
     p.add_argument('--protocol-version',choices=ALLOWED_PROTOCOLS,default='unknown',
                    help='Declared captured protocol version (not independently attested)')
     p.add_argument('--format',choices=('json','text','sarif'),default='text')
+    p.add_argument('--behavior-contract',type=Path,
+                   help='Optional safe JSON contract of explicit argument-conditioned text assertions')
     p.add_argument('--out',type=Path,help='Write a new report without overwrite')
     p.add_argument('--fail-on-observed',action='store_true',
                    help='Opt-in CI failure (1) for recorded discrepancies, not proof of live incidence')
@@ -463,7 +542,8 @@ def cli(argv: list[str] | None=None) -> int:
                    help='Fail (2) if any tool assessment is incomplete')
     a=p.parse_args(argv)
     try:
-        report=verify_trace(a.trace,a.protocol_version)
+        report=verify_trace(a.trace,a.protocol_version,
+                            _load_behavior_contract(a.behavior_contract) if a.behavior_contract else None)
         output=_text(report) if a.format=='text' else json.dumps(report if a.format=='json' else _sarif(report),indent=2,sort_keys=True,ensure_ascii=False)+'\n'
         if a.out:
             path=a.out.expanduser()
