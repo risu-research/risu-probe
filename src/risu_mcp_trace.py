@@ -19,6 +19,9 @@ MAX_MESSAGES = 4096
 MAX_SCHEMA_NODES = 512
 MAX_VALUE_NODES = 2048
 MAX_CATALOG_NODES = 65536  # only for tools/list, bounded by existing 512-KiB line cap
+MAX_CATALOG_PAGES = 100
+MAX_CATALOG_TOOLS = 1024
+MAX_CATALOG_CURSOR_LENGTH = 256
 ALLOWED_PROTOCOLS = ('2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28', 'unknown')
 LEGACY_PROTOCOLS = frozenset(('2025-03-26', '2025-06-18', '2025-11-25'))
 DRAFT7_DIALECTS = frozenset(('http://json-schema.org/draft-07/schema#',
@@ -261,6 +264,8 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
     successful_calls = 0
     call_requests = 0
     catalog_snapshots_indexed = 0
+    catalog_pages_recorded = 0
+    catalog_partial_chains = 0
     behavior_matched = 0
     behavior_checked = 0
     def gap(code: str, reason: str, line: int, tool: str | None=None) -> None:
@@ -276,11 +281,12 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
         st=sessions.setdefault(session, {'pending':{},'tools':{},'ready':False,
             'invalid_ids':set(),'protocol':protocol_version,
             'protocol_source':'CALLER_DECLARED' if protocol_version!='unknown' else 'NOT_OBSERVED',
-            'initialize_ids':set(),'negotiated_protocol':None,'validated_tools':set()})
+            'initialize_ids':set(),'negotiated_protocol':None,'validated_tools':set(),
+            'catalog_chain':None})
         req_id = msg.get('id')
         method = msg.get('method')
         if method == 'notifications/tools/list_changed':
-            st['ready']=False;st['tools']={};st['validated_tools']=set()
+            st['ready']=False;st['tools']={};st['validated_tools']=set();st['catalog_chain']=None
             gap('CATALOG_INVALIDATED','Tool catalog changed; another complete tools/list needed',line)
             continue
         if method is not None:
@@ -311,7 +317,17 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
                 gap('AMBIGUOUS_REQUEST_ID','ID was previously reused concurrently',line)
                 continue
             if method == 'tools/list':
-                st['pending'][req_id] = ('list', None, line, None)
+                params=msg.get('params',{})
+                if type(params) is not dict:
+                    gap('MALFORMED_CATALOG_REQUEST','tools/list params must be an object',line)
+                    st['ready']=False;st['catalog_chain']=None;st['tools']={}
+                    continue
+                cursor=params.get('cursor')
+                if cursor is not None and (type(cursor) is not str or not (1<=len(cursor)<=MAX_CATALOG_CURSOR_LENGTH)):
+                    gap('INVALID_CATALOG_CURSOR','tools/list cursor must be a bounded nonempty string',line)
+                    st['ready']=False;st['catalog_chain']=None;st['tools']={}
+                    continue
+                st['pending'][req_id] = ('list', None, line, cursor)
             else:
                 call_requests += 1
                 params=msg.get('params')
@@ -351,33 +367,65 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
         kind, name, _req_line, call_args=previous
         if 'error' in msg or 'result' not in msg:
             gap('PROTOCOL_ERROR','JSON-RPC error response; tool execution semantics not assessed',line,name)
-            if kind=='list':st['ready']=False;st['tools']={}
+            if kind=='list':st['ready']=False;st['tools']={};st['catalog_chain']=None
             continue
         result=msg['result']
         if type(result) is not dict:
             gap('INVALID_RESULT_ENVELOPE','Tool response is not a JSON object',line,name)
             continue
         if kind=='list':
+            # Only a cursor-complete, bounded catalog can authorize tool checks.
             tools=result.get('tools')
-            if type(tools) is not list or len(tools)>1024:
-                st['ready']=False;st['tools']={}
-                gap('INVALID_TOOLS_LIST','Expected tools array',line)
+            next_cursor=result.get('nextCursor')
+            if (type(tools) is not list or len(tools)>MAX_CATALOG_TOOLS
+                    or (next_cursor is not None and
+                        (type(next_cursor) is not str or
+                         len(next_cursor)>MAX_CATALOG_CURSOR_LENGTH))):
+                st['ready']=False;st['tools']={};st['catalog_chain']=None
+                gap('INVALID_TOOLS_LIST','Malformed tools page or cursor beyond safe limits',line)
                 continue
-            if result.get('nextCursor') not in (None,''):
-                st['ready']=False;st['tools']={}
-                gap('PAGINATED_TOOLS_LIST','Catalog has more pages; capture complete listing before checking calls',line)
+            if next_cursor=='': next_cursor=None
+            chain=st['catalog_chain']
+            if chain is None:
+                if call_args is not None:
+                    st['ready']=False;st['tools']={}
+                    gap('ORPHAN_CATALOG_CURSOR','Continuation without an initial recorded tools/list page',line)
+                    continue
+                chain={'tools':{},'expected':None,'seen':set(),'pages':0,'start_line':line}
+                st['ready']=False;st['tools']={};st['validated_tools']=set()
+            elif call_args != chain['expected']:
+                st['ready']=False;st['tools']={};st['catalog_chain']=None
+                gap('CATALOG_CURSOR_MISMATCH','Continuation request did not use the prior opaque cursor',line)
                 continue
-            temp: dict[str, dict] = {}
-            ok=True
-            for tool in tools:
-                if type(tool) is not dict or not isinstance(tool.get('name'),str) or tool['name'] in temp:
-                    ok=False;break
-                temp[tool['name']]=tool
-            if not ok:
-                st['ready']=False;st['tools']={}
-                gap('INVALID_CATALOG','Duplicate tool names or malformed tool declaration',line)
+            temp=chain['tools']
+            valid=True
+            for entry in tools:
+                if (type(entry) is not dict or type(entry.get('name')) is not str
+                        or not (1<=len(entry['name'])<=128)
+                        or entry['name'] in temp):
+                    valid=False;break
+                temp[entry['name']]=entry
+            chain['pages']+=1
+            catalog_pages_recorded+=1
+            if not valid:
+                st['ready']=False;st['tools']={};st['catalog_chain']=None
+                gap('INVALID_CATALOG','Duplicate or malformed tool declaration across catalog pages',line)
                 continue
-            st['tools']=temp;st['ready']=True;st['validated_tools']=set()
+            if len(temp)>MAX_CATALOG_TOOLS or chain['pages']>MAX_CATALOG_PAGES:
+                st['ready']=False;st['tools']={};st['catalog_chain']=None
+                gap('CATALOG_COMPLEXITY_LIMIT','Multi-page catalog exceeds tool/page budget',line)
+                continue
+            if next_cursor is not None:
+                if next_cursor in chain['seen']:
+                    st['ready']=False;st['tools']={};st['catalog_chain']=None
+                    gap('CATALOG_CURSOR_CYCLE','A recorded tools/list cursor was repeated; no complete catalog',line)
+                    continue
+                chain['seen'].add(next_cursor)
+                chain['expected']=next_cursor
+                st['catalog_chain']=chain
+                continue
+            st['tools']=dict(temp);st['ready']=True;st['validated_tools']=set()
+            st['catalog_chain']=None
             catalog_snapshots_indexed += 1
             continue
         matched += 1
@@ -461,6 +509,11 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
         else:
             gap('UNVERIFIED_SCHEMA_VALIDATION',(detail or {}).get('reason','Unable to validate schema'),line,name)
     for session, st in sessions.items():
+        if st['catalog_chain'] is not None:
+            catalog_partial_chains += 1
+            gap('INCOMPLETE_CATALOG_PAGINATION',
+                'Captured tools/list has nextCursor but not a fully matched terminal page',
+                st['catalog_chain']['start_line'])
         for kind, name, request_line, _args in st['pending'].values():
             gap('MISSING_RESPONSE','Request lacks a corresponding captured response',request_line,name)
     # Do not conflate catalog metadata indexed with actual successful schema checks.
@@ -485,6 +538,8 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
                        'successful_tool_calls_with_catalog':successful_calls,
                        'structured_values_schema_checked':checked,
                        'catalog_snapshots_indexed':catalog_snapshots_indexed,
+                       'catalog_pages_recorded':catalog_pages_recorded,
+                       'incomplete_catalog_chains':catalog_partial_chains,
                        'latest_catalog_declarations_indexed':latest_declarations,
                        'latest_catalog_declarations_schema_validated':latest_validated,
                        'latest_catalog_declarations_not_validated':max(0,latest_declarations-latest_validated),
@@ -494,7 +549,7 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
                        'findings':len(findings),
                        'unverified_count':len(unverified)},
             'findings':findings,'unverified':unverified,
-            'coverage_note':'A parsed JSON-RPC trace is not a certified MCP session. Large catalogs are bounded and indexed, not fully schema-validated; only actually invoked successful complete calls with supported outputSchema are checked.',
+            'coverage_note':'A parsed JSON-RPC trace is not a certified MCP session. Large catalogs are bounded and indexed only after all cursor-linked pages, not fully schema-validated; only actually invoked successful complete calls with supported outputSchema are checked.',
             'provenance_note':'This file is supplied by the user. JSON-RPC contents may be fabricated, truncated or altered; findings are observations in this capture only, not independently attested runtime incidents.',
             'safety':'No project imports, schema network fetches, subprocesses or server connections. No raw structuredContent values appear in the report.'}
 
