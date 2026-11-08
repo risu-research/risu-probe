@@ -1,0 +1,81 @@
+name: RISU P6-B9 original mcp-proxy pagination heldout
+on:
+  push:
+    branches: ['qualification/p6b9-*']
+    paths:
+      - 'benchmarks/p6b9/proxy253_capture.py'
+      - 'benchmarks/p6b9/evaluate_proxy253.py'
+      - '.github/workflows/p6b9-proxy253-holdout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-proxy-handler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Immutable RISU engine and isolated MCP dependency
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m venv .p6b9-proxy-env
+          .p6b9-proxy-env/bin/python -m pip install --disable-pip-version-check . 'mcp==1.29.0'
+          .p6b9-proxy-env/bin/python -m pip check
+          mkdir -p .p6b9-proxy
+      - name: Original public proxy handler before/fix against in-memory paginated peer
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            if [[ "$REV" == old ]]; then
+              SHA=09607c2f03cf43825c618e40fcb547a185c3e50e
+              BLOB=0cced2e997a1635429c8fb8f8143c4c1bb598c9d
+            else
+              SHA=28d9a858f1f9f548f089df6f1ceb759af83783ef
+              BLOB=389305e2a3100c9eed9189310df083af17feedc1
+            fi
+            UP=".p6b9-upstream-proxy-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/sparfenyuk/mcp-proxy.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:src/mcp_proxy/proxy_server.py)" = "$BLOB"
+            PYTHONPATH="$UP/src" .p6b9-proxy-env/bin/python \
+              benchmarks/p6b9/proxy253_capture.py ".p6b9-proxy/$REV.json"
+            .p6b9-proxy-env/bin/python benchmarks/p6b9/evaluate_proxy253.py trace ".p6b9-proxy/$REV.json" ".p6b9-proxy/$REV.jsonl"
+            .p6b9-proxy-env/bin/risu-probe verify-mcp-trace ".p6b9-proxy/$REV.jsonl" --protocol-version 2025-11-25 --format json > ".p6b9-proxy/$REV-risu.json"
+            rm -rf "$UP"
+          done
+      - name: Independent reproduction and heldout scanner result
+        run: |
+          set -euo pipefail
+          .p6b9-proxy-env/bin/python benchmarks/p6b9/evaluate_proxy253.py score \
+            .p6b9-proxy/old.json .p6b9-proxy/fixed.json \
+            .p6b9-proxy/old-risu.json .p6b9-proxy/fixed-risu.json \
+            .p6b9-proxy/independent_score.json
+      - name: Save isolated public test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b9-proxy253-public-independent
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b9/prelocked_seven_families.json
+            .p6b9-proxy/*.json
+            .p6b9-proxy/*.jsonl
