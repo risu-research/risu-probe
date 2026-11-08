@@ -17,6 +17,7 @@ MAX_LINE_BYTES = 524_288
 MAX_MESSAGES = 4096
 MAX_SCHEMA_NODES = 512
 MAX_VALUE_NODES = 2048
+MAX_CATALOG_NODES = 65536  # only for tools/list, bounded by existing 512-KiB line cap
 ALLOWED_PROTOCOLS = ('2025-03-26', '2025-06-18', '2025-11-25', '2026-07-28', 'unknown')
 LEGACY_PROTOCOLS = frozenset(('2025-03-26', '2025-06-18', '2025-11-25'))
 DRAFT7_DIALECTS = frozenset(('http://json-schema.org/draft-07/schema#',
@@ -40,7 +41,7 @@ def _unique(pairs: list[tuple[str, Any]]) -> dict:
     return obj
 
 
-def _walk_limited(obj: Any, limit: int) -> None:
+def _walk_limited(obj: Any, limit: int, max_array: int = 256) -> None:
     n = 0
     stack = [(obj, 0)]
     while stack:
@@ -53,7 +54,7 @@ def _walk_limited(obj: Any, limit: int) -> None:
                 raise TraceError('JSON object too wide')
             stack.extend((v, depth + 1) for v in value.values())
         elif type(value) is list:
-            if len(value) > 256:
+            if len(value) > max_array:
                 raise TraceError('JSON array too wide for bounded validation')
             stack.extend((v, depth + 1) for v in value)
 
@@ -90,7 +91,14 @@ def _read_trace(path: Path) -> tuple[list[tuple[int, str, dict]], str]:
             raise TraceError(f'Invalid UTF-8/JSON at line {line}') from exc
         if type(data) is not dict:
             raise TraceError(f'JSON-RPC message must be an object (line {line})')
-        _walk_limited(data, MAX_VALUE_NODES)
+        # A large legitimate tools/list is not a giant tool result. Index its
+        # bounded declarations and defer schema inspection to invoked tools.
+        # Any other message retains the smaller, original value budget.
+        candidate = data.get('message', data)
+        catalog = (type(candidate) is dict and type(candidate.get('result')) is dict
+                   and type(candidate['result'].get('tools')) is list)
+        _walk_limited(data, MAX_CATALOG_NODES if catalog else MAX_VALUE_NODES,
+                      max_array=1024 if catalog else 256)
         session = data.get('session', 'default')
         if not isinstance(session, str) or not (1 <= len(session) <= 64):
             raise TraceError(f'Invalid session identifier on line {line}')
@@ -172,6 +180,25 @@ def _validate_schema(schema: dict, value: Any) -> tuple[str, dict | None]:
         return 'UNVERIFIED', {'reason':'Schema validation could not safely complete ('+type(exc).__name__+')'}
 
 
+def _reported_tool_error(result: dict) -> str:
+    """Classify only recognizable *server-reported* failure text, never prove root cause."""
+    content = result.get('content')
+    if type(content) is not list or len(content) > 16:
+        return 'EXECUTION_ERROR'
+    messages = [item['text'] for item in content if type(item) is dict
+                and item.get('type') == 'text' and type(item.get('text')) is str]
+    text = ' '.join(messages).lower()
+    if any(token in text for token in (
+        'output validation error', 'output validation failed',
+        'failed to validate tool output', 'tool output failed validation')):
+        return 'REPORTED_OUTPUT_VALIDATION_REJECTION'
+    if any(token in text for token in (
+        'input validation error', 'input validation failed',
+        'invalid tool arguments')):
+        return 'REPORTED_INPUT_VALIDATION_REJECTION'
+    return 'EXECUTION_ERROR'
+
+
 def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
     if protocol_version not in ALLOWED_PROTOCOLS:
         raise TraceError('Unsupported declared MCP protocol version')
@@ -184,6 +211,7 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
     matched = 0
     successful_calls = 0
     call_requests = 0
+    catalog_snapshots_indexed = 0
     def gap(code: str, reason: str, line: int, tool: str | None=None) -> None:
         if len(unverified)<256:
             row={'code':code,'reason':reason,'line':line}
@@ -197,11 +225,11 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
         st=sessions.setdefault(session, {'pending':{},'tools':{},'ready':False,
             'invalid_ids':set(),'protocol':protocol_version,
             'protocol_source':'CALLER_DECLARED' if protocol_version!='unknown' else 'NOT_OBSERVED',
-            'initialize_ids':set(),'negotiated_protocol':None})
+            'initialize_ids':set(),'negotiated_protocol':None,'validated_tools':set()})
         req_id = msg.get('id')
         method = msg.get('method')
         if method == 'notifications/tools/list_changed':
-            st['ready']=False;st['tools']={}
+            st['ready']=False;st['tools']={};st['validated_tools']=set()
             gap('CATALOG_INVALIDATED','Tool catalog changed; another complete tools/list needed',line)
             continue
         if method is not None:
@@ -298,7 +326,8 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
                 st['ready']=False;st['tools']={}
                 gap('INVALID_CATALOG','Duplicate tool names or malformed tool declaration',line)
                 continue
-            st['tools']=temp;st['ready']=True
+            st['tools']=temp;st['ready']=True;st['validated_tools']=set()
+            catalog_snapshots_indexed += 1
             continue
         matched += 1
         if not st['ready']:
@@ -316,7 +345,13 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
             gap('INVALID_ERROR_FLAG','isError must be a boolean or absent',line,name)
             continue
         if is_error:
-            gap('EXECUTION_ERROR','Tool reported isError=true; success output contract not asserted',line,name)
+            classification = _reported_tool_error(result)
+            if classification == 'REPORTED_OUTPUT_VALIDATION_REJECTION':
+                gap(classification, 'Server text reports output validation rejection; independent output mismatch not established', line, name)
+            elif classification == 'REPORTED_INPUT_VALIDATION_REJECTION':
+                gap(classification, 'Server text reports invalid input; no output contract violation inferred', line, name)
+            else:
+                gap('EXECUTION_ERROR','Tool reported isError=true; success output contract not asserted',line,name)
             continue
         successful_calls += 1
         if 'outputSchema' not in tool:
@@ -343,9 +378,9 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
             gap('OUTPUT_LIMIT','Structured output exceeds bounded validation limits',line,name)
             continue
         outcome, detail=_validate_schema(schema,value)
-        if outcome=='PASS':checked+=1
+        if outcome=='PASS':checked+=1;st['validated_tools'].add(name)
         elif outcome=='MISMATCH':
-            checked+=1
+            checked+=1;st['validated_tools'].add(name)
             path_info=' at '+(detail or {}).get('instance_path','/')
             finding('RMC502','structuredContent violates the declared outputSchema'+path_info,line,name)
         elif outcome=='DECLARATION_INVALID':
@@ -355,6 +390,9 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
     for session, st in sessions.items():
         for kind, name, request_line in st['pending'].values():
             gap('MISSING_RESPONSE','Request lacks a corresponding captured response',request_line,name)
+    # Do not conflate catalog metadata indexed with actual successful schema checks.
+    latest_declarations = sum(len(st['tools']) for st in sessions.values() if st['ready'])
+    latest_validated = sum(len(st['validated_tools']) for st in sessions.values() if st['ready'])
     status=('OBSERVED_MISMATCHES_IN_CAPTURE' if findings else
             'INCOMPLETE_MEANING_CHECK' if unverified else
             'CHECKED_NO_MISMATCHES' if checked else 'NOT_CHECKED')
@@ -372,10 +410,15 @@ def verify_trace(path: Path, protocol_version: str = 'unknown') -> dict:
             'summary':{'messages_parsed':len(records),'sessions':len(sessions),
                        'tool_call_requests':call_requests,'tool_call_responses_matched':matched,
                        'successful_tool_calls_with_catalog':successful_calls,
-                       'structured_values_schema_checked':checked,'findings':len(findings),
+                       'structured_values_schema_checked':checked,
+                       'catalog_snapshots_indexed':catalog_snapshots_indexed,
+                       'latest_catalog_declarations_indexed':latest_declarations,
+                       'latest_catalog_declarations_schema_validated':latest_validated,
+                       'latest_catalog_declarations_not_validated':max(0,latest_declarations-latest_validated),
+                       'findings':len(findings),
                        'unverified_count':len(unverified)},
             'findings':findings,'unverified':unverified,
-            'coverage_note':'A parsed JSON-RPC trace is not a certified MCP session. Only matched successful complete tool calls with a full catalog and supported outputSchema can be checked.',
+            'coverage_note':'A parsed JSON-RPC trace is not a certified MCP session. Large catalogs are bounded and indexed, not fully schema-validated; only actually invoked successful complete calls with supported outputSchema are checked.',
             'provenance_note':'This file is supplied by the user. JSON-RPC contents may be fabricated, truncated or altered; findings are observations in this capture only, not independently attested runtime incidents.',
             'safety':'No project imports, schema network fetches, subprocesses or server connections. No raw structuredContent values appear in the report.'}
 
