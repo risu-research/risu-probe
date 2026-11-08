@@ -23,7 +23,7 @@ def evaluate(value:str,rendered:str,engine,*,include_prefix=True):
     ]
     with tempfile.TemporaryDirectory() as folder:
         file=Path(folder)/"trace.jsonl"
-        file.write_text(''.join(json.dumps(row,ensure_ascii=False)+"\n" for row in rows))
+        file.write_text(''.join(json.dumps(row,ensure_ascii=False)+"\n" for row in rows),encoding="utf-8")
         return engine(file,POLICY)
 
 class B11PhysicalLineTests(unittest.TestCase):
