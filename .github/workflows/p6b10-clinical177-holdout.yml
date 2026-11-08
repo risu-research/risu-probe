@@ -67,8 +67,12 @@ jobs:
             echo "ACTUAL_SOURCE_BLOB=$(git -C "$UP" rev-parse HEAD:src/mcp-server/tools/utils/format-helpers.ts) EXPECTED=$BLOB"
             test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
             test "$(git -C "$UP" rev-parse HEAD:src/mcp-server/tools/utils/format-helpers.ts)" = "$BLOB"
+            echo "UPSTREAM_TEST_PATH_CHECK"; ls -l "$UP/tests/mcp-server/tools/definitions/search-studies.tool.test.ts"
+            echo "HARNESS_SOURCE_CHECK"; ls -l benchmarks/p6b10/clinical177_append.test.ts
             cat benchmarks/p6b10/clinical177_append.test.ts >> "$UP/tests/mcp-server/tools/definitions/search-studies.tool.test.ts"
+            echo "HARNESS_APPENDED"
             (cd "$UP" && bun install --frozen-lockfile --ignore-scripts)
+            echo "BUN_INSTALL_OK"
             CAP="$GITHUB_WORKSPACE/.b10-clinical/$REV-source.json"
             (cd "$UP" && RISU_P6B10_CLINICAL_CAPTURE="$CAP" RISU_P6B10_CLINICAL_REV="$REV" bunx vitest run tests/mcp-server/tools/definitions/search-studies.tool.test.ts -t 'RISU P6B10 CLINICAL177 originally pinned searchCriteria literal output' --reporter=dot)
             test -s "$CAP"
