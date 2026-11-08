@@ -1,0 +1,93 @@
+name: RISU P6-B9 PHP SDK null omission independent pair
+on:
+  push:
+    branches: ['qualification/p6b9-*']
+    paths:
+      - 'benchmarks/p6b9/php673_capture.php'
+      - 'benchmarks/p6b9/evaluate_php673.py'
+      - 'benchmarks/p6b9/prelocked_seven_families.json'
+      - '.github/workflows/p6b9-php673-holdout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-official-php-pair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          coverage: none
+      - name: Enforce prelocked engine and upstream identities
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python - <<'PY'
+          import json
+          x=json.load(open('benchmarks/p6b9/prelocked_seven_families.json'))
+          assert x['engine_frozen_blob_git_sha1']=='b709cc61e37657ff18f90b15113aa500334e6762'
+          assert x['family_count_preselected']==7
+          print('P6B9_ENGINE_AND_CANDIDATES_PRELOCKED')
+          PY
+          python -m venv .p6b9-venv
+          .p6b9-venv/bin/python -m pip install --disable-pip-version-check .
+          .p6b9-venv/bin/python -m pip check
+          mkdir -p .p6b9-php
+      - name: Run actual official PHP SDK source serializer old and fixed
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            if [[ "$REV" == old ]]; then
+              SHA=033d5044b1ecf6ca2e217ef0b1c47e52e7dce4e3
+              BLOB=d4a88694b62afc01f93a3008b463fdc591c50104
+            else
+              SHA=0d8cfa4c69ea92d5f13d957ba702671abbb80188
+              BLOB=1582f79537a31085a078c5fab56c16fdf6faa7ba
+            fi
+            UP=".p6b9-php-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/modelcontextprotocol/php-sdk.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:src/Schema/Result/CallToolResult.php)" = "$BLOB"
+            php benchmarks/p6b9/php673_capture.php "$UP" ".p6b9-php/$REV.json"
+            .p6b9-venv/bin/python benchmarks/p6b9/evaluate_php673.py trace ".p6b9-php/$REV.json" ".p6b9-php/$REV.jsonl"
+            .p6b9-venv/bin/risu-probe verify-mcp-trace ".p6b9-php/$REV.jsonl" --protocol-version 2026-07-28 --format json > ".p6b9-php/$REV-risu.json"
+            rm -rf "$UP"
+          done
+      - name: Frozen-engine independent truth then detector score
+        run: |
+          set -euo pipefail
+          .p6b9-venv/bin/python benchmarks/p6b9/evaluate_php673.py score \
+            .p6b9-php/old.json .p6b9-php/fixed.json \
+            .p6b9-php/old-risu.json .p6b9-php/fixed-risu.json \
+            .p6b9-php/independent_score.json
+          echo P6B9_PHP673_PRELOCKED_PAIR_PASS
+      - name: Archive reproducible public SDK output evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b9-php673-public-independent
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b9/prelocked_seven_families.json
+            .p6b9-php/*.json
+            .p6b9-php/*.jsonl
