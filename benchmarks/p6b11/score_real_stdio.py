@@ -125,7 +125,7 @@ def main():
         "intentionally_injected_mismatches_detected":1,
         "intentionally_incomplete_calls":1,
         "intentionally_incomplete_unverified":1,
-        "schema_findings":len(semantic["summary"]["findings"]),
+        "schema_findings":semantic["summary"]["findings"],
         "limitations":"Authentic real stdio with official client/server SDK and byte-preserving tee, but test server/code and injected defect are locally authored. Not third-party upstream wire evidence; capture has no external trusted signature.",
     }
     (root/"wire_score.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
