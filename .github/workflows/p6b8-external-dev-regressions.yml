@@ -1,0 +1,131 @@
+name: RISU P6-B8 real upstream development regression (not holdout)
+on:
+  push:
+    branches: ['qualification/p6b8-*']
+    paths: ['src/risu_mcp_trace.py','benchmarks/p6b8/**','.github/workflows/p6b8-external-dev-regressions.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-old-and-fixed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install current B8 product, without modifying upstream code
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object benchmarks/p6b7/frozen_upstream_cases.json)" = f91f15fc8324ebe8741fb295bbd70f258197f136
+          python -m venv .p6b7-venv
+          .p6b7-venv/bin/python -m pip install --disable-pip-version-check .
+          .p6b7-venv/bin/python -m pip check
+          .p6b7-venv/bin/risu-probe --version
+      - name: Install and execute each original pinned server (public synthetic only)
+        run: |
+          set -euo pipefail
+          for FAMILY in A11Y205 FS5184; do
+            for REV in old fixed; do
+              case "$FAMILY/$REV" in
+                A11Y205/old) REPO='Community-Access/accessibility-agents'; SHA='284865a7e07b847972b63447a6b17020f08bb618'; BLOB='ed39eb73cb5f5068d737c797a808559bd5555892'; FILE='mcp-server/server-core.js' ;;
+                A11Y205/fixed) REPO='Community-Access/accessibility-agents'; SHA='decf6bac7f086c19afb242797b4974671ceff597'; BLOB='f28ee37ed8f52e0fb852ff0537698699eb8568cb'; FILE='mcp-server/server-core.js' ;;
+                FS5184/old) REPO='modelcontextprotocol/servers'; SHA='3bd1337713c796ada8a3dbb088dd911aa83dc932'; BLOB='b1a90a409469fb34e7580cce3356d02908be34b3'; FILE='src/filesystem/server.ts' ;;
+                FS5184/fixed) REPO='modelcontextprotocol/servers'; SHA='0dce8bd9b65d91a6f7afe1d8f99ffea5d5cf8fe4'; BLOB='266801190ce1cc461c2c770b756161cc4ca03b99'; FILE='src/filesystem/server.ts' ;;
+                *) echo invalid-immutable-case; exit 2 ;;
+              esac
+              UP=".p6b7-upstream-$FAMILY-$REV"
+              mkdir -p "$UP"
+              git -C "$UP" init -q
+              git -C "$UP" -c core.hooksPath=/dev/null remote add origin "https://github.com/$REPO.git"
+              GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+              git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+              test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+              test "$(git -C "$UP" rev-parse "HEAD:$FILE")" = "$BLOB"
+              if [[ "$FAMILY" = A11Y205 ]]; then
+                (cd "$UP/mcp-server" && npm ci --ignore-scripts --omit=optional --no-audit --no-fund)
+              else
+                (cd "$UP" && npm ci --ignore-scripts --omit=optional --no-audit --no-fund && npm run build --workspace=@modelcontextprotocol/server-filesystem)
+              fi
+              .p6b7-venv/bin/python benchmarks/p6b7/capture_stdio.py --repo "$UP" --family "$FAMILY" --version "$REV" --out ".p6b7-score/$FAMILY/$REV"
+              set +e
+              .p6b7-venv/bin/risu-probe verify-mcp-trace ".p6b7-score/$FAMILY/$REV/original_stdio.jsonl" --format json > ".p6b7-score/$FAMILY/$REV/risu_raw_output.json" 2> ".p6b7-score/$FAMILY/$REV/risu_raw_stderr.txt"
+              RC=$?
+              set -e
+              if [[ "$RC" -eq 2 ]]; then
+                .p6b7-venv/bin/python -c 'import json,sys;from pathlib import Path;p=Path(sys.argv[1]);p.write_text(json.dumps({"schema":"risu-p6b7-raw-attempt-v1","status":"UNVERIFIED_RAW_TRACE","exit_code":2,"findings":[],"reason":"RISU scanner rejected raw input; no detection claim"}))' ".p6b7-score/$FAMILY/$REV/risu.json"
+              elif [[ "$RC" -eq 0 || "$RC" -eq 1 ]]; then
+                cp ".p6b7-score/$FAMILY/$REV/risu_raw_output.json" ".p6b7-score/$FAMILY/$REV/risu.json"
+              else
+                echo "Unexpected RISU CLI execution failure"; exit 2
+              fi
+              .p6b7-venv/bin/python benchmarks/p6b7/project_trace.py --raw ".p6b7-score/$FAMILY/$REV/original_stdio.jsonl" --family "$FAMILY" --out ".p6b7-score/$FAMILY/$REV/projected_trace.jsonl" --meta ".p6b7-score/$FAMILY/$REV/projection.json"
+              .p6b7-venv/bin/risu-probe verify-mcp-trace ".p6b7-score/$FAMILY/$REV/projected_trace.jsonl" --format json > ".p6b7-score/$FAMILY/$REV/risu_projected.json"
+              echo "P6B7_FROZEN_OLD_PRODUCT_CAPTURED $FAMILY $REV raw_exit=$RC projected_secondary=YES"
+              rm -rf "$UP"
+            done
+          done
+      - name: Evaluate original full catalogs and explicit behavior oracle
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            .p6b7-venv/bin/risu-probe verify-mcp-trace ".p6b7-score/FS5184/$REV/original_stdio.jsonl" --format json --behavior-contract benchmarks/p6b8/fs5184_explicit_dev_contract.json > ".p6b7-score/FS5184/$REV/risu_behavior.json"
+          done
+          .p6b7-venv/bin/python - <<'PY'
+          import json
+          from pathlib import Path
+          def report(family,rev,key):
+              return json.loads((Path('.p6b7-score')/family/rev/key).read_text())
+          a_old=report('A11Y205','old','risu.json')
+          a_new=report('A11Y205','fixed','risu.json')
+          f_old=report('FS5184','old','risu_behavior.json')
+          f_new=report('FS5184','fixed','risu_behavior.json')
+          def codes(report,kind):return {r['code'] if kind=='unverified' else r['rule_id'] for r in report[kind]}
+          result={
+            'schema':'risu-p6b8-development-pair-regression-v1',
+            'dataset_role':'DEVELOPMENT_REGRESSION_ONLY_NOT_NEW_INDEPENDENT_HOLDOUT',
+            'source_pair_families':['A11Y205','FS5184'],
+            'A11Y205':{'old_reporting':sorted(codes(a_old,'unverified')),
+                         'fixed_reporting':sorted(codes(a_new,'unverified')),
+                         'raw_catalog_declarations_old':a_old.get('summary',{}).get('latest_catalog_declarations_indexed'),
+                         'old_findings':sorted(codes(a_old,'findings'))},
+            'FS5184':{'old_behavior_findings':sorted(codes(f_old,'findings')),
+                      'fixed_behavior_findings':sorted(codes(f_new,'findings'))}
+          }
+          Path('.p6b8-dev-result.json').write_text(json.dumps(result,indent=2)+'\n')
+          print(json.dumps(result,indent=2))
+          assert a_old['capture_status']=='PARSED_BOUNDED_JSONRPC'
+          assert a_old['summary']['latest_catalog_declarations_indexed']>=39
+          assert 'REPORTED_OUTPUT_VALIDATION_REJECTION' in codes(a_old,'unverified')
+          assert 'REPORTED_OUTPUT_VALIDATION_REJECTION' not in codes(a_new,'unverified')
+          assert 'RMC506' in codes(f_old,'findings')
+          assert 'RMC506' not in codes(f_new,'findings')
+          print('P6B8_KNOWN_DEV_PAIRS_REGRESSION_PASS')
+          PY
+      - name: Preserve public-only test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b8-pinned-development-pairs
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .p6b8-dev-result.json
+            .p6b7-score/*/*/origin.json
+            .p6b7-score/*/*/risu.json
+            .p6b7-score/*/*/risu_behavior.json
+            .p6b7-score/*/*/original_stdio.jsonl
