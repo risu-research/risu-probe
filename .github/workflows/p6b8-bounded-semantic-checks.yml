@@ -1,0 +1,45 @@
+name: RISU P6-B8 bounded catalog and behavior contract regressions
+on:
+  push:
+    branches: ['qualification/p6b8-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  p6b8-installed-regressions:
+    name: Installed wheel regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify public-only source
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m compileall -q src tests
+      - name: Install package and run all tests
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          python -m pip wheel --no-deps -w . .
+          python -m venv .b8venv
+          if [[ "${{ runner.os }}" == Windows ]]; then PY=.b8venv/Scripts/python.exe; else PY=.b8venv/bin/python; fi
+          "$PY" -m pip install ./risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$PY" -m unittest discover -s tests -v
+          echo RISU_P6B8_FULL_REGRESSIONS_PASS
