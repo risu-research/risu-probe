@@ -30,6 +30,13 @@ func TestRisuB9RawStructuredOutput(t *testing.T) {
   })
  }
  observed:=map[string]interface{}{}
+ listPayload:=[]byte(`{"jsonrpc":"2.0","id":100,"method":"tools/list","params":{}}`)
+ listResponse:=srv.HandleMessage(context.Background(),listPayload)
+ listBytes,err:=json.Marshal(listResponse)
+ if err!=nil {t.Fatal(err)}
+ var listEnv map[string]interface{}
+ if err=json.Unmarshal(listBytes,&listEnv);err!=nil {t.Fatal(err)}
+ observed["catalog"]=listEnv
  for _,name:=range []string{"bad_raw","good_raw"}{
    payload,_:=json.Marshal(map[string]interface{}{
      "jsonrpc":"2.0","id":1,"method":"tools/call",
