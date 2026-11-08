@@ -1,0 +1,61 @@
+name: RISU P6-B9 independent synthetic negative-control stress
+on:
+  push:
+    branches: ['qualification/p6b9-*']
+    paths:
+      - 'benchmarks/p6b9/synthetic_control_stress.py'
+      - '.github/workflows/p6b9-synthetic-controls.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frozen-engine-controlled-mutations:
+    name: 800 clean + 400 intentional single-field violations
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Confirm frozen old analyzer, install without target execution
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m venv .b9-stress-venv
+          .b9-stress-venv/bin/python -m pip install --disable-pip-version-check .
+          .b9-stress-venv/bin/python -m pip check
+      - name: Run deterministic bounded normal controls and injected failures
+        run: |
+          set -euo pipefail
+          .b9-stress-venv/bin/python benchmarks/p6b9/synthetic_control_stress.py \
+            --out p6b9-synthetic-controls-result.json
+          .b9-stress-venv/bin/python - <<'PY'
+          import json
+          x=json.load(open('p6b9-synthetic-controls-result.json'))
+          assert x['normal_traces']==800
+          assert x['injected_single_field_type_mismatch_traces']==400
+          assert x['unexpected_findings_on_normal']==0
+          assert x['injected_mismatch_non_detections']==0
+          assert x['unverified_or_unchecked_cases']==0
+          print('P6B9_SYNTHETIC_CONTROLS_AND_MUTATIONS_VERIFIED')
+          PY
+      - name: Archive source and result (synthetic, not real external prevalence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b9-1200-deterministic-synthetic-controls
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b9/synthetic_control_stress.py
+            p6b9-synthetic-controls-result.json
