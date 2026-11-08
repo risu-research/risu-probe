@@ -1,0 +1,86 @@
+name: RISU P6-B9 AG2 MCPToolkit independent paginated-discovery test
+on:
+  push:
+    branches: ['qualification/p6b9-*']
+    paths:
+      - 'benchmarks/p6b9/ag23262_capture.py'
+      - 'benchmarks/p6b9/evaluate_ag23262.py'
+      - '.github/workflows/p6b9-ag23262-holdout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-agent-toolkit-discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Ensure immutable RISU analyzer and isolated environment
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m venv .ag2b9
+          .ag2b9/bin/python -m pip install --disable-pip-version-check .
+          mkdir -p .p6b9-ag2
+      - name: Run original AG2 MCPToolkit code against bounded local MCP test peer
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            if [[ "$REV" == old ]]; then
+              SHA=f7d426b522b6d559c781217a9b7b3ab3e603bccc
+              BLOB=d280dcf25c6f33726787880ecf72070957c8b39c
+            else
+              SHA=ca363885d5ac12677a167fc1abcae9c9c56aebd9
+              BLOB=401bd466df9c056746948ce519fc09c2347ef51c
+            fi
+            UP=".b9-ag2-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/ag2ai/ag2.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:ag2/tools/toolkits/mcp_server/toolkit.py)" = "$BLOB"
+            .ag2b9/bin/python -m pip install --disable-pip-version-check -e "./$UP[mcp]"
+            .ag2b9/bin/python -m pip check
+            PYTHONPATH="$UP" .ag2b9/bin/python benchmarks/p6b9/ag23262_capture.py ".p6b9-ag2/$REV.json"
+            for SEGMENT in paginated single_page_normal; do
+              .ag2b9/bin/python benchmarks/p6b9/evaluate_ag23262.py trace ".p6b9-ag2/$REV.json" ".p6b9-ag2/$REV-$SEGMENT.jsonl" --segment "$SEGMENT"
+              .ag2b9/bin/risu-probe verify-mcp-trace ".p6b9-ag2/$REV-$SEGMENT.jsonl" --protocol-version 2025-11-25 --format json > ".p6b9-ag2/$REV-$SEGMENT-risu.json"
+            done
+            .ag2b9/bin/python -m pip uninstall -y ag2
+            rm -rf "$UP"
+          done
+      - name: Independent source truth then frozen-engine diagnostic score
+        run: |
+          set -euo pipefail
+          .ag2b9/bin/python benchmarks/p6b9/evaluate_ag23262.py score \
+            .p6b9-ag2/old.json .p6b9-ag2/fixed.json \
+            .p6b9-ag2/old-paginated-risu.json .p6b9-ag2/fixed-paginated-risu.json \
+            .p6b9-ag2/old-single_page_normal-risu.json .p6b9-ag2/fixed-single_page_normal-risu.json \
+            .p6b9-ag2/independent_score.json
+          echo P6B9_AG2_HELDOUT_ADJUDICATED
+      - name: Save public test-double traffic with exact provenance labels
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b9-ag23262-public-independent
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b9/prelocked_seven_families.json
+            .p6b9-ag2/*.json
+            .p6b9-ag2/*.jsonl
