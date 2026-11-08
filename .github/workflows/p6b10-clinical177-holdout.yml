@@ -51,7 +51,7 @@ jobs:
           mkdir -p .b10-clinical
           for REV in old fixed; do
             if [[ "$REV" == old ]]; then
-              SHA=dae110236e4960f6e1f964a22a7404aecdd55d3dd
+              SHA=dae110236e4960f6e1f964a22a7404aecdd55d3d
               BLOB=57a67d3afc2aee31fd6c303f4e406ae367da0a5f
             else
               SHA=3c61c43ed549414951f06b09944d90f59a4ffdc3
