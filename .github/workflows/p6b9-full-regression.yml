@@ -1,0 +1,53 @@
+name: RISU P6-B9 independent detection engine regression
+on:
+  push:
+    branches: ['qualification/p6b9-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  public-wheel-and-safety:
+    runs-on: ${{ matrix.os }}
+    name: P6-B9 installed-wheel tests (${{ matrix.os }})
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Audit public code and compile
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m compileall -q src tests
+      - name: Build an installed-wheel environment and run the full regression suite
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b9-wheel
+          python -m pip wheel --no-deps -w .b9-wheel .
+          python -m venv .b9env
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b9env/Scripts/python.exe
+            CLI=.b9env/Scripts/risu-probe.exe
+          else
+            PY=.b9env/bin/python
+            CLI=.b9env/bin/risu-probe
+          fi
+          "$PY" -m pip install .b9-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo P6B9_REGRESSIONS_OK
