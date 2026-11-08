@@ -10,11 +10,17 @@ it('RISU P6B8 CYAN846 frozen capture', async () => {
     output: z.object({ flag: z.stringbool().describe('Parsed flag') }),
     handler: (args) => ({ flag: args.flag }) as never,
   });
+  const normalTool = tool('cyan846_normal', {
+    description: 'Normal unaffected control',
+    input: z.object({ message: z.string().describe('Message') }),
+    output: z.object({ value: z.string().describe('Output') }),
+    handler: (args) => ({ value: args.message }),
+  });
   const server = new McpServer(
     { name: 'risu-frozen-cyan846', version: '0.0.0' },
     { capabilities: { tools: {} } },
   );
-  await new ToolRegistry([flagTool], services).registerAll(server);
+  await new ToolRegistry([flagTool, normalTool], services).registerAll(server);
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'risu-heldout-client', version: '0.0.0' });
   let capture: Record<string, unknown> = {
@@ -27,6 +33,10 @@ it('RISU P6B8 CYAN846 frozen capture', async () => {
     const args = { flag: 'true' };
     try {
       const actualResult = await client.callTool({ name: 'cyan846_flag', arguments: args });
+      const normalArgs = { message: 'ok' };
+      const normalResult = await client.callTool({
+        name: 'cyan846_normal', arguments: normalArgs
+      });
       capture = {
         ...capture, status: 'SDK_RESULT',
         rows: [
@@ -34,6 +44,8 @@ it('RISU P6B8 CYAN846 frozen capture', async () => {
           { jsonrpc: '2.0', id: 1, result: { tools: listing.tools } },
           { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'cyan846_flag', arguments: args } },
           { jsonrpc: '2.0', id: 2, result: actualResult },
+          { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'cyan846_normal', arguments: normalArgs } },
+          { jsonrpc: '2.0', id: 3, result: normalResult },
         ],
       };
     } catch (e) {
