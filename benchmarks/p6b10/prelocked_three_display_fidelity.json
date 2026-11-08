@@ -1,0 +1,64 @@
+{
+  "schema": "risu-p6b10-display-fidelity-prelocked-v1",
+  "freeze_utc": "2026-11-08",
+  "engine_base_commit": "1fb82527ab35590b04cc6dbe8e69b170bdeeedcc",
+  "engine_base_blob": "b709cc61e37657ff18f90b15113aa500334e6762",
+  "development_cases_excluded": [
+    "CYAN760",
+    "CYAN785",
+    "PHP673",
+    "GO1139",
+    "PROXY253",
+    "AG23262",
+    "RUST137"
+  ],
+  "scope": "Explicit content-to-structured-value fidelity assertions; preselected source families not used to implement rule-specific code; do not retrospectively adjust B9 scores.",
+  "families": [
+    {
+      "id": "GEONAMES28",
+      "repo": "cyanheads/geonames-mcp-server",
+      "issue": "https://github.com/cyanheads/geonames-mcp-server/issues/28",
+      "old": "41f908aa208f3fe59f8bb62665951289ec7c70eb",
+      "fixed": "1c098963763d6e90f7fe5e1d7f53caca57fa8c7f",
+      "pin_path": "src/utils/inline-text.ts",
+      "old_blob": "3a4ca3d3aba1c51e1db4b05fcfa9802bd454d107",
+      "fixed_blob": "e3800e3055d697ebbe2dad91b632135bacac3510",
+      "bug": "URL defanging modifies observed literal effectiveQuery",
+      "evidence": "Actual upstream code with public synthetic samples, projected JSONRPC envelopes labeled as such",
+      "control": "normal plain text and other safe values"
+    },
+    {
+      "id": "CLINICAL177",
+      "repo": "cyanheads/clinicaltrialsgov-mcp-server",
+      "issue": "https://github.com/cyanheads/clinicaltrialsgov-mcp-server/issues/177",
+      "old": "dae110236e4960f6e1f964a22a7404aecdd55d3d",
+      "fixed": "3c61c43ed549414951f06b09944d90f59a4ffdc3",
+      "pin_path": "src/mcp-server/tools/utils/format-helpers.ts",
+      "old_blob": "57a67d3afc2aee31fd6c303f4e406ae367da0a5f",
+      "fixed_blob": "503d685ad392e3f301c7b17c0a1e0a785d9c3e81",
+      "bug": "Live Markdown link formation in echoed caller query instead of literal value",
+      "evidence": "Actual upstream component with synthetic echo, projected JSONRPC envelopes",
+      "control": "safe literal names"
+    },
+    {
+      "id": "FDIC25",
+      "repo": "cyanheads/fdic-banks-mcp-server",
+      "issue": "https://github.com/cyanheads/fdic-banks-mcp-server/issues/25",
+      "old": "6f78d8c6be836c8a39f71f9b3a93e14c1f43dc42",
+      "fixed": "925807ed75e4cecfd6dd2cd87375bea7529b6cfb",
+      "pin_path": "src/mcp-server/tools/markdown.ts",
+      "old_blob": "fc66d768a781a169340cf6424673da409233c05c",
+      "fixed_blob": "1e164aeeade234d2aaee4f79780ebdfcd01a05b1",
+      "bug": "linebreak and empty/null distinction lost through table rendering",
+      "evidence": "Actual upstream renderer and synthetic table; cannot claim full server wire",
+      "control": "normal safe scalar"
+    }
+  ],
+  "criteria": {
+    "selected": 3,
+    "causal": "Actual before/official-fix result must differ according to published defect and normal controls survive.",
+    "detection": "Frozen analyzer code must emit relevant fidelity mismatch on old and not fixed. Unverified cases remain in selected denominator.",
+    "strictness": "No post-run rule changes under frozen name. Missing or unexecuted source evidence counts as UNVERIFIED rather than hit."
+  },
+  "status": "FROZEN_BEFORE_NEW_RULE_IMPLEMENTATION_OR_EXTERNAL_EXECUTION"
+}
