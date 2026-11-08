@@ -1,0 +1,141 @@
+name: RISU P6-B11 frozen normal controls and genuine MCP SDK stdio
+on:
+  push:
+    branches: ['qualification/p6b11-*']
+    paths:
+      - '.github/workflows/p6b11-qualification.yml'
+      - 'benchmarks/p6b11/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  seeded-normal-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify frozen B10 detectors and public source policy
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_display_fidelity.py)" = 8bc96f64eba96a314479dfaea17af46b38e1ad0a
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m venv .b11-normal-env
+          .b11-normal-env/bin/python -m pip install --disable-pip-version-check '.[fidelity]'
+      - name: Evaluate precommitted seeded 1100 normal and 200 injected examples
+        run: |
+          set -euo pipefail
+          .b11-normal-env/bin/python benchmarks/p6b11/normal_stress.py .b11-normal-results
+      - name: Preserve normal stress scores even when a baseline fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b11-frozen-normal-stress
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b11-normal-results
+            benchmarks/p6b11/frozen_experiment.json
+
+  genuine-official-sdk-stdio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify installed wheel, SDK public pin and unchanged engine
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_display_fidelity.py)" = 8bc96f64eba96a314479dfaea17af46b38e1ad0a
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m venv .b11-wire-env
+          .b11-wire-env/bin/python -m pip install --disable-pip-version-check '.[fidelity]' 'mcp==1.28.0'
+          .b11-wire-env/bin/python -m pip check
+          .b11-wire-env/bin/python - <<'PY'
+          import importlib.metadata
+          assert importlib.metadata.version('mcp')=='1.28.0'
+          print("OFFICIAL_MCP_SDK_1_28_0_PIN_VERIFIED")
+          PY
+      - name: Record authentic bidirectional SDK stdio wire and score native JSON-RPC
+        run: |
+          set -euo pipefail
+          timeout 65s .b11-wire-env/bin/python benchmarks/p6b11/stdio_client_run.py .b11-wire-results
+          .b11-wire-env/bin/python benchmarks/p6b11/score_real_stdio.py \
+            .b11-wire-results/original_raw_stdio.jsonl .b11-wire-results
+      - name: Preserve raw original bytes, hashes, transcripts and verdicts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b11-authentic-sdk-stdio-original-wire
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b11-wire-results
+            benchmarks/p6b11/frozen_experiment.json
+
+  installed-wheel-regression:
+    name: B11 wheel regression (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify source and execute complete installed wheel tests
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m compileall -q src tests benchmarks/p6b11
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b11-dist
+          python -m pip wheel --no-deps -w .b11-dist .
+          python -m venv .b11-smoke
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b11-smoke/Scripts/python.exe
+            CLI=.b11-smoke/Scripts/risu-probe.exe
+          else
+            PY=.b11-smoke/bin/python
+            CLI=.b11-smoke/bin/risu-probe
+          fi
+          WHEEL="$(find .b11-dist -name 'risu_probe_preview-*.whl' | head -n 1)"
+          "$PY" -m pip install "${WHEEL}[fidelity]"
+          "$PY" -m pip check
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo P6B11_FULL_WHEEL_REGRESSION_OK
