@@ -14,6 +14,9 @@ dependencies = ["PyYAML==6.0.2", "jsonschema>=4.23,<5"]
 keywords = ["mcp", "openapi", "api", "static-analysis", "compatibility"]
 classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Topic :: Software Development :: Quality Assurance"]
 
+[project.optional-dependencies]
+fidelity = ["markdown-it-py>=4.0,<5"]
+
 [project.scripts]
 risu-probe = "risu_p5d_cli:main"
 
@@ -39,6 +42,7 @@ py-modules = [
   "risu_minimize",
   "risu_mcp_replay",
   "risu_mcp_trace",
+  "risu_display_fidelity",
   "risu_nested_schema",
   "risu_obligations",
   "risu_onboarding",
