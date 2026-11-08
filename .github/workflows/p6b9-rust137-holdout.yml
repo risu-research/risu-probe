@@ -1,0 +1,85 @@
+name: RISU P6-B9 Rust CLI structured loss original source holdout
+on:
+  push:
+    branches: ['qualification/p6b9-*']
+    paths:
+      - 'benchmarks/p6b9/rust137_append_test.rs'
+      - 'benchmarks/p6b9/evaluate_rust137.py'
+      - '.github/workflows/p6b9-rust137-holdout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-rust-serde-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Enforce frozen B9 engine and install from public source
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m venv .b9-rust-env
+          .b9-rust-env/bin/python -m pip install --disable-pip-version-check .
+          mkdir -p .p6b9-rust
+          rustc --version
+          cargo --version
+      - name: Exercise real pinned Rust typed result before and after fix
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            if [[ "$REV" == old ]]; then
+              SHA=c316e331b1458973b24832af536fed05a6207141
+              BLOB=c4ca9037ac526dc16132fc9396b58e5a0fdde91f
+            else
+              SHA=7c251a07ecd1f3baefaa64d0756f4e3202083f61
+              BLOB=237ba75c2fb7e914c031fce2054ac4d29cf992dc
+            fi
+            UP=".b9-rust-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/avelino/mcp.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:src/protocol.rs)" = "$BLOB"
+            cat benchmarks/p6b9/rust137_append_test.rs >> "$UP/src/protocol.rs"
+            OUT="$GITHUB_WORKSPACE/.p6b9-rust/$REV.json"
+            (cd "$UP" && RISU_B9_RUST_CAPTURE_PATH="$OUT" cargo test --locked \
+                actual_upstream_toolcall_structured_roundtrip_capture -- --nocapture)
+            .b9-rust-env/bin/python benchmarks/p6b9/evaluate_rust137.py trace ".p6b9-rust/$REV.json" ".p6b9-rust/$REV.jsonl"
+            .b9-rust-env/bin/risu-probe verify-mcp-trace ".p6b9-rust/$REV.jsonl" --protocol-version 2026-07-28 --format json > ".p6b9-rust/$REV-risu.json"
+            rm -rf "$UP"
+          done
+      - name: Save independent source data and frozen RISU rule result
+        run: |
+          set -euo pipefail
+          .b9-rust-env/bin/python benchmarks/p6b9/evaluate_rust137.py score \
+            .p6b9-rust/old.json .p6b9-rust/fixed.json \
+            .p6b9-rust/old-risu.json .p6b9-rust/fixed-risu.json \
+            .p6b9-rust/independent_score.json
+      - name: Archive source-only public evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b9-rust137-public-independent
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b9/prelocked_seven_families.json
+            .p6b9-rust/*.json
+            .p6b9-rust/*.jsonl
