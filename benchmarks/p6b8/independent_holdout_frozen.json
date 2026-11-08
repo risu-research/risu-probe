@@ -1,0 +1,29 @@
+{
+  "schema": "risu-p6b8-next-independent-holdout-v1",
+  "freeze_date_utc": "2026-11-08",
+  "frozen_engine_commit": "a6a23c7c77c626ec53256eb998e61c06bf7f69ed",
+  "selection_before_holdout_execution": true,
+  "development_cases_excluded": [
+    "A11Y205",
+    "FS5184"
+  ],
+  "case": {
+    "id": "CYAN846",
+    "source": "cyanheads/mcp-ts-core",
+    "issue": "https://github.com/cyanheads/mcp-ts-core/issues/846",
+    "upstream_fixed_pr": "https://github.com/cyanheads/mcp-ts-core/pull/848",
+    "old_commit": "876d69313e1b06662e459c2fdc802bb860f11eb7",
+    "fixed_commit": "15c478caf0d865d6cfc9fa7f6beb9f2ddc87eb6a",
+    "pin_path": "src/mcp-server/tools/utils/toolHandlerFactory.ts",
+    "old_git_blob_sha1": "2ebdc722be9e8f1662699d52df02dc6bc252ea54",
+    "fixed_git_blob_sha1": "eebc4db0f9b61062f85148f6c8bd55624ac6b0aa",
+    "reproduction": "z.stringbool output accepts input string, parses boolean; pre-fix tool call isError output validation rejection; post-fix emits boolean as successful structuredContent",
+    "expected_before": "SERVER_REPORTED_OUTPUT_VALIDATION_REJECTION",
+    "expected_after": "SUCCESS_WITH_CORRECT_PARSED_BOOLEAN",
+    "risu_scope": "Should classify old server-reported validation rejection without asserting independently proved cause; should not invent a finding for fixed successful schema-valid result",
+    "allowed_execution": "Published pinned repository; synthetic tool handler; offline in-memory MCP SDK transport; no production MCP server, network calls, customer data or credentials",
+    "scoring": "One verified root cause equals one case; if reproduction unavailable, mark unverified, do not count as miss or success."
+  },
+  "status": "FROZEN_NOT_YET_EXECUTED",
+  "notes": "This is a new family selected after the B8 rules were implemented and CI passed. Do not change rules after seeing this result and still call this holdout. Experimental harness fixes may be documented, but must not change engine frozen commit."
+}
