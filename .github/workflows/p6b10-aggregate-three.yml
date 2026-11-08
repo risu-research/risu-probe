@@ -37,13 +37,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh api repos/risu-research/risu-probe/actions/artifacts/13629644514 --jq '.name+" "+.digest' > .b10-two-id.txt
-          grep -Fx 'risu-p6b10-prelocked-source-holdouts sha256:57738259208228f8aaaf49c9e211db71e0c61586219427940bb68b405d3df94e' .b10-two-id.txt
-          gh api repos/risu-research/risu-probe/actions/artifacts/13630381362 --jq '.name+" "+.digest' > .b10-clinical-id.txt
-          grep -Fx 'risu-p6b10-clinical177-prelocked sha256:828817b241530d1a384d19da0761d7faeb7518d5e1aac4c97132ecbe7797f4ee' .b10-clinical-id.txt
+          gh api repos/risu-research/risu-probe/actions/artifacts/13629319972 --jq '.name+" "+.digest' > .b10-two-id.txt
+          grep -Fx 'risu-p6b10-prelocked-source-holdouts sha256:9fee610207f415aa386a37a9152ac0200051e4ed211326dbf64f51edfd6f7cb3' .b10-two-id.txt
+          gh api repos/risu-research/risu-probe/actions/artifacts/13630985205 --jq '.name+" "+.digest' > .b10-clinical-id.txt
+          grep -Fx 'risu-p6b10-clinical177-prelocked sha256:168484eca8e764e08a284559d955b54878c650e27be07b92d56558f72c5c6bb2' .b10-clinical-id.txt
           mkdir -p .b10-agg/two .b10-agg/clinical
-          gh run download 42512698913 --repo risu-research/risu-probe --name risu-p6b10-prelocked-source-holdouts --dir .b10-agg/two
-          gh run download 42513152708 --repo risu-research/risu-probe --name risu-p6b10-clinical177-prelocked --dir .b10-agg/clinical
+          gh run download 42513633746 --repo risu-research/risu-probe --name risu-p6b10-prelocked-source-holdouts --dir .b10-agg/two
+          gh run download 42513638014 --repo risu-research/risu-probe --name risu-p6b10-clinical177-prelocked --dir .b10-agg/clinical
       - name: Aggregate exact source scores without dropping any preregistered family
         run: |
           set -euo pipefail
