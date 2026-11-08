@@ -1,0 +1,22 @@
+{
+  "schema": "risu-p6b11-followup-repair-and-new-challenge-v1",
+  "selected_at_utc": "2026-11-08",
+  "baseline_frozen_engine_blob": "8bc96f64eba96a314479dfaea17af46b38e1ad0a",
+  "baseline_seed": 20261108,
+  "baseline_result": "1100 nominal normal (50 observed RDF601), 200 injected (200 detected), 0 unverified",
+  "observed_failure_family": "Only 50 json-string-special normals carrying U+2028; Python str.splitlines treated Unicode separator as physical line break while CommonMark inline code span preserves it.",
+  "causal_hypothesis": "Use only CR LF and CRLF to delimit actual named captured text lines. Do not split U+0085 U+2028 U+2029 as if transport line boundaries.",
+  "qualification_policy": "Prior B10 detector and B11 first baseline remain unchanged. Repair in a NEW side-by-side B11 module; rerun original 1100 as DEVELOPMENT, not independent; run separately preselected normal challenge and authentic raw stdio with repaired module before promotion.",
+  "challenger_seed": 61120261108,
+  "challenger_normal_count": 640,
+  "challenger_injected_count": 120,
+  "challenger_cases": [
+    "newline-separator U+0085/U+2028/U+2029 inside valid JSON code literals",
+    "markdown escape literal value with ordinary syntax and unrelated Markdown",
+    "code-copy with nested brackets and backtick runs",
+    "special tab CRLF whitespace strings",
+    "valid non-English Unicode and emoji"
+  ],
+  "status": "FROZEN_BEFORE_B11_REPAIRED_MODULE_CREATION",
+  "limits": "New challenge is a purposive synthetic post-discovery set; cannot estimate ecosystem false positive rate or independent sample specificity"
+}
