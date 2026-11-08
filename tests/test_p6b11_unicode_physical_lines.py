@@ -13,12 +13,12 @@ POLICY={"schema":"risu-display-fidelity-contract-v1","rules":[{
  "line_prefix":"**value:** ","mode":"json-string-special","is_error":False
 }]}
 
-def evaluate(value:str,rendered:str,engine):
+def evaluate(value:str,rendered:str,engine,*,include_prefix=True):
     rows=[
       {"jsonrpc":"2.0","id":1,"method":"tools/call",
        "params":{"name":"echo","arguments":{}}},
       {"jsonrpc":"2.0","id":1,"result":{"isError":False,
-       "content":[{"type":"text","text":"**value:** "+rendered}],
+       "content":[{"type":"text","text":("**value:** " if include_prefix else "")+rendered}],
        "structuredContent":{"value":value}}}
     ]
     with tempfile.TemporaryDirectory() as folder:
@@ -55,7 +55,7 @@ class B11PhysicalLineTests(unittest.TestCase):
                 self.assertEqual(out["summary"]["findings"],0)
                 self.assertEqual(out["summary"]["unverified"],0)
     def test_missing_literal_never_claims_pass(self):
-        out=evaluate("value","unrelated code literal",repaired_engine)
+        out=evaluate("value","unrelated code literal",repaired_engine,include_prefix=False)
         self.assertEqual(out["summary"]["literal_checks_completed"],0)
         self.assertEqual(out["summary"]["unverified"],1)
 
