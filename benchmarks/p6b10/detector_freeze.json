@@ -1,0 +1,9 @@
+{
+  "schema": "risu-p6b10-detector-freeze-v1",
+  "frozen_engine_commit": "19c8432622e0b275c89dba54f350bc18085286aa",
+  "frozen_detector_module_git_blob": "8bc96f64eba96a314479dfaea17af46b38e1ad0a",
+  "selection_manifest_commit": "c759d2b3770d104a22c3dcd65dec636454963e61",
+  "frozen_before_first_upstream_execution": true,
+  "test_status": "Initial three-OS installed wheel tests succeeded at GitHub Actions #42512162095",
+  "caution": "Engine must remain frozen for B10 independent upstream scoring; only test harness bug fixes allowed with explicit disclosure, otherwise scoring invalid."
+}
