@@ -105,7 +105,7 @@ def main():
     if (semantic["summary"]["findings"]):
         raise RuntimeError("Unexpected protocol/schema finding on genuine SDK wire")
     expected_find={x["tool"] for x in fidelity["findings"]}
-    if expected_find!={"render_bad"}:
+    if expected_find!={"tool_sha256:"+hashlib.sha256(b"render_bad").hexdigest()[:16]}:
         raise RuntimeError("Injected mismatch was not isolated to the intentional bad tool")
     if not any(x["code"]=="AMBIGUOUS_OR_MISSING_LINE" for x in fidelity["unverified"]):
         raise RuntimeError("Incomplete capture did not stay unverified")
