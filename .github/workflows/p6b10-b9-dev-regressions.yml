@@ -1,0 +1,75 @@
+name: RISU P6-B10 old B9 text misses development-only regression
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+    paths:
+      - '.github/workflows/p6b10-b9-dev-regressions.yml'
+      - 'benchmarks/p6b10/evaluate_b9_development.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  pinned-previous-source-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify frozen B10 evaluator and no untrusted execution
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_display_fidelity.py)" = 8bc96f64eba96a314479dfaea17af46b38e1ad0a
+          python -m venv .b10-dev-venv
+          .b10-dev-venv/bin/python -m pip install --disable-pip-version-check '.[fidelity]'
+      - name: Check immutable B9 source artifact identity and retrieve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api repos/risu-research/risu-probe/actions/artifacts/13629135201 \
+            --jq '.name+" "+.digest' > .b10-previous-source-identity.txt
+          grep -Fx 'risu-p6b9-cyan760-785-independent-public sha256:b90a7770a642d3b9f128713b31471f1b3cdde07bc022e473f376ce11f40d8f5e' .b10-previous-source-identity.txt
+          mkdir -p .b10-b9-dev
+          gh run download 42509461777 --repo risu-research/risu-probe \
+            --name risu-p6b9-cyan760-785-independent-public --dir .b10-b9-dev
+      - name: Replay original B9 upstream source results against frozen B10 rules
+        run: |
+          set -euo pipefail
+          SRC=$(.b10-dev-venv/bin/python - <<'PY'
+          from pathlib import Path
+          roots=list(Path('.b10-b9-dev').rglob('CYAN760/old.json'))
+          if len(roots)!=1:
+              raise SystemExit('Expected one unique B9 original source capture')
+          root=roots[0].parent.parent
+          for f in ('CYAN760/old.json','CYAN760/fixed.json','CYAN785/old.json','CYAN785/fixed.json'):
+              if not (root/f).is_file():
+                  raise SystemExit('Original captured B9 source pair missing')
+          print(root)
+          PY
+          )
+          .b10-dev-venv/bin/python benchmarks/p6b10/evaluate_b9_development.py \
+              --source "$SRC" --out .b10-dev-score
+      - name: Archive evaluation summary and original source metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b10-previous-misses-development-only
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            .b10-previous-source-identity.txt
+            .b10-dev-score/dev_summary.json
+            .b10-dev-score/*_risu.json
