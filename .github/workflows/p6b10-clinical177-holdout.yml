@@ -63,6 +63,8 @@ jobs:
             git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/cyanheads/clinicaltrialsgov-mcp-server.git
             GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=250 origin refs/heads/main
             git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach "$SHA"
+            echo "ACTUAL_SOURCE_COMMIT=$(git -C "$UP" rev-parse HEAD) EXPECTED=$SHA"
+            echo "ACTUAL_SOURCE_BLOB=$(git -C "$UP" rev-parse HEAD:src/mcp-server/tools/utils/format-helpers.ts) EXPECTED=$BLOB"
             test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
             test "$(git -C "$UP" rev-parse HEAD:src/mcp-server/tools/utils/format-helpers.ts)" = "$BLOB"
             cat benchmarks/p6b10/clinical177_append.test.ts >> "$UP/tests/mcp-server/tools/definitions/search-studies.tool.test.ts"
