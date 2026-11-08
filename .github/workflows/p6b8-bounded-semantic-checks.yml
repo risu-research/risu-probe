@@ -38,8 +38,8 @@ jobs:
           python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
           python -m pip wheel --no-deps -w . .
           python -m venv .b8venv
-          if [[ "${{ runner.os }}" == Windows ]]; then PY=.b8venv/Scripts/python.exe; else PY=.b8venv/bin/python; fi
+          if [[ "${{ runner.os }}" == Windows ]]; then PY=.b8venv/Scripts/python.exe; CLI=.b8venv/Scripts/risu-probe.exe; else PY=.b8venv/bin/python; CLI=.b8venv/bin/risu-probe; fi
           "$PY" -m pip install ./risu_probe_preview-*.whl
           "$PY" -m pip check
-          "$PY" -m unittest discover -s tests -v
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
           echo RISU_P6B8_FULL_REGRESSIONS_PASS
