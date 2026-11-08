@@ -200,7 +200,11 @@ def verify_display_fidelity(path: Path, contract: dict) -> dict:
                 if type(block) is dict and block.get('type') == 'text' and type(block.get('text')) is str:
                     if len(block['text']) > MAX_OUTPUT_LEN * 4:
                         continue
-                    # Physical captured lines are delimited by CR and LF only. Unicode\n                # NEL, LS and PS may occur *inside* a CommonMark code literal.\n                # str.splitlines() silently split those valid scalar values,\n                # causing false RDF601 mismatches on correct encoded results.\n                lines.extend(l for l in re.split(r'\\r\\n|\\r|\\n', block['text'])\n                             if l.startswith(rule['line_prefix']))
+                    # Only CR, LF and CRLF delimit actual transport text lines.
+                    # Unicode NEL, LS and PS may be valid code-span characters.
+                    # str.splitlines() falsely chopped such valid literal values.
+                    lines.extend(l for l in re.split(r'\r\n|\r|\n', block['text'])
+                                 if l.startswith(rule['line_prefix']))
             if len(lines) != 1:
                 gap('AMBIGUOUS_OR_MISSING_LINE', line_no, 'Expected exactly one named literal output line')
                 continue
