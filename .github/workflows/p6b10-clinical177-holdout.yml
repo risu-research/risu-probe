@@ -92,6 +92,7 @@ jobs:
         with:
           name: risu-p6b10-clinical177-prelocked
           retention-days: 21
+          include-hidden-files: true
           if-no-files-found: warn
           path: |
             benchmarks/p6b10/prelocked_three_display_fidelity.json
