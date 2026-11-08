@@ -52,7 +52,7 @@ def main():
     p.add_argument('output',type=Path)
     args=p.parse_args()
     m=json.loads(Path('benchmarks/p6b10/prelocked_three_display_fidelity.json').read_text())
-    assert next(c for c in m['families'] if c['id']=='CLINICAL177')['old']=='dae110236e4960f6e1f964a22a7404aecdd55d3dd'
+    assert next(c for c in m['families'] if c['id']=='CLINICAL177')['old']=='dae110236e4960f6e1f964a22a7404aecdd55d3d'
     before=read(args.old,'old')
     after=read(args.fixed,'fixed')
     a,b=before['samples'],after['samples']
