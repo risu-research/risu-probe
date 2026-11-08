@@ -1,0 +1,112 @@
+{
+  "schema": "risu-p6b9-precommitted-independent-bugfix-set-v1",
+  "selected_at_utc": "2026-11-08",
+  "engine_branch": "qualification/p6b9-independent-generalization-20261108",
+  "engine_frozen_commit": "94804eebeb40412b2957d416c47d9c174a8f1df5",
+  "engine_frozen_blob_git_sha1": "b709cc61e37657ff18f90b15113aa500334e6762",
+  "excluded_development_families": [
+    "A11Y205",
+    "FS5184",
+    "CYAN846"
+  ],
+  "protocol_scope": "2026-07-28 and specifically negotiated earlier versions, trace-only verification by RISU Probe",
+  "qualification_policy": "Only genuinely executed, pinned before/official-fix upstream cases with independently verified causal outcomes count as reproduced. A failure to execute or an ambiguous result is UNVERIFIED, not positive or negative. For every reproduced case, score whether frozen RISU identifies a relevant discrepancy on BEFORE and does not report same on AFTER. Report true mismatches separately from attributed server errors and opt-in behavior oracles. Normal controls counted separately. No rule tuning after observing results.",
+  "transport_policy": "Original JSON-RPC bytes only when captured unmodified from runtime; if an adapter constructs JSONRPC envelopes around actual upstream function/SDK results, label ADAPTER_RECONSTRUCTED and do not claim live stdio capture.",
+  "safety": "Public fixed Git trees, commit and blob verification, synthetic-only data, no access to users, credentials or remote production endpoints; never invoke third-party code in pull_request-triggered workflows; set network-free service behavior, no secrets; bound calls/timeouts.",
+  "family_count_preselected": 7,
+  "cases": [
+    {
+      "id": "PHP673",
+      "repo": "modelcontextprotocol/php-sdk",
+      "issue": "https://github.com/modelcontextprotocol/php-sdk/issues/673",
+      "old": "033d5044b1ecf6ca2e217ef0b1c47e52e7dce4e3",
+      "fixed": "0d8cfa4c69ea92d5f13d957ba702671abbb80188",
+      "source_path": "src/Schema/Result/CallToolResult.php",
+      "old_blob": "d4a88694b62afc01f93a3008b463fdc591c50104",
+      "fixed_blob": "1582f79537a31085a078c5fab56c16fdf6faa7ba",
+      "reproduction": "Real PHP SDK CallToolResult of explicit JSON null serialized; also test omitted-vs-null and false, zero, empty normal controls",
+      "candidate_rule": "RMC501",
+      "evidence_form": "SDK_SERIALIZATION_WITH_ADAPTER_JSONRPC"
+    },
+    {
+      "id": "GO1139",
+      "repo": "mark3labs/mcp-go",
+      "issue": "https://github.com/mark3labs/mcp-go/issues/1139",
+      "old": "c0e5b67f97375fa284ec854d92cb2df49c2ef959",
+      "fixed": "8995d9b137ef36511e6f03a79f6ff0e5ba4d7574",
+      "source_path": "server/output_validation.go",
+      "old_blob": "7b0ca11251c103201322f14d242d0d91c554cfe0",
+      "fixed_blob": "8ceebe211eed03f1ffd9d68a1f75f5defb991468",
+      "reproduction": "Real Go MCP server validation of RawStructuredContent with an invalid type; clean input and normal valid output control, preserve exact SDK return. Also verify large raw odd int if feasible.",
+      "candidate_rule": "RMC502 or an explicit UNVERIFIED output-validation state",
+      "evidence_form": "REAL_UPSTREAM_HANDLER_RESULT_WITH_ADAPTER_JSONRPC"
+    },
+    {
+      "id": "PROXY253",
+      "repo": "sparfenyuk/mcp-proxy",
+      "issue": "https://github.com/sparfenyuk/mcp-proxy/issues/253",
+      "old": "09607c2f03cf43825c618e40fcb547a185c3e50e",
+      "fixed": "28d9a858f1f9f548f089df6f1ceb759af83783ef",
+      "source_path": "src/mcp_proxy/proxy_server.py",
+      "old_blob": "0cced2e997a1635429c8fb8f8143c4c1bb598c9d",
+      "fixed_blob": "389305e2a3100c9eed9189310df083af17feedc1",
+      "reproduction": "Actual proxy list handler receives a nextCursor and forwards to real/mocked remote session, capture whether cursor advanced. All four methods same root cause counts once",
+      "candidate_rule": "CATALOG_CURSOR_CYCLE or INCOMPLETE_CATALOG_PAGINATION, only if actually observed in recorded trace",
+      "evidence_form": "UPSTREAM_PROXY_CALL_WITH_ADAPTER_JSONRPC"
+    },
+    {
+      "id": "CYAN760",
+      "repo": "cyanheads/mcp-ts-core",
+      "issue": "https://github.com/cyanheads/mcp-ts-core/issues/760",
+      "old": "f0fbfff65290113a4a5c5c161fc018a7ba397e53",
+      "fixed": "d7ab46c5d4ff107690c6d2f2b12487b84345df5e",
+      "source_path": "src/mcp-server/tools/utils/toolResult.ts",
+      "old_blob": "6984ba8b2aa9e479da95058e59dadca08ef01463",
+      "fixed_blob": "2c9aaa086a99d0e82417dd8a312b0bbb6d5b9710",
+      "reproduction": "Actual upstream tool error formatting of Markdown-active synthetic string; compare raw error content, check generic unmodified normal",
+      "candidate_rule": "UNKNOWN (text rendering not automatically checked)",
+      "evidence_form": "UPSTREAM_COMPONENT_RESULT_WITH_ADAPTER_JSONRPC"
+    },
+    {
+      "id": "CYAN785",
+      "repo": "cyanheads/mcp-ts-core",
+      "issue": "https://github.com/cyanheads/mcp-ts-core/issues/785",
+      "old": "91a0b66d7273b25aa713a72d78d23345c6a9f468",
+      "fixed": "3e0b36795c1d9086532f55dcbec842b2af5146ad",
+      "source_path": "src/mcp-server/tools/utils/toolResult.ts",
+      "old_blob": "21bead1d9667ed0ff21628e44e68b446f306923a",
+      "fixed_blob": "16ce7e0d9d8ca5c1ef1da26e4d92f4f938db292f",
+      "reproduction": "Actual upstream enrichment trailer with Markdown special characters; evidence is tool output text versus expected copyable value",
+      "candidate_rule": "UNKNOWN (copy-paste transformation not automatically checked)",
+      "evidence_form": "UPSTREAM_COMPONENT_RESULT_WITH_ADAPTER_JSONRPC"
+    },
+    {
+      "id": "RUST137",
+      "repo": "avelino/mcp",
+      "issue": "https://github.com/avelino/mcp/issues/137",
+      "old": "c316e331b1458973b24832af536fed05a6207141",
+      "fixed": "7c251a07ecd1f3baefaa64d0756f4e3202083f61",
+      "source_path": "src/protocol.rs",
+      "old_blob": "c4ca9037ac526dc16132fc9396b58e5a0fdde91f",
+      "fixed_blob": "237ba75c2fb7e914c031fce2054ac4d29cf992dc",
+      "reproduction": "Actual Rust CLI JSON output loses structuredContent; compare genuine wrapper result against structured backend input",
+      "candidate_rule": "UNSCOPED_FOR_TRACE_ONLY unless provided paired original before-wrapper payload",
+      "evidence_form": "UPSTREAM_CLI_OUTPUT"
+    },
+    {
+      "id": "AG23262",
+      "repo": "ag2ai/ag2",
+      "issue": "https://github.com/ag2ai/ag2/issues/3262",
+      "old": "f7d426b522b6d559c781217a9b7b3ab3e603bccc",
+      "fixed": "ca363885d5ac12677a167fc1abcae9c9c56aebd9",
+      "source_path": "ag2/tools/toolkits/mcp_server/toolkit.py",
+      "old_blob": "d280dcf25c6f33726787880ecf72070957c8b39c",
+      "fixed_blob": "401bd466df9c056746948ce519fc09c2347ef51c",
+      "reproduction": "Real AG2 MCPToolkit against synthetic two-page tools/list; one-tool first page and second-page tool, control single page",
+      "candidate_rule": "INCOMPLETE_CATALOG_PAGINATION on observed protocol exchange, not proof of client intent",
+      "evidence_form": "REAL_UPSTREAM_MCP_CLIENT_CAPTURE"
+    }
+  ],
+  "status": "PRELOCKED_BEFORE_ANY_OF_THESE_SEVEN_NEW_UPSTREAM_EXECUTIONS",
+  "no_cherry_picking": "Do not drop reproducible misses or count multiple triggers of one source defect as separate families. Do not count altered or injected behavioral outputs as actual upstream defects."
+}
