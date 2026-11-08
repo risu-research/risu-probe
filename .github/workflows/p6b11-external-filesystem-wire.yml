@@ -1,0 +1,85 @@
+name: RISU P6-B11 genuine upstream Filesystem MCP wire over official SDK
+on:
+  push:
+    branches: ['qualification/p6b11-*']
+    paths:
+      - '.github/workflows/p6b11-external-filesystem-wire.yml'
+      - 'benchmarks/p6b11/external_filesystem_tee.py'
+      - 'benchmarks/p6b11/external_filesystem_client.py'
+      - 'benchmarks/p6b11/score_external_filesystem.py'
+      - 'benchmarks/p6b11/score_real_stdio.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-external-upstream-client-server:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check public-only execution and installed SDK version
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = b709cc61e37657ff18f90b15113aa500334e6762
+          python -m venv .b11-external-env
+          .b11-external-env/bin/python -m pip install --disable-pip-version-check '.[fidelity]' 'mcp==1.28.0'
+          .b11-external-env/bin/python -m pip check
+          .b11-external-env/bin/python - <<'PY'
+          import importlib.metadata
+          assert importlib.metadata.version('mcp')=='1.28.0'
+          print('B11_ORIGINAL_PYTHON_MCP_SDK_CLIENT_PINNED')
+          PY
+      - name: Clone and build the two immutable third-party upstream source revisions
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            case "$REV" in
+              old) SHA=3bd1337713c796ada8a3dbb088dd911aa83dc932; BLOB=b1a90a409469fb34e7580cce3356d02908be34b3 ;;
+              fixed) SHA=0dce8bd9b65d91a6f7afe1d8f99ffea5d5cf8fe4; BLOB=266801190ce1cc461c2c770b756161cc4ca03b99 ;;
+              *) exit 2 ;;
+            esac
+            UP=".b11-upstream-FS5184-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/modelcontextprotocol/servers.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:src/filesystem/server.ts)" = "$BLOB"
+            (cd "$UP" && npm ci --ignore-scripts --omit=optional --no-audit --no-fund && npm run build --workspace=@modelcontextprotocol/server-filesystem)
+            test -s "$UP/src/filesystem/dist/index.js"
+            echo "ORIGINAL_UPSTREAM_BUILT $REV $SHA $BLOB"
+          done
+      - name: Execute actual upstream STDIO over official SDK client and score
+        run: |
+          set -euo pipefail
+          timeout 110s .b11-external-env/bin/python benchmarks/p6b11/external_filesystem_client.py .b11-external-wire
+          .b11-external-env/bin/python benchmarks/p6b11/score_external_filesystem.py .b11-external-wire
+      - name: Preserve genuine raw external source wire, source pins and normal controls
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b11-real-original-external-mcp-stdio
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b11-external-wire
+            benchmarks/p6b7/frozen_upstream_cases.json
+            benchmarks/p6b8/fs5184_explicit_dev_contract.json
+            benchmarks/p6b11/frozen_experiment.json
