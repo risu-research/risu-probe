@@ -1,0 +1,91 @@
+name: RISU P6-B10 ClinicalTrials genuine renderer third holdout
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+    paths:
+      - '.github/workflows/p6b10-clinical177-holdout.yml'
+      - 'benchmarks/p6b10/clinical177_append.test.ts'
+      - 'benchmarks/p6b10/evaluate_clinical177.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-source-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+      - name: Enforce frozen RISU engine and the previously registered third family
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_display_fidelity.py)" = 8bc96f64eba96a314479dfaea17af46b38e1ad0a
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          f=json.loads(Path('benchmarks/p6b10/detector_freeze.json').read_text())
+          m=json.loads(Path('benchmarks/p6b10/prelocked_three_display_fidelity.json').read_text())
+          assert f['frozen_detector_module_git_blob']=='8bc96f64eba96a314479dfaea17af46b38e1ad0a'
+          assert [c['id'] for c in m['families']]==['GEONAMES28','CLINICAL177','FDIC25']
+          print('THIRD_FAMILY_PRELOCKED_AND_ENGINE_UNCHANGED')
+          PY
+          python -m venv .b10-clinical-venv
+          .b10-clinical-venv/bin/python -m pip install --disable-pip-version-check '.[fidelity]'
+      - name: Execute actual old and fixed clinicaltrials searchCriteria renderer
+        run: |
+          set -euo pipefail
+          mkdir -p .b10-clinical
+          for REV in old fixed; do
+            if [[ "$REV" == old ]]; then
+              SHA=dae110236e4960f6e1f964a22a7404aecdd55d3
+              BLOB=57a67d3afc2aee31fd6c303f4e406ae367da0a5f
+            else
+              SHA=3c61c43ed549414951f06b09944d90f59a4ffdc3
+              BLOB=503d685ad392e3f301c7b17c0a1e0a785d9c3e81
+            fi
+            UP=".b10-clinical-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/cyanheads/clinicaltrialsgov-mcp-server.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:src/mcp-server/tools/utils/format-helpers.ts)" = "$BLOB"
+            cat benchmarks/p6b10/clinical177_append.test.ts >> "$UP/tests/mcp-server/tools/definitions/search-studies.tool.test.ts"
+            (cd "$UP" && bun install --frozen-lockfile --ignore-scripts)
+            CAP="$GITHUB_WORKSPACE/.b10-clinical/$REV-source.json"
+            (cd "$UP" && RISU_P6B10_CLINICAL_CAPTURE="$CAP" RISU_P6B10_CLINICAL_REV="$REV" bunx vitest run tests/mcp-server/tools/definitions/search-studies.tool.test.ts -t 'RISU P6B10 CLINICAL177 originally pinned searchCriteria literal output' --reporter=dot)
+            test -s "$CAP"
+            echo "ORIGINAL_PINNED_CLINICAL_SOURCE_CAPTURED $REV $SHA"
+            rm -rf "$UP"
+          done
+      - name: Score genuine source before/official fix using the same frozen engine
+        run: |
+          set -euo pipefail
+          .b10-clinical-venv/bin/python benchmarks/p6b10/evaluate_clinical177.py \
+             .b10-clinical/old-source.json .b10-clinical/fixed-source.json .b10-clinical
+      - name: Archive synthetic-only source and detector evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-p6b10-clinical177-prelocked
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b10/prelocked_three_display_fidelity.json
+            benchmarks/p6b10/detector_freeze.json
+            .b10-clinical
