@@ -43,7 +43,7 @@ jobs:
           set -euo pipefail
           for REV in old fixed; do
             if [[ "$REV" == old ]]; then
-              SHA=43aaa4f65df5c30ca6b38eabe4de025bc5123a0
+              SHA=2ed4d2f00c1afb4069744fb607e0243d3b07ab9b
               BLOB=d5b229f8058cd7312c9afcef1327591f71ce0f94
             else
               SHA=a1a9073c0e3defd1aaabd0f88d7bc91be404e884
@@ -53,10 +53,19 @@ jobs:
             mkdir -p "$UP"
             git -C "$UP" init -q
             git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/robotcodedev/robotcode.git
-            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
-            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            # Historic SHA 43aaa4 could not be fetched shallow. The immediately
+            # preceding official-fix parent has IDENTICAL formatter and imported
+            # markdown_docs source blobs; recovery is explicitly recorded.
+            FETCH=a1a9073c0e3defd1aaabd0f88d7bc91be404e884
+            DEPTH=2
+            if [[ "$REV" == fixed ]]; then DEPTH=1; fi
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth="$DEPTH" origin "$FETCH"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach "$SHA"
             test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
             test "$(git -C "$UP" rev-parse HEAD:packages/robot/src/robotcode/robot/utils/markdownformatter.py)" = "$BLOB"
+            if [[ "$REV" == old ]]; then
+              test "$(git -C "$UP" rev-parse HEAD:packages/robot/src/robotcode/robot/utils/markdown_docs.py)" = 6c206efd252c86a6ae946b9a2420e0afaee08831
+            fi
             .b11-robot-env/bin/python benchmarks/p6b11/capture_native_stdio.py \
               --family ROBOT682 --revision "$REV" \
               --binary .b11-robot-env/bin/python \
@@ -86,6 +95,7 @@ jobs:
           if-no-files-found: warn
           path: |
             benchmarks/p6b11/prelocked_three_organizations.json
+            benchmarks/p6b11/robot682_execution_recovery.json
             .b11-robot-stdio/*/original_stdio.jsonl
             .b11-robot-stdio/*/origin.json
             .b11-robot-stdio/*-risu.json
