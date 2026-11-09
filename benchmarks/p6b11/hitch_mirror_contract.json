@@ -1,0 +1,14 @@
+{
+  "schema": "risu-mcp-display-contract-v1",
+  "rules": [
+    {
+      "id": "b11_hitch60_structured_default_mirror",
+      "tool": "missing_text",
+      "source": "",
+      "content_index": null,
+      "prefix_raw": "",
+      "mode": "json-text-mirror",
+      "on_error": false
+    }
+  ]
+}
