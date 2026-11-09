@@ -1,0 +1,50 @@
+name: RISU P6-B10 display-fidelity development and full wheel regression
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installed-wheel:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    name: B10 display and full regressions (${{ matrix.os }})
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Public source audit and clean installed-wheel testing
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m compileall -q src tests
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b10-wheel
+          python -m pip wheel --no-deps -w .b10-wheel .
+          python -m venv .b10env
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b10env/Scripts/python.exe
+            CLI=.b10env/Scripts/risu-probe.exe
+          else
+            PY=.b10env/bin/python
+            CLI=.b10env/bin/risu-probe
+          fi
+          "$PY" -m pip install .b10-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo P6B10_FULL_REGRESSION_PASS
