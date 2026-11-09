@@ -94,6 +94,8 @@ def _render_commonmark(text: str) -> tuple[str|None,str]:
         return None,'MARKDOWN_PARSER_UNAVAILABLE'
     if len(text)>MAX_TEXT:
         return None,'DISPLAY_VALUE_TOO_LARGE'
+    if re.search(r'<[/A-Za-z][^>]{0,128}>',text):
+        return None,'DISPLAY_MARKDOWN_MARKUP_UNSUPPORTED'
     try:
         tokens=MarkdownIt('commonmark',{'html':False}).parse(text)
     except (RecursionError,ValueError,TypeError):
