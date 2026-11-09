@@ -1,0 +1,50 @@
+name: RISU P6-B11 installed-wheel cross-platform product regressions
+on:
+  push:
+    branches: ['qualification/p6b11-*']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-installed-wheel:
+    name: B11 wheel and all tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Public-only audit and installed wheel regression
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m compileall -q src tests
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b11-wheel
+          python -m pip wheel --no-deps -w .b11-wheel .
+          python -m venv .b11env
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b11env/Scripts/python.exe
+            CLI=.b11env/Scripts/risu-probe.exe
+          else
+            PY=.b11env/bin/python
+            CLI=.b11env/bin/risu-probe
+          fi
+          "$PY" -m pip install .b11-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo P6B11_CROSS_PLATFORM_ALL_TESTS_PASS
