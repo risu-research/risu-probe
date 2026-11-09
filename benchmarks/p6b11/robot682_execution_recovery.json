@@ -1,0 +1,24 @@
+{
+  "schema": "risu-b11-robot682-source-commit-availability-recovery-v1",
+  "original_precommitted_old": "43aaa4f65df5c30ca6b38eabe4de025bc5123a0",
+  "initial_attempt_run": "https://github.com/risu-research/risu-probe/actions/runs/42548055678",
+  "initial_issue": "Github git upload endpoint refuses direct shallow fetch of historical commit, before upstream source was executed",
+  "replacement_retrieval": "Fetch official fixed commit with depth 2, checkout its direct parent",
+  "replacement_old_commit": "2ed4d2f00c1afb4069744fb607e0243d3b07ab9b",
+  "official_fixed_commit": "a1a9073c0e3defd1aaabd0f88d7bc91be404e884",
+  "verified_identical_blobs": [
+    {
+      "path": "packages/robot/src/robotcode/robot/utils/markdownformatter.py",
+      "original_old_blob": "d5b229f8058cd7312c9afcef1327591f71ce0f94",
+      "substituted_parent_blob": "d5b229f8058cd7312c9afcef1327591f71ce0f94"
+    },
+    {
+      "path": "packages/robot/src/robotcode/robot/utils/markdown_docs.py",
+      "original_old_blob": "6c206efd252c86a6ae946b9a2420e0afaee08831",
+      "substituted_parent_blob": "6c206efd252c86a6ae946b9a2420e0afaee08831"
+    }
+  ],
+  "claim_limit": "Same pinned formatter and imported Markdown helper source blobs, but whole original old Git tree was not executed; score source-equivalent historical bug branch, not byte-for-byte reproduction of original preregistered full commit.",
+  "status": "SOURCE_REVISION_RETRIEVAL_AMENDMENT_BEFORE_FIRST_SUCCESSFUL_EXECUTION",
+  "family_count_unchanged": 3
+}
