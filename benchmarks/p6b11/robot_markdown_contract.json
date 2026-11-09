@@ -1,0 +1,23 @@
+{
+  "schema": "risu-mcp-display-contract-v1",
+  "rules": [
+    {
+      "id": "b11_r682_1",
+      "tool": "literal_code",
+      "source": "/value",
+      "content_index": 0,
+      "prefix_raw": "Value: ",
+      "mode": "markdown-rendered",
+      "on_error": false
+    },
+    {
+      "id": "b11_r682_2",
+      "tool": "normal_code",
+      "source": "/value",
+      "content_index": 0,
+      "prefix_raw": "Value: ",
+      "mode": "markdown-rendered",
+      "on_error": false
+    }
+  ]
+}
