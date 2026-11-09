@@ -1,0 +1,117 @@
+name: RISU P6-B11 independent 3-owner raw-stdio source evidence ledger
+on:
+  push:
+    branches: ['qualification/p6b11-*']
+    paths:
+      - 'benchmarks/p6b11/aggregate_three_organizations.py'
+      - 'benchmarks/p6b11/prelocked_three_organizations.json'
+      - 'tests/test_p6b11_score_aggregation.py'
+      - '.github/workflows/p6b11-aggregate-three-owners.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prelocked-three-publishers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify locked rule implementation and score accounting safety
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+          python -m unittest discover -s tests -p test_p6b11_score_aggregation.py -v
+      - name: Download actual original Particulars native MCP stdio trial
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42548135441
+          github-token: ${{ github.token }}
+          name: risu-b11-particulars15-native-stdio
+          path: .b11-audit/PARTICULARS15
+      - name: Download actual original Hitch Ruby source and SDK stdio trial
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42549158812
+          github-token: ${{ github.token }}
+          name: risu-b11-hitch60-original-ruby-bridged-stdio
+          path: .b11-audit/HITCH60
+      - name: Download actual original RobotCode Python source and SDK stdio trial
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42549158894
+          github-token: ${{ github.token }}
+          name: risu-b11-robot682-real-sdk-stdio
+          path: .b11-audit/ROBOT682
+      - name: Cross-run original evidence identity then all-selected score
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          for family in ('PARTICULARS15','HITCH60','ROBOT682'):
+              root=Path('.b11-audit')/family
+              scores=list(root.rglob('source_score.json'))
+              origins=list(root.rglob('origin.json'))
+              traces=list(root.rglob('original_stdio.jsonl'))
+              assert len(scores)==1,(family,scores)
+              assert len(origins)==2,(family,origins)
+              assert len(traces)==2,(family,traces)
+              for meta in origins:
+                  info=json.loads(meta.read_text())
+                  raw=meta.parent.joinpath('original_stdio.jsonl').read_bytes()
+                  assert hashlib.sha256(raw).hexdigest()==info['trace_sha256'],meta
+                  assert info['evidence_transport']=='ACTUAL_SOURCE_EXECUTION_RAW_UPSTREAM_PROCESS_STDOUT'
+                  assert info['family']==family,meta
+              out=Path('.b11-audit')/(family+'.json')
+              out.write_bytes(scores[0].read_bytes())
+              print('B11_CROSS_RUN_SOURCE_STDIO_VERIFIED',family,len(origins),len(traces))
+          PY
+          python benchmarks/p6b11/aggregate_three_organizations.py \
+            --score PARTICULARS15=.b11-audit/PARTICULARS15.json \
+            --score HITCH60=.b11-audit/HITCH60.json \
+            --score ROBOT682=.b11-audit/ROBOT682.json \
+            --out .b11-audit/prelocked-three-publisher-ledger.json
+          python - <<'PY'
+          import json
+          s=json.load(open('.b11-audit/prelocked-three-publisher-ledger.json'))['summary']
+          assert s['preselected_defect_families']==3,s
+          assert s['different_repository_owners']==3,s
+          assert s['source_scores_received']==3,s
+          assert s['source_reproductions_with_normal_controls']==3,s
+          assert s['relevant_detections']==3,s
+          assert s['confirmed_misses']==0,s
+          assert s['unverified_or_missing']==0,s
+          assert s['native_source_original_mcp_stdio_verified']==1,s
+          assert s['actual_source_with_sdk_stdio_wrapper_verified']==2,s
+          print('B11_ALL_THREE_CROSS_ORGANIZATION_REAL_STDIO_SCORES_AUDITED')
+          PY
+      - name: Archive independent cross-run freeze-preserving ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b11-independent-three-owner-raw-stdio-ledger
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b11/prelocked_three_organizations.json
+            benchmarks/p6b11/robot682_execution_recovery.json
+            .b11-audit/prelocked-three-publisher-ledger.json
