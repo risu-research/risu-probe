@@ -1,0 +1,126 @@
+name: RISU P6-B12 postfreeze generic MCP RMC510 installed-wheel qualification
+on:
+  push:
+    branches: ['qualification/p6b12-*']
+    paths:
+      - 'src/risu_mcp_cardinality.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b12_cardinality.py'
+      - 'tests/test_p6b12_postfreeze_oracle.py'
+      - 'benchmarks/p6b12/sqlite_calibration_cardinality_contract.json'
+      - '.github/workflows/p6b12-rmc510-cross-platform.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  wheel-all-product-tests:
+    name: B12 RMC510 installed product ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Original blind scan engine remains byte-identical
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+      - name: Build actual preview wheel and execute all independent regressions
+        run: |
+          set -euo pipefail
+          python -m compileall -q src tests
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b12-wheel
+          python -m pip wheel --no-deps -w .b12-wheel .
+          python -m venv .b12-qual-env
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b12-qual-env/Scripts/python.exe
+            CLI=.b12-qual-env/Scripts/risu-probe.exe
+          else
+            PY=.b12-qual-env/bin/python
+            CLI=.b12-qual-env/bin/risu-probe
+          fi
+          "$PY" -m pip install .b12-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" --version
+          "$CLI" check-mcp-cardinality --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B12_ALL_OS_INSTALLED_WHEEL_REGRESSION_GREEN
+  actual-original-sqlite-stdio-cardinality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download untouched native SQLite stdout bytes from first blind cohort
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42552593436
+          github-token: ${{ github.token }}
+          name: risu-b12-real-native-stdio-SQLITE
+          path: .b12-real-source
+      - name: Installed RMC510 generic integer row limit verified against unmodified real stdio bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          python -m pip install .
+          TRACE=.b12-real-source/.b12-output/SQLITE/capture/original_stdio.jsonl
+          test -s "$TRACE"
+          risu-probe check-mcp-cardinality "$TRACE" \
+            --contract benchmarks/p6b12/sqlite_calibration_cardinality_contract.json \
+            --format json --out .b12-cardinality-original-source-result.json
+          python - <<'PY'
+          import json,hashlib
+          x=json.load(open('.b12-cardinality-original-source-result.json'))
+          source=json.load(open('.b12-real-source/.b12-output/SQLITE/capture/origin.json'))
+          assert x['trace_sha256']==source['raw_original_stdio_sha256']
+          assert x['summary']['matched']==2,x
+          assert x['summary']['checked']==2,x
+          assert x['summary']['passed']==1,x
+          assert x['summary']['observed_mismatches']==1,x
+          assert x['summary']['unverified']==0,x
+          assert [f['rule_id'] for f in x['findings']]==['RMC510'],x
+          assert source['native_upstream_stdio'] and source['no_test_wrapper'],source
+          print('B12_RMC510_REUSABLE_GENERAL_CARDINALITY_DETECTED_ORIGINAL_PINNED_NATIVE_STDIO')
+          PY
+      - name: Preserve generic checker real-source demonstration and exact firstpass origin
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b12-rmc510-postfreeze-real-stdio-generic-cardinality
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b12/prelocked_blind_servers.json
+            benchmarks/p6b12/sqlite_calibration_cardinality_contract.json
+            .b12-cardinality-original-source-result.json
+            .b12-real-source/.b12-output/SQLITE/capture/origin.json
