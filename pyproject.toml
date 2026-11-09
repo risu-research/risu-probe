@@ -10,7 +10,7 @@ requires-python = ">=3.11"
 readme = "README.md"
 license = "Apache-2.0"
 authors = [{name = "RISU Research"}]
-dependencies = ["PyYAML==6.0.2", "jsonschema>=4.23,<5"]
+dependencies = ["PyYAML==6.0.2", "jsonschema>=4.23,<5", "markdown-it-py>=3.0,<5"]
 keywords = ["mcp", "openapi", "api", "static-analysis", "compatibility"]
 classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Topic :: Software Development :: Quality Assurance"]
 
