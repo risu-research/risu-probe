@@ -62,10 +62,15 @@ async def run(case:str,exe:Path,argv:list[str],manifest:Path,output:Path,source:
              'DB_URL':'sqlite:///'+str(fixture['db']),
              'SQLITE_DB_PATH':str(fixture['db'])}
         # Only allow case's own locally built or Git checked-out file imports.
-        if case=='SQLITE':
-            assert len(argv)==2 and argv[0]=='-c' and argv[1]=='import sqlite_explorer; sqlite_explorer.mcp.run()'
-            if source is None or not (source/'sqlite_explorer.py').is_file():
-                raise RuntimeError('Original pinned SQLite Explorer source required')
+        if case in ('SQLITE','ALCHEMY'):
+            if source is None or not source.is_dir():
+                raise RuntimeError('Original pinned Python server source directory required')
+            if case=='SQLITE':
+                assert len(argv)==2 and argv[0]=='-c' and argv[1]=='import sqlite_explorer; sqlite_explorer.mcp.run()'
+                assert (source/'sqlite_explorer.py').is_file()
+            else:
+                assert len(argv)==2 and argv[0]=='-c' and argv[1]=='from mcp_alchemy.server import main; main()'
+                assert (source/'mcp_alchemy'/'server.py').is_file()
             env['PYTHONPATH']=str(source.resolve(strict=True))
         assert len(argv)<=6
         if case=='FS':
