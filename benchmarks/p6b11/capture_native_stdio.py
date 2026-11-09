@@ -16,10 +16,11 @@ import tempfile
 MAX_LINE=524_288
 MAX_CAPTURE=3_000_000
 SUPPORTED={'PARTICULARS15':('workspace_status','topics_list'),
-           'ROBOT682':('literal_code','normal_code')}
+           'ROBOT682':('literal_code','normal_code'),
+           'HITCH60':('missing_text','explicit_text','text_only')}
 
 async def execute(binary:Path,server_args:list[str],family:str,version:str,
-                  out:Path,pythonpath:Path|None)->dict:
+                  out:Path,pythonpath:Path|None,hitch_source:Path|None)->dict:
     if family not in SUPPORTED or version not in ('old','fixed'):
         raise ValueError('Only two preregistered synthetic families and revisions')
     exe=binary.resolve(strict=True)
@@ -33,6 +34,10 @@ async def execute(binary:Path,server_args:list[str],family:str,version:str,
              'PYTHONDONTWRITEBYTECODE':'1'}
         if pythonpath is not None:
             env['PYTHONPATH']=str(pythonpath.resolve(strict=True))
+        if family=='HITCH60':
+            if hitch_source is None or hitch_source.is_symlink() or not hitch_source.is_file():
+                raise RuntimeError('Original Ruby canonical result path required')
+            env['RISU_B11_HITCH_SOURCE_JSON']=str(hitch_source.resolve(strict=True))
         proc=await asyncio.create_subprocess_exec(str(exe),*server_args,
             cwd=temp,env=env,stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
@@ -99,6 +104,7 @@ async def execute(binary:Path,server_args:list[str],family:str,version:str,
                 'trace_response_lines':'ORIGINAL_SERVER_STDOUT_BYTES_NO_REENCODING',
                 'upstream_native_mcp_server':family=='PARTICULARS15',
                 'formatter_in_mcp_sdk_harness':family=='ROBOT682',
+                'original_ruby_source_in_mcp_sdk_harness':family=='HITCH60',
                 'protocol_negotiated':init['result'].get('protocolVersion'),
                 'tool_outcomes':outcomes,
                 'synthetic_data_only':True,'external_mcp_calls':False,
@@ -120,10 +126,11 @@ def main():
     p.add_argument('--binary',required=True,type=Path)
     p.add_argument('--server-arg',action='append',default=[])
     p.add_argument('--pythonpath',type=Path)
+    p.add_argument('--hitch-source',type=Path)
     p.add_argument('--family',required=True,choices=tuple(SUPPORTED))
     p.add_argument('--revision',required=True,choices=('old','fixed'))
     p.add_argument('--out',type=Path,required=True)
     a=p.parse_args()
     asyncio.run(execute(a.binary,a.server_arg,a.family,a.revision,
-                        a.out,a.pythonpath))
+                        a.out,a.pythonpath,a.hitch_source))
 if __name__=='__main__':main()
