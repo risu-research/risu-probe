@@ -1,0 +1,108 @@
+name: RISU P6-B10 new prelocked source display heldout (three repositories)
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+    paths:
+      - 'benchmarks/p6b10/prelocked_three_heldout.json'
+      - 'benchmarks/p6b10/prelocked_three_capture.ts'
+      - 'benchmarks/p6b10/evaluate_prelocked_three.py'
+      - '.github/workflows/p6b10-three-new-heldout.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-real-public:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        family: [GEONAMES28, OPENALEX128, MITRECWE16]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4.4'
+      - name: Confirm detector frozen before any upstream execution
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = f722cd7fdc380e04a3416ba5defba99f249af950
+          test "$(git hash-object src/risu_display_fidelity.py)" = f4f6dc4241ce4cfed355f9dddae2307e642b35ad
+          python - <<'PY'
+          import json
+          r=json.load(open('benchmarks/p6b10/prelocked_three_heldout.json'))
+          assert r['selection_count']==3
+          assert r['engine_trace_blob']=='f722cd7fdc380e04a3416ba5defba99f249af950'
+          assert r['engine_display_blob']=='f4f6dc4241ce4cfed355f9dddae2307e642b35ad'
+          print('B10_NEW_HELDOUT_RULES_PRELOCKED')
+          PY
+          python -m venv .b10-env
+          .b10-env/bin/python -m pip install --disable-pip-version-check .
+          .b10-env/bin/python -m pip check
+          mkdir -p .p6b10-new/${{ matrix.family }}
+      - name: Execute original upstream source at verified old and official fixed commit
+        run: |
+          set -euo pipefail
+          FAMILY=${{ matrix.family }}
+          for REV in old fixed; do
+            case "$FAMILY/$REV" in
+              GEONAMES28/old) REPO=cyanheads/geonames-mcp-server; SHA=41f908aa208f3fe59f8bb62665951289ec7c70eb; FILE=src/utils/inline-text.ts; BLOB=3a4ca3d3aba1c51e1db4b05fcfa9802bd454d107 ;;
+              GEONAMES28/fixed) REPO=cyanheads/geonames-mcp-server; SHA=1c098963763d6e90f7fe5e1d7f53caca57fa8c7f; FILE=src/utils/inline-text.ts; BLOB=e3800e3055d697ebbe2dad91b632135bacac3510 ;;
+              OPENALEX128/old) REPO=cyanheads/openalex-mcp-server; SHA=5897c18a9cfefda525e55847983ec002bdd8ee35; FILE=src/mcp-server/tools/escape-markdown.ts; BLOB=87ee3d378d3fad50dfe6326eb2294559cc900bb9 ;;
+              OPENALEX128/fixed) REPO=cyanheads/openalex-mcp-server; SHA=99bde23f3d55b801483ba50a0d00205be1cbfddb; FILE=src/mcp-server/tools/escape-markdown.ts; BLOB=d3c5441c8248714d7a6a47145133db97839c08f0 ;;
+              MITRECWE16/old) REPO=cyanheads/mitre-cwe-mcp-server; SHA=7ab0ffa4df3e3d5709cf4b55c08ea9fab9c8b07d; FILE=src/mcp-server/tools/shared.ts; BLOB=49a5609afc65b484995e223b259e8d0105475670 ;;
+              MITRECWE16/fixed) REPO=cyanheads/mitre-cwe-mcp-server; SHA=ab635bb83e813f548974380178985362a93a98e7; FILE=src/mcp-server/tools/shared.ts; BLOB=1ece4ff94421eee79137339e9819d11cb266ad12 ;;
+              *) exit 2 ;;
+            esac
+            UP=".b10-upstream-$FAMILY-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin "https://github.com/$REPO.git"
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:$FILE)" = "$BLOB"
+            cp benchmarks/p6b10/prelocked_three_capture.ts "$UP/risu_b10_prelocked_capture.ts"
+            (cd "$UP" && bun install --frozen-lockfile --ignore-scripts)
+            OUT="$GITHUB_WORKSPACE/.p6b10-new/$FAMILY/$REV.json"
+            (cd "$UP" && RISU_B10_FAMILY="$FAMILY" RISU_B10_CAPTURE="$OUT" bun run risu_b10_prelocked_capture.ts)
+            .b10-env/bin/python benchmarks/p6b10/evaluate_prelocked_three.py prepare "$FAMILY" \
+              ".p6b10-new/$FAMILY/$REV.json" ".p6b10-new/$FAMILY/$REV.jsonl" ".p6b10-new/$FAMILY/$REV-contract.json"
+            .b10-env/bin/risu-probe verify-mcp-trace ".p6b10-new/$FAMILY/$REV.jsonl" \
+              --display-contract ".p6b10-new/$FAMILY/$REV-contract.json" \
+              --protocol-version 2025-11-25 --format json > ".p6b10-new/$FAMILY/$REV-risu.json"
+            rm -rf "$UP"
+          done
+      - name: Score independently verified source before/fix then frozen RISU results
+        run: |
+          set -euo pipefail
+          FAMILY=${{ matrix.family }}
+          .b10-env/bin/python benchmarks/p6b10/evaluate_prelocked_three.py score "$FAMILY" \
+            ".p6b10-new/$FAMILY/old.json" ".p6b10-new/$FAMILY/fixed.json" \
+            ".p6b10-new/$FAMILY/old-risu.json" ".p6b10-new/$FAMILY/fixed-risu.json" \
+            ".p6b10-new/$FAMILY/independent_score.json"
+          echo B10_NEW_HELDOUT_RESULT_RECORDED
+      - name: Preserve source outputs, failures and scoring without cherry-picking
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b10-public-display-${{ matrix.family }}
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b10/prelocked_three_heldout.json
+            .p6b10-new/${{ matrix.family }}/*.json
+            .p6b10-new/${{ matrix.family }}/*.jsonl
