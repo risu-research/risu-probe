@@ -1,0 +1,117 @@
+name: RISU P6-B12 frozen five-native-server evidence and false-alarm audit
+on:
+  push:
+    branches: ['qualification/p6b12-*']
+    paths:
+      - 'benchmarks/p6b12/aggregate_blind_audit.py'
+      - 'benchmarks/p6b12/score_blind_discovery.py'
+      - '.github/workflows/p6b12-aggregate-original.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  postfreeze-cross-artifact-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download original first-pass FS source stdout
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42552593436
+          github-token: ${{ github.token }}
+          name: risu-b12-real-native-stdio-FS
+          path: .b12-ledger/FS
+      - name: Download original first-pass MEM source stdout
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42552593436
+          github-token: ${{ github.token }}
+          name: risu-b12-real-native-stdio-MEM
+          path: .b12-ledger/MEM
+      - name: Download original first-pass ALCHEMY source stdout
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42552593436
+          github-token: ${{ github.token }}
+          name: risu-b12-real-native-stdio-ALCHEMY
+          path: .b12-ledger/ALCHEMY
+      - name: Download original first-pass GO source stdout
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42552593436
+          github-token: ${{ github.token }}
+          name: risu-b12-real-native-stdio-GO
+          path: .b12-ledger/GO
+      - name: Download original first-pass SQLITE source stdout
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42552593436
+          github-token: ${{ github.token }}
+          name: risu-b12-real-native-stdio-SQLITE
+          path: .b12-ledger/SQLITE
+      - name: Verify original source and detector output, replay only independent score
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+          for CASE in FS MEM ALCHEMY GO SQLITE; do
+            ROOT=".b12-ledger/$CASE/.b12-output/$CASE"
+            test -s "$ROOT/capture/original_stdio.jsonl"
+            test -s "$ROOT/first_pass_score.json"
+            test -s "$ROOT/risu.json"
+            python benchmarks/p6b12/score_blind_discovery.py \
+              --case "$CASE" --capture "$ROOT/capture" \
+              --scanner "$ROOT/risu.json" --output "$ROOT/postfreeze_score.json"
+          done
+          python benchmarks/p6b12/aggregate_blind_audit.py \
+            --record FS=.b12-ledger/FS/.b12-output/FS \
+            --record MEM=.b12-ledger/MEM/.b12-output/MEM \
+            --record ALCHEMY=.b12-ledger/ALCHEMY/.b12-output/ALCHEMY \
+            --record GO=.b12-ledger/GO/.b12-output/GO \
+            --record SQLITE=.b12-ledger/SQLITE/.b12-output/SQLITE \
+            --out .b12-ledger/five-native-original-source-ledger.json
+          python - <<'PY'
+          import json
+          x=json.load(open('.b12-ledger/five-native-original-source-ledger.json'))['summary']
+          assert x['original_stdout_captures_verified']==5,x
+          assert x['blind_cases_reproduced']==4,x
+          assert x['blind_core_risu_findings']==0,x
+          assert x['blind_functional_oracle_mismatches']==0,x
+          assert x['calibration_oracle_mismatches']==1,x
+          assert x['postfreeze_rechecks_unverified']==0,x
+          assert x['independently_confirmed_previously_unreported_bugs']==0,x
+          print('B12_CROSS_SOURCE_BLIND_AUDIT_WITH_FALSE_ALARM_CORRECTIONS_PASS')
+          PY
+      - name: Archive frozen first-pass record and postfreeze separate source-scoped audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b12-blind-original-stdio-five-case-ledger
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b12/prelocked_blind_servers.json
+            .b12-ledger/five-native-original-source-ledger.json
+            .b12-ledger/*/.b12-output/*/postfreeze_score.json
+            .b12-ledger/*/.b12-output/*/first_pass_score.json
