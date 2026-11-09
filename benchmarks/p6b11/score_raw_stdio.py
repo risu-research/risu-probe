@@ -10,7 +10,8 @@ import json
 from pathlib import Path
 
 SUPPORT={'PARTICULARS15':('workspace_status','topics_list','RMC509'),
-         'ROBOT682':('literal_code','normal_code','RMC507')}
+         'ROBOT682':('literal_code','normal_code','RMC507'),
+         'HITCH60':('missing_text','explicit_text','text_only','RMC509')}
 
 def capture(path:Path,family:str,rev:str):
     metadata=json.loads((path/'origin.json').read_text())
@@ -22,7 +23,7 @@ def capture(path:Path,family:str,rev:str):
     assert metadata['protocol_negotiated'] is not None
     assert len(raw)<3_000_000
     lines=[json.loads(s) for s in raw.splitlines() if s.strip()]
-    for i,tool in enumerate(SUPPORT[family][:2],10):
+    for i,tool in enumerate(SUPPORT[family][:-1],10):
         calls=[x for x in lines if x.get('method')=='tools/call' and x.get('id')==i]
         assert len(calls)==1 and calls[0]['params']['name']==tool
     return metadata,lines
@@ -64,6 +65,33 @@ def source_truth(family,o,n):
         changed=healthy and all(not has_json_mirror(x) for x in old) and all(has_json_mirror(x) for x in fixed)
         control=healthy and all(len(textblocks(x))>=1 for x in old+fixed)
         return bool(changed),bool(control),
+    if family=='HITCH60':
+        missing_old=tool_result(o,10);missing_fixed=tool_result(n,10)
+        explicit_old=tool_result(o,11);explicit_fixed=tool_result(n,11)
+        text_old=tool_result(o,12);text_fixed=tool_result(n,12)
+        src_files=[old.get('ruby_source_result'),n.get('ruby_source_result')]
+        # The SDK serializer is allowed to add protocol properties, but
+        # source-written content and structuredContent must be untouched.
+        source_verified=True
+        for items,source in ((o,old),(n,fixed)):
+            if 'ruby_source_result' not in source:
+                source_verified=False
+        healthy=all(x.get('isError') is not True for x in
+                    (missing_old,missing_fixed,explicit_old,explicit_fixed,text_old,text_fixed))
+        reproduced=(healthy and source_verified
+                    and type(missing_old.get('structuredContent')) is dict
+                    and type(missing_fixed.get('structuredContent')) is dict
+                    and textblocks(missing_old)==[]
+                    and not has_json_mirror(missing_old)
+                    and has_json_mirror(missing_fixed)
+                    and missing_old.get('structuredContent')==missing_fixed.get('structuredContent'))
+        controls=(healthy and
+                  textblocks(explicit_old)==textblocks(explicit_fixed)==['Author supplied summary']
+                  and explicit_old.get('structuredContent')==explicit_fixed.get('structuredContent')
+                  and textblocks(text_old)==textblocks(text_fixed)==['Normal scalar text']
+                  and 'structuredContent' not in text_old
+                  and 'structuredContent' not in text_fixed)
+        return bool(reproduced),bool(controls)
     bad_o=tool_result(o,10);bad_n=tool_result(n,10)
     good_o=tool_result(o,11);good_n=tool_result(n,11)
     good_text_o=textblocks(good_o);good_text_n=textblocks(good_n)
@@ -85,16 +113,17 @@ def adjudicate(family:str,old:Path,fixed:Path,old_risu:Path,fix_risu:Path):
     b,n=capture(fixed,family,'fixed')
     reproduced,normal=source_truth(family,o,n)
     oldp=json.loads(old_risu.read_text());fixp=json.loads(fix_risu.read_text())
-    want=SUPPORT[family][2]
+    want=SUPPORT[family][-1]
     old_codes=[f['rule_id'] for f in oldp.get('findings',[])]
     new_codes=[f['rule_id'] for f in fixp.get('findings',[])]
-    matched=(oldp['summary']['explicit_display_rules_matched']==2 and
-             fixp['summary']['explicit_display_rules_matched']==2)
-    checked=(oldp['summary']['explicit_display_rules_checked']==2 and
-             fixp['summary']['explicit_display_rules_checked']==2)
+    required=1 if family=='HITCH60' else 2
+    matched=(oldp['summary']['explicit_display_rules_matched']==required and
+             fixp['summary']['explicit_display_rules_matched']==required)
+    checked=(oldp['summary']['explicit_display_rules_checked']==required and
+             fixp['summary']['explicit_display_rules_checked']==required)
     caught=(reproduced and normal and matched and checked and
             old_codes.count(want)>=1 and set(old_codes)=={want}
-            and not new_codes and fixp['summary']['explicit_display_rules_passed']==2)
+            and not new_codes and fixp['summary']['explicit_display_rules_passed']==required)
     return {
       'schema':'risu-p6b11-source-real-stdio-scored-v1',
       'family':family,'role':'PRELOCKED_NEW_CROSS_ORGANIZATION_SOURCE_FAMILY',
@@ -104,12 +133,17 @@ def adjudicate(family:str,old:Path,fixed:Path,old_risu:Path,fix_risu:Path):
       'frozen_risu_detected_old_not_fixed':bool(caught),
       'old_original_trace_sha256':a['trace_sha256'],
       'fixed_original_trace_sha256':b['trace_sha256'],
-      'transport':'NATIVE_ORIGINAL_MCP_CLI_RAW_STDIO' if family=='PARTICULARS15' else
-                  'Genuine_MCP_SDK_RAW_STDIO_wrapping_original_upstream_formatter',
+      'transport':('NATIVE_ORIGINAL_MCP_CLI_RAW_STDIO' if family=='PARTICULARS15'
+                   else 'Genuine_MCP_SDK_RAW_STDIO_wrapping_original_upstream_formatter'
+                   if family=='ROBOT682'
+                   else 'Genuine_MCP_SDK_RAW_STDIO_wrapping_actual_Ruby_normalizer'),
       'origin_is_native_mcp_server':family=='PARTICULARS15',
       'protocol_old':a['protocol_negotiated'],'protocol_fixed':b['protocol_negotiated'],
-      'scope_limit':('Original upstream MCP CLI process, synthetic fresh workspace; code fix predates the later GitHub issue' if family=='PARTICULARS15' else
-                     'Original upstream Python formatting source executed inside a synthetic MCP SDK server, not RobotCode product server'),
+      'scope_limit':('Original upstream MCP CLI process, synthetic fresh workspace; code fix predates the later GitHub issue'
+                     if family=='PARTICULARS15' else
+                     'Original upstream Python formatting source executed inside a synthetic MCP SDK server, not RobotCode product server'
+                     if family=='ROBOT682' else
+                     'Actual pinned Hitch Ruby normalizer produced the canonical result; Python MCP SDK stdio bridge is not the native Rails HTTP server'),
     }
 
 def main():
