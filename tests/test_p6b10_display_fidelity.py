@@ -126,6 +126,7 @@ class TestP6B10Display(unittest.TestCase):
     def test_missing_mismatch_does_not_leak_values_in_report(self):
         r=rule('a','/x')
         secret='PRIVATE_CANARY_'+('B'*77)
+        r['on_error']=False
         v=result('Error: altered',{'x':secret})
         audit=observe('a',v,contract([r]))
         self.assertNotIn(secret,json.dumps(audit))
