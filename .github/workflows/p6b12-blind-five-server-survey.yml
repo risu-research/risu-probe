@@ -1,0 +1,184 @@
+name: RISU P6-B12 preregistered blind native MCP stdio survey
+on:
+  push:
+    branches: ['qualification/p6b12-*']
+    paths:
+      - '.github/workflows/p6b12-blind-five-server-survey.yml'
+      - 'benchmarks/p6b12/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-original-stdio:
+    name: P6B12 original upstream ${{ matrix.case }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [FS, MEM, ALCHEMY, GO, SQLITE]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        if: matrix.case == 'FS' || matrix.case == 'MEM'
+        with:
+          node-version: '24'
+      - uses: actions/setup-go@v5
+        if: matrix.case == 'GO'
+        with:
+          go-version: '1.25.5'
+      - name: Verify frozen product, prepare isolated verifier and original project
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+          python -m venv .b12-env
+          .b12-env/bin/python -m pip install --disable-pip-version-check .
+          .b12-env/bin/python -m pip check
+          mkdir -p .b12-bin .b12-output
+          CASE="${{ matrix.case }}"
+          case "$CASE" in
+            FS|MEM) REPO=modelcontextprotocol/servers; SHA=36380287ed3b15d115b55f546617d723072b1296 ;;
+            ALCHEMY) REPO=runekaagaard/mcp-alchemy; SHA=8df3eb56773fdbb71eb3b7e509fefa312b16793b ;;
+            GO) REPO=mark3labs/mcp-go; SHA=acf999d599ff294f82b586d787d6d793daf2f9be ;;
+            SQLITE) REPO=hannesrudolph/sqlite-explorer-fastmcp-mcp-server; SHA=69f3f6c7d878cd5210a27e33fae814a9ec9e4b55 ;;
+            *) echo "invalid prelocked case" >&2; exit 3 ;;
+          esac
+          python - "$CASE" "$REPO" "$SHA" <<'PY'
+          import json,sys
+          c,repo,rev=sys.argv[1:]
+          m=json.load(open('benchmarks/p6b12/prelocked_blind_servers.json'))
+          selected=next(x for x in m['cases'] if x['id']==c)
+          assert selected['repository']==repo and selected['commit']==rev
+          assert m['denominator']['selected_standalone_servers']==5
+          assert m['denominator']['blind_standalone_servers']==4
+          print('FROZEN_PRE_EXECUTION_SELECTED',c,repo,rev)
+          PY
+          UP="$GITHUB_WORKSPACE/.b12-source"
+          mkdir -p "$UP"
+          git -C "$UP" init -q
+          git -C "$UP" -c core.hooksPath=/dev/null remote add origin "https://github.com/$REPO.git"
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+          git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+          echo "$SHA" > .b12-output/source-commit.txt
+      - name: Compile actual original upstream server, dependencies public only
+        run: |
+          set -euo pipefail
+          CASE="${{ matrix.case }}"
+          UP="$GITHUB_WORKSPACE/.b12-source"
+          case "$CASE" in
+            FS|MEM)
+              (cd "$UP" && npm ci --ignore-scripts --no-audit --no-fund)
+              if [[ "$CASE" == FS ]]; then
+                (cd "$UP" && npm run build --workspace=@modelcontextprotocol/server-filesystem)
+                test -f "$UP/src/filesystem/dist/index.js"
+              else
+                (cd "$UP" && npm run build --workspace=@modelcontextprotocol/server-memory)
+                test -f "$UP/src/memory/dist/index.js"
+              fi
+              ;;
+            GO)
+              (cd "$UP" && go build -o "$GITHUB_WORKSPACE/.b12-bin/go-everything" ./examples/everything)
+              ;;
+            ALCHEMY)
+              .b12-env/bin/python -m pip install --disable-pip-version-check 'mcp==2.3.0' 'sqlalchemy==2.0.36'
+              .b12-env/bin/python -m pip check
+              ;;
+            SQLITE)
+              .b12-env/bin/python -m pip install --disable-pip-version-check 'fastmcp==0.4.1'
+              .b12-env/bin/python -m pip check
+              ;;
+          esac
+          echo B12_PINNED_UPSTREAM_SERVER_COMPILED
+      - name: Execute only prelocked synthetic calls and freeze actual original process stdout
+        run: |
+          set -euo pipefail
+          CASE="${{ matrix.case }}"
+          UP="$GITHUB_WORKSPACE/.b12-source"
+          mkdir -p ".b12-output/$CASE"
+          case "$CASE" in
+            FS)
+              .b12-env/bin/python benchmarks/p6b12/capture_blind_stdio.py --case "$CASE" \
+                --executable "$(command -v node)" \
+                --arg="$UP/src/filesystem/dist/index.js" \
+                --out ".b12-output/$CASE/capture"
+              ;;
+            MEM)
+              .b12-env/bin/python benchmarks/p6b12/capture_blind_stdio.py --case "$CASE" \
+                --executable "$(command -v node)" \
+                --arg="$UP/src/memory/dist/index.js" \
+                --out ".b12-output/$CASE/capture"
+              ;;
+            GO)
+              .b12-env/bin/python benchmarks/p6b12/capture_blind_stdio.py --case "$CASE" \
+                --executable .b12-bin/go-everything \
+                --out ".b12-output/$CASE/capture"
+              ;;
+            ALCHEMY)
+              .b12-env/bin/python benchmarks/p6b12/capture_blind_stdio.py --case "$CASE" \
+                --executable .b12-env/bin/python \
+                --arg=-c --arg='from mcp_alchemy.server import main; main()' \
+                --source "$UP" --out ".b12-output/$CASE/capture"
+              ;;
+            SQLITE)
+              .b12-env/bin/python benchmarks/p6b12/capture_blind_stdio.py --case "$CASE" \
+                --executable .b12-env/bin/python \
+                --arg=-c --arg='import sqlite_explorer; sqlite_explorer.mcp.run()' \
+                --source "$UP" --out ".b12-output/$CASE/capture"
+              ;;
+          esac
+          python - ".b12-output/$CASE/capture/origin.json" <<'PY'
+          import json,sys
+          x=json.load(open(sys.argv[1]))
+          assert x['native_upstream_stdio'] and x['no_test_wrapper']
+          assert x['source_stdout_unmodified'] and x['source_commit']
+          print('B12_SOURCE_NATIVE_STDIO_CAPTURE_CHECKED',x['case'],x['real_tool_results'])
+          PY
+      - name: Run untouched RISU detector and score independent fixture oracle
+        run: |
+          set -euo pipefail
+          CASE="${{ matrix.case }}"
+          TRACE=".b12-output/$CASE/capture/original_stdio.jsonl"
+          PROTOCOL="$(python - ".b12-output/$CASE/capture/origin.json" <<'PY'
+          import json,sys
+          value=json.load(open(sys.argv[1]))['negotiated_protocol']
+          assert value in ('2025-03-26','2025-06-18','2025-11-25','2026-07-28')
+          print(value)
+          PY
+          )"
+          .b12-env/bin/risu-probe verify-mcp-trace "$TRACE" \
+            --protocol-version "$PROTOCOL" --format json > ".b12-output/$CASE/risu.json"
+          .b12-env/bin/python benchmarks/p6b12/score_blind_discovery.py \
+            --case "$CASE" --capture ".b12-output/$CASE/capture" \
+            --scanner ".b12-output/$CASE/risu.json" \
+            --output ".b12-output/$CASE/first_pass_score.json"
+          echo B12_PRELOCKED_NO_TUNING_FIRST_PASS_COMPLETE
+      - name: Preserve original stdout bytes, executable commit and unaltered detector output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b12-real-native-stdio-${{ matrix.case }}
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b12/prelocked_blind_servers.json
+            .b12-output/source-commit.txt
+            .b12-output/${{ matrix.case }}/capture/original_stdio.jsonl
+            .b12-output/${{ matrix.case }}/capture/unmodified_responses.json
+            .b12-output/${{ matrix.case }}/capture/origin.json
+            .b12-output/${{ matrix.case }}/risu.json
+            .b12-output/${{ matrix.case }}/first_pass_score.json
