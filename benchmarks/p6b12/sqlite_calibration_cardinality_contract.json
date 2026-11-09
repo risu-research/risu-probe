@@ -1,0 +1,11 @@
+{
+  "schema": "risu-mcp-cardinality-contract-v1",
+  "rules": [
+    {
+      "id": "b12_sqlite_output_rows_exact",
+      "tool": "read_query",
+      "limit_argument": "row_limit",
+      "mode": "json-objects-per-text-block"
+    }
+  ]
+}
