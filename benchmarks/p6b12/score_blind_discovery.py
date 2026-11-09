@@ -21,17 +21,23 @@ def parse_rows(result:dict)->list|None:
     if isinstance(structured,dict):
         for k in ('result','rows','data','items'):
             if isinstance(structured.get(k),list):return structured[k]
+    independent_objects=[]
     for block in result.get('content',[]):
         if not isinstance(block,dict) or block.get('type')!='text':continue
         raw=block.get('text')
-        if not isinstance(raw,str):continue
+        if not isinstance(raw,str) or len(raw)>8192:continue
         try:doc=json.loads(raw)
         except (ValueError,TypeError):continue
         if isinstance(doc,list):return doc
         if isinstance(doc,dict):
             for k in ('result','rows','data','items'):
                 if isinstance(doc.get(k),list):return doc[k]
-    return None
+            independent_objects.append(doc)
+        else:
+            return None
+    # FastMCP 0.4.1 sends one JSON text block per returned list item.
+    # All blocks must be JSON objects. Never guess cardinality from prose.
+    return independent_objects if independent_objects else None
 
 def result_for(calls:list,index:int)->dict|None:
     if index>=len(calls):return None
@@ -81,8 +87,15 @@ def oracle(case:str,calls:list)->list[dict]:
     elif case=='GO':
         check('echo_unicode','PASS' if healthy[0] and 'RISU_B12_ECHO_lit_[x]_☯' in text_content(r[0]) else 'MISMATCH',
               'Echo should return exact synthetic user string')
-        check('sum_decimal','PASS' if healthy[1] and re.search(r'(?<![\d.])3\.75(?![\d.])',text_content(r[1])) else 'MISMATCH',
-              '1.5 + 2.25 = 3.75 without external service')
+        # A numeric 3.750000 is equal to 3.75; do not false-flag.
+        from decimal import Decimal, InvalidOperation
+        candidates=re.findall(r'(?i)\\bis\\s+([-+]?[0-9]+(?:\\.[0-9]+)?)\\b',text_content(r[1]))
+        try:
+            numeric_ok=bool(candidates) and Decimal(candidates[-1])==Decimal('3.75')
+        except InvalidOperation:
+            numeric_ok=False
+        check('sum_decimal','PASS' if healthy[1] and numeric_ok else 'MISMATCH',
+              '1.5 + 2.25 must equal 3.75 regardless of decimal formatting')
         links=r[2].get('content',[])
         check('resource_link_present','PASS' if healthy[2] and any(
               isinstance(v,dict) and v.get('type')=='resource_link' for v in links)
