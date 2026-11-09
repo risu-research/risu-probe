@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 import sys
 from typing import Any
+from risu_display_fidelity import DisplayContractError, validate as validate_display_contract, load as load_display_contract, check as check_display, rule_hash as display_rule_hash
 
 MAX_TRACE_BYTES = 4_194_304
 MAX_LINE_BYTES = 524_288
@@ -250,10 +251,15 @@ def _load_behavior_contract(path: Path) -> dict:
 
 
 def verify_trace(path: Path, protocol_version: str = 'unknown',
-                 behavior_contract: dict | None = None) -> dict:
+                 behavior_contract: dict | None = None,
+                 display_contract: dict | None = None) -> dict:
     if protocol_version not in ALLOWED_PROTOCOLS:
         raise TraceError('Unsupported declared MCP protocol version')
     rules = _check_behavior_contract(behavior_contract)
+    try:
+        display_rules=validate_display_contract(display_contract) if display_contract is not None else []
+    except DisplayContractError as exc:
+        raise TraceError(str(exc)) from exc
     records, digest = _read_trace(path)
     # Keyed by session; a replay may multiplex requests and reuse IDs *sequentially*.
     sessions: dict[str, dict] = {}
@@ -268,6 +274,9 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
     catalog_partial_chains = 0
     behavior_matched = 0
     behavior_checked = 0
+    display_matched = 0
+    display_checked = 0
+    display_passed = 0
     def gap(code: str, reason: str, line: int, tool: str | None=None) -> None:
         if len(unverified)<256:
             row={'code':code,'reason':reason,'line':line}
@@ -443,6 +452,24 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
         if type(is_error) is not bool:
             gap('INVALID_ERROR_FLAG','isError must be a boolean or absent',line,name)
             continue
+        # Explicit source->presentation mappings work on real tool errors too.
+        # Do this before isError short-circuits the success output schema checker.
+        for rule in display_rules:
+            if rule['tool'] != name or rule['on_error'] is not is_error:
+                continue
+            display_matched += 1
+            verdict, reason = check_display(result,rule)
+            if verdict == 'UNVERIFIED':
+                gap(reason,'Explicit display mapping could not be assessed safely',line,name)
+            else:
+                display_checked += 1
+                if verdict == 'PASS':
+                    display_passed += 1
+                else:
+                    code='RMC507' if rule['mode']=='markdown-rendered' else 'RMC508'
+                    finding(code,
+                        'Explicit structured-to-display mapping does not preserve the declared scalar; rule_sha256:'+
+                        display_rule_hash(rule['id']),line,name)
         if is_error:
             classification = _reported_tool_error(result)
             if classification == 'REPORTED_OUTPUT_VALIDATION_REJECTION':
@@ -543,6 +570,10 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
                        'latest_catalog_declarations_indexed':latest_declarations,
                        'latest_catalog_declarations_schema_validated':latest_validated,
                        'latest_catalog_declarations_not_validated':max(0,latest_declarations-latest_validated),
+                       'explicit_display_rules_declared':len(display_rules),
+                       'explicit_display_rules_matched':display_matched,
+                       'explicit_display_rules_checked':display_checked,
+                       'explicit_display_rules_passed':display_passed,
                        'explicit_behavior_rules_declared':len(rules),
                        'explicit_behavior_assertions_matched':behavior_matched,
                        'explicit_behavior_assertions_checked':behavior_checked,
@@ -573,7 +604,9 @@ def _sarif(report: dict) -> dict:
                 ('RMC502','Structured output violates declared schema'),
                 ('RMC503','Invalid declared output schema'),
                 ('RMC504','Legacy output schema lacks object root'),
-                ('RMC506','Violation of explicit caller-supplied text behavior contract'))]}},
+                ('RMC506','Violation of explicit caller-supplied text behavior contract'),
+                ('RMC507','Declared structured value disagrees with rendered CommonMark text'),
+                ('RMC508','Declared structured value disagrees with copied raw/code-span text'))]}},
              'results':[{'ruleId':f['rule_id'],'level':'error','message':{'text':f['message']},
                          'properties':{'origin_integrity':report['origin_integrity'],'tool':f['tool'],'trace_line':f['line']}} for f in report['findings']],
              'properties':{'semantic_verification':report['semantic_verification'],
@@ -588,6 +621,8 @@ def cli(argv: list[str] | None=None) -> int:
     p.add_argument('--protocol-version',choices=ALLOWED_PROTOCOLS,default='unknown',
                    help='Declared captured protocol version (not independently attested)')
     p.add_argument('--format',choices=('json','text','sarif'),default='text')
+    p.add_argument('--display-contract',type=Path,
+                   help='Opt-in structuredContent JSON-pointer to text-prefix display/copy assertions')
     p.add_argument('--behavior-contract',type=Path,
                    help='Optional safe JSON contract of explicit argument-conditioned text assertions')
     p.add_argument('--out',type=Path,help='Write a new report without overwrite')
@@ -598,7 +633,8 @@ def cli(argv: list[str] | None=None) -> int:
     a=p.parse_args(argv)
     try:
         report=verify_trace(a.trace,a.protocol_version,
-                            _load_behavior_contract(a.behavior_contract) if a.behavior_contract else None)
+                            _load_behavior_contract(a.behavior_contract) if a.behavior_contract else None,
+                            load_display_contract(a.display_contract) if a.display_contract else None)
         output=_text(report) if a.format=='text' else json.dumps(report if a.format=='json' else _sarif(report),indent=2,sort_keys=True,ensure_ascii=False)+'\n'
         if a.out:
             path=a.out.expanduser()
@@ -612,7 +648,7 @@ def cli(argv: list[str] | None=None) -> int:
         if a.fail_on_observed and report['summary']['findings']:
             return 1
         return 0
-    except (TraceError, OSError, UnicodeError, ValueError, TypeError, RecursionError) as e:
+    except (TraceError, DisplayContractError, OSError, UnicodeError, ValueError, TypeError, RecursionError) as e:
         print('RMC500 INVALID_OR_UNSUPPORTED_MCP_TRACE: '+str(e)[:240]+
               '\nNext: supply a local UTF-8 JSONL trace of matched JSON-RPC tools/list and tools/call messages; no secrets or production data.',file=sys.stderr)
         return 2
