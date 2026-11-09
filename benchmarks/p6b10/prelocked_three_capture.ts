@@ -27,9 +27,9 @@ if (family === 'GEONAMES28') {
 } else if (family === 'MITRECWE16') {
   const { formatCatalog } = await import('./src/mcp-server/tools/shared.ts');
   const raw = 'CWE-80';
-  issue = {raw, rendered: formatCatalog(raw)[0].text};
+  issue = {raw, rendered: formatCatalog({literal: raw})[0].text.split('\\n\\n').at(-1)!};
   const control = 'ordinary';
-  normal = {raw: control, rendered: formatCatalog(control)[0].text};
+  normal = {raw: control, rendered: formatCatalog({literal: control})[0].text.split('\\n\\n').at(-1)!};
 }
 
 writeFileSync(output, JSON.stringify({
