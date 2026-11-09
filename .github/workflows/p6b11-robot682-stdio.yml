@@ -35,7 +35,7 @@ jobs:
           test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
           test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
           python -m venv .b11-robot-env
-          .b11-robot-env/bin/python -m pip install --disable-pip-version-check . 'mcp==1.29.0' 'robotframework>=7,<9'
+          .b11-robot-env/bin/python -m pip install --disable-pip-version-check . 'mcp==1.29.0' 'robotframework>=7,<9' 'robotcode-core==2.8.0'
           .b11-robot-env/bin/python -m pip check
           mkdir -p .b11-robot-stdio
       - name: Run official pinned source formatter old and fixed over real MCP SDK stdio
@@ -66,6 +66,13 @@ jobs:
             if [[ "$REV" == old ]]; then
               test "$(git -C "$UP" rev-parse HEAD:packages/robot/src/robotcode/robot/utils/markdown_docs.py)" = 6c206efd252c86a6ae946b9a2420e0afaee08831
             fi
+            # Fail with a bounded diagnostic BEFORE launching stdio if
+            # upstream source cannot be imported in this exact environment.
+            PYTHONPATH="$UP/packages/robot/src" .b11-robot-env/bin/python - <<'PY'
+          from robotcode.robot.utils.markdownformatter import MarkDownFormatter
+          assert MarkDownFormatter().format("``ordinary``").strip()
+          print('ROBOT_SOURCE_IMPORT_AND_BASELINE_FORMATTER_PASSED')
+          PY
             .b11-robot-env/bin/python benchmarks/p6b11/capture_native_stdio.py \
               --family ROBOT682 --revision "$REV" \
               --binary .b11-robot-env/bin/python \
