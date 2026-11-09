@@ -36,7 +36,7 @@ def traces(c:dict)->tuple[list[dict],dict]:
                       'outputSchema':{'type':'object','properties':{
                           'value':{'type':'string'}},'required':['value']}})
         rule.append({'id':family+'_'+key,'tool':name,'source':'/value',
-                     'content_index':0,'prefix_raw':'Value: ',
+                     'content_index':0,'prefix_raw':('Value: > ' if family=='MITRECWE16' else 'Value: '),
                      'mode':mode,'on_error':False})
         rows.extend([
             {'jsonrpc':'2.0','id':i,'method':'tools/call','params':{
@@ -52,8 +52,8 @@ def traces(c:dict)->tuple[list[dict],dict]:
 def independent_truth(old:dict,fixed:dict)->tuple[bool,bool]:
     o=old['issue'];f=fixed['issue']
     normal=(old['normal']['raw']==fixed['normal']['raw'] and
-            old['normal']['rendered']==old['normal']['raw'] and
-            fixed['normal']['rendered']==fixed['normal']['raw'])
+            old['normal']['rendered']==(('> ' if old['family']=='MITRECWE16' else '')+old['normal']['raw']) and
+            fixed['normal']['rendered']==(('> ' if old['family']=='MITRECWE16' else '')+fixed['normal']['raw']))
     if old['family']=='GEONAMES28':
         mutation=(o['raw']==f['raw']=='www.example.com' and
                   o['rendered'].replace('\\','').find('[.]')>=0 and
@@ -64,7 +64,7 @@ def independent_truth(old:dict,fixed:dict)->tuple[bool,bool]:
                   '\n' in f['rendered'] and 'alpha' in f['rendered'] and 'beta' in f['rendered'])
     else:
         mutation=(o['raw']==f['raw']=='CWE-80' and
-                  '\\-' in o['rendered'] and f['rendered']=='CWE-80')
+                  '\\-' in o['rendered'] and f['rendered']=='> CWE-80' and o['rendered'].startswith('> '))
     return bool(mutation),bool(normal)
 
 def score(old:dict,fixed:dict,o:dict,f:dict)->dict:
