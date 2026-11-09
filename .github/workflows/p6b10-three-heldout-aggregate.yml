@@ -1,0 +1,99 @@
+name: RISU P6-B10 cross-run audit of 3 new display heldout families
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+    paths:
+      - 'benchmarks/p6b10/aggregate_display_holdout.py'
+      - '.github/workflows/p6b10-three-heldout-aggregate.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-prelocked-triple:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify original locked rules and registration
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = f722cd7fdc380e04a3416ba5defba99f249af950
+          test "$(git hash-object src/risu_display_fidelity.py)" = f4f6dc4241ce4cfed355f9dddae2307e642b35ad
+      - name: Retrieve original pinned GEONAMES28 trial
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42544822432
+          github-token: ${{ github.token }}
+          name: risu-b10-public-display-GEONAMES28
+          path: .b10-audit/GEONAMES28
+      - name: Retrieve original pinned OPENALEX128 trial
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42544822432
+          github-token: ${{ github.token }}
+          name: risu-b10-public-display-OPENALEX128
+          path: .b10-audit/OPENALEX128
+      - name: Retrieve original pinned MITRECWE16 trial
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42544822432
+          github-token: ${{ github.token }}
+          name: risu-b10-public-display-MITRECWE16
+          path: .b10-audit/MITRECWE16
+      - name: Aggregate every preselected family without dropping failures
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          for family in ('GEONAMES28','OPENALEX128','MITRECWE16'):
+              files=list((Path('.b10-audit')/family).rglob('independent_score.json'))
+              assert len(files)==1,(family,files)
+              source=files[0]
+              dest=Path('.b10-audit')/(family+'.json')
+              dest.write_bytes(source.read_bytes())
+              print('RECONCILED_PRELOCKED_SOURCE',family,source)
+          PY
+          python benchmarks/p6b10/aggregate_display_holdout.py \
+            --score GEONAMES28=.b10-audit/GEONAMES28.json \
+            --score OPENALEX128=.b10-audit/OPENALEX128.json \
+            --score MITRECWE16=.b10-audit/MITRECWE16.json \
+            --output .b10-audit/seven_no_three_display_ledger.json
+          python - <<'PY'
+          import json
+          d=json.load(open('.b10-audit/seven_no_three_display_ledger.json'))
+          s=d['summary']
+          assert s['preselected']==3,s
+          assert s['reproduced_with_controls']==3,s
+          assert s['relevant_detections']==3,s
+          assert s['confirmed_misses']==0,s
+          assert s['unverified_or_missing']==0,s
+          print('B10_THREE_SOURCE_HELDOUT_AGGREGATE_PASS_NOT_ECOSYSTEM_RECALL')
+          PY
+      - name: Preserve immutable 3-family aggregate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b10-prelocked-three-independent-source-ledger
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b10/prelocked_three_heldout.json
+            .b10-audit/seven_no_three_display_ledger.json
