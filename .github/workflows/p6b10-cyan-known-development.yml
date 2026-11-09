@@ -1,0 +1,78 @@
+name: RISU P6-B10 known CYAN760 and CYAN785 development source replays
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+    paths:
+      - 'benchmarks/p6b10/replay_known_cyan_development.py'
+      - '.github/workflows/p6b10-cyan-known-development.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  rerun-known-component-sources:
+    name: B9 actual upstream CYAN source evidence, strictly development-only
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze B10 analyzer and install wheel with Markdown engine
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = f722cd7fdc380e04a3416ba5defba99f249af950
+          test "$(git hash-object src/risu_display_fidelity.py)" = f4f6dc4241ce4cfed355f9dddae2307e642b35ad
+          python -m venv .b10-cyan-env
+          .b10-cyan-env/bin/python -m pip install --disable-pip-version-check .
+          mkdir -p .b10-dev
+      - name: Fetch original frozen B9 actual TypeScript upstream experiment artifact
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42509461777
+          github-token: ${{ github.token }}
+          name: risu-p6b9-cyan760-785-independent-public
+          path: .b10-original-cyan
+      - name: Run actual old/fix outputs and normal controls under new explicit display modes
+        run: |
+          set -euo pipefail
+          for FAMILY in CYAN760 CYAN785; do
+            mkdir -p ".b10-dev/$FAMILY"
+            for REV in old fixed; do
+              ORIGINAL=".b10-original-cyan/.p6b9-cyan/$FAMILY/$REV.json"
+              .b10-cyan-env/bin/python benchmarks/p6b10/replay_known_cyan_development.py prepare "$FAMILY" \
+                "$ORIGINAL" ".b10-dev/$FAMILY/$REV.jsonl" ".b10-dev/$FAMILY/$REV-contract.json"
+              .b10-cyan-env/bin/risu-probe verify-mcp-trace ".b10-dev/$FAMILY/$REV.jsonl" \
+                --display-contract ".b10-dev/$FAMILY/$REV-contract.json" \
+                --protocol-version 2025-11-25 --format json > ".b10-dev/$FAMILY/$REV-risu.json"
+            done
+            .b10-cyan-env/bin/python benchmarks/p6b10/replay_known_cyan_development.py score "$FAMILY" \
+              ".b10-original-cyan/.p6b9-cyan/$FAMILY/old.json" \
+              ".b10-original-cyan/.p6b9-cyan/$FAMILY/fixed.json" \
+              ".b10-dev/$FAMILY/old-risu.json" ".b10-dev/$FAMILY/fixed-risu.json" \
+              ".b10-dev/$FAMILY/development_score.json"
+          done
+          echo P6B10_KNOWN_CYAN_DEV_SOURCE_REPLAY_PASS_NO_NEW_HOLDOUT_CREDIT
+      - name: Archive evidence of actual B9 source replays
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b10-known-cyan-dev-upstream-sources
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b10-dev/*/*.json
+            .b10-dev/*/*.jsonl
