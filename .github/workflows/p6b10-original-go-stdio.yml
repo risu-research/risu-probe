@@ -1,0 +1,93 @@
+name: RISU P6-B10 original Go MCP stdio provenance upgrade
+on:
+  push:
+    branches: ['qualification/p6b10-*']
+    paths:
+      - 'benchmarks/p6b10/go1139_original_stdio_server.go'
+      - 'benchmarks/p6b10/capture_go1139_original_stdio.py'
+      - 'benchmarks/p6b10/score_go1139_original_stdio.py'
+      - '.github/workflows/p6b10-original-go-stdio.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-original-wire-pair:
+    name: Original stdio old+official fix, no evaluation adapter
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.5'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze new detector, isolate output and dependencies
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = f722cd7fdc380e04a3416ba5defba99f249af950
+          test "$(git hash-object src/risu_display_fidelity.py)" = f4f6dc4241ce4cfed355f9dddae2307e642b35ad
+          python -m venv .b10-go-env
+          .b10-go-env/bin/python -m pip install --disable-pip-version-check .
+          .b10-go-env/bin/python -m pip check
+          mkdir -p .b10-go-stdio
+      - name: Build exact original Go MCP StdioServer from pinned source
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            if [[ "$REV" == old ]]; then
+              SHA=c0e5b67f97375fa284ec854d92cb2df49c2ef959
+              BLOB=7b0ca11251c103201322f14d242d0d91c554cfe0
+            else
+              SHA=8995d9b137ef36511e6f03a79f6ff0e5ba4d7574
+              BLOB=8ceebe211eed03f1ffd9d68a1f75f5defb991468
+            fi
+            UP=".b10-go-original-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/mark3labs/mcp-go.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:server/output_validation.go)" = "$BLOB"
+            cp benchmarks/p6b10/go1139_original_stdio_server.go "$UP/risu_b10_stdio_server.go"
+            BIN="$GITHUB_WORKSPACE/.b10-go-stdio/$REV-binary"
+            (cd "$UP" && go build -o "$BIN" ./risu_b10_stdio_server.go)
+            .b10-go-env/bin/python benchmarks/p6b10/capture_go1139_original_stdio.py \
+              --binary ".b10-go-stdio/$REV-binary" --revision "$REV" \
+              --out ".b10-go-stdio/$REV"
+            .b10-go-env/bin/risu-probe verify-mcp-trace ".b10-go-stdio/$REV/original_stdio.jsonl" \
+              --format json > ".b10-go-stdio/$REV-risu.json"
+            rm -rf "$UP"
+          done
+      - name: Verify originals rather than reconstructed JSON-RPC
+        run: |
+          set -euo pipefail
+          .b10-go-env/bin/python benchmarks/p6b10/score_go1139_original_stdio.py \
+            .b10-go-stdio/old .b10-go-stdio/fixed \
+            .b10-go-stdio/old-risu.json .b10-go-stdio/fixed-risu.json \
+            .b10-go-stdio/source_score.json
+          echo GO1139_ORIGINAL_STDIO_EVIDENCE_UPGRADE_VERIFIED
+      - name: Archive original byte-preserved synthetic response evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b10-go1139-original-stdio-public
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b10-go-stdio/*/origin.json
+            .b10-go-stdio/*/original_stdio.jsonl
+            .b10-go-stdio/*-risu.json
+            .b10-go-stdio/source_score.json
