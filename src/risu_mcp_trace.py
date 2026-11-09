@@ -466,7 +466,8 @@ def verify_trace(path: Path, protocol_version: str = 'unknown',
                 if verdict == 'PASS':
                     display_passed += 1
                 else:
-                    code='RMC507' if rule['mode']=='markdown-rendered' else 'RMC508'
+                    code={'markdown-rendered':'RMC507','raw-copy':'RMC508',
+                          'json-text-mirror':'RMC509'}[rule['mode']]
                     finding(code,
                         'Explicit structured-to-display mapping does not preserve the declared scalar; rule_sha256:'+
                         display_rule_hash(rule['id']),line,name)
@@ -606,7 +607,8 @@ def _sarif(report: dict) -> dict:
                 ('RMC504','Legacy output schema lacks object root'),
                 ('RMC506','Violation of explicit caller-supplied text behavior contract'),
                 ('RMC507','Declared structured value disagrees with rendered CommonMark text'),
-                ('RMC508','Declared structured value disagrees with copied raw/code-span text'))]}},
+                ('RMC508','Declared structured value disagrees with copied raw/code-span text'),
+                ('RMC509','Declared structured JSON payload is not mirrored in any text block'))]}},
              'results':[{'ruleId':f['rule_id'],'level':'error','message':{'text':f['message']},
                          'properties':{'origin_integrity':report['origin_integrity'],'tool':f['tool'],'trace_line':f['line']}} for f in report['findings']],
              'properties':{'semantic_verification':report['semantic_verification'],
