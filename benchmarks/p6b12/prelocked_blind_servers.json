@@ -1,0 +1,232 @@
+{
+  "schema": "risu-b12-20261108-blind-source-first-protocol-qualification-v1",
+  "selection_principle": "Five real standalone upstream stdio servers, four repository owners, originally unreported findings are candidate-only until independent oracle and issue-history review. Source-inspected SQLite Explorer calibration excluded from blind count.",
+  "timestamp_context": "Nov 8 2026 US Eastern; no new upstream defect preidentified for four blind applications",
+  "frozen_analyzer_blobs": {
+    "src/risu_mcp_trace.py": "9f017ca0344d94cf54bd0229ddb14d4f586101c8",
+    "src/risu_display_fidelity.py": "6785b2ed912d3e9a41dda956da537dc2e5f4f8e3"
+  },
+  "user_data_policy": "All fixtures are generated inside disposable CI job temp directories, all sessions local and offline after installing public dependencies, no live external MCP services, no authentication or customer data.",
+  "conservative_reporting": "A reported MCP schema anomaly, tool error, or functional metamorphic deviation is first only a CANDIDATE. Reproduction with source control, independent raw database/file oracle, documented contract, and normal controls required for CONFIRMED_BEHAVIOR_BUG. Novelty requires search in upstream issues and fixes; cannot guarantee undiscovered.",
+  "cases": [
+    {
+      "id": "FS",
+      "repository": "modelcontextprotocol/servers",
+      "commit": "36380287ed3b15d115b55f546617d723072b1296",
+      "source_dir": "src/filesystem",
+      "language": "TypeScript",
+      "org": "modelcontextprotocol",
+      "selection": "BLIND",
+      "tools": [
+        {
+          "name": "list_allowed_directories",
+          "args": {}
+        },
+        {
+          "name": "write_file",
+          "args": {
+            "path": "${ROOT}/risu-b12.txt",
+            "content": "RISU_B12_LINE_1\nunicode-🧭-#literal_[x]\n"
+          }
+        },
+        {
+          "name": "read_text_file",
+          "args": {
+            "path": "${ROOT}/risu-b12.txt"
+          }
+        },
+        {
+          "name": "list_directory",
+          "args": {
+            "path": "${ROOT}"
+          }
+        }
+      ],
+      "oracle_ids": [
+        "file_content_equal_on_disk",
+        "tool_successful_roundtrip"
+      ],
+      "dependency": "npm @modelcontextprotocol/server-filesystem v2.2.0 from pinned source"
+    },
+    {
+      "id": "MEM",
+      "repository": "modelcontextprotocol/servers",
+      "commit": "36380287ed3b15d115b55f546617d723072b1296",
+      "source_dir": "src/memory",
+      "language": "TypeScript",
+      "org": "modelcontextprotocol",
+      "selection": "BLIND",
+      "tools": [
+        {
+          "name": "create_entities",
+          "args": {
+            "entities": [
+              {
+                "name": "RISU_B12_ALPHA",
+                "entityType": "test_record",
+                "observations": [
+                  "literal_🔬_[a]",
+                  "second entry"
+                ]
+              },
+              {
+                "name": "RISU_B12_BETA",
+                "entityType": "test_record",
+                "observations": [
+                  "another entry"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "name": "search_nodes",
+          "args": {
+            "query": "RISU_B12_ALPHA"
+          }
+        },
+        {
+          "name": "open_nodes",
+          "args": {
+            "names": [
+              "RISU_B12_ALPHA",
+              "RISU_B12_BETA"
+            ]
+          }
+        },
+        {
+          "name": "read_graph",
+          "args": {}
+        }
+      ],
+      "oracle_ids": [
+        "graph_entity_after_create",
+        "graph_query_consistency"
+      ],
+      "dependency": "npm @modelcontextprotocol/server-memory v2.1.0 from pinned source"
+    },
+    {
+      "id": "ALCHEMY",
+      "repository": "runekaagaard/mcp-alchemy",
+      "commit": "8df3eb56773fdbb71eb3b7e509fefa312b16793b",
+      "source_dir": "mcp_alchemy",
+      "language": "Python",
+      "org": "runekaagaard",
+      "selection": "BLIND",
+      "tools": [
+        {
+          "name": "all_table_names",
+          "args": {}
+        },
+        {
+          "name": "filter_table_names",
+          "args": {
+            "q": "rec"
+          }
+        },
+        {
+          "name": "execute_query",
+          "args": {
+            "query": "SELECT label FROM records ORDER BY id"
+          }
+        },
+        {
+          "name": "schema_definitions",
+          "args": {
+            "table_names": [
+              "records"
+            ]
+          }
+        }
+      ],
+      "oracle_ids": [
+        "record_values_visible_in_query",
+        "table_name_contains"
+      ],
+      "dependency": "pip install pinned source with local sqlite DB"
+    },
+    {
+      "id": "GO",
+      "repository": "mark3labs/mcp-go",
+      "commit": "acf999d599ff294f82b586d787d6d793daf2f9be",
+      "source_dir": "examples/everything",
+      "language": "Go",
+      "org": "mark3labs",
+      "selection": "BLIND",
+      "tools": [
+        {
+          "name": "echo",
+          "args": {
+            "message": "RISU_B12_ECHO_lit_[x]_☯"
+          }
+        },
+        {
+          "name": "add",
+          "args": {
+            "a": 1.5,
+            "b": 2.25
+          }
+        },
+        {
+          "name": "get_resource_link",
+          "args": {
+            "resource_type": "report"
+          }
+        }
+      ],
+      "oracle_ids": [
+        "echo_roundtrip",
+        "arithmetic_add_exact"
+      ],
+      "dependency": "go build pinned MCP-Go original everything example"
+    },
+    {
+      "id": "SQLITE",
+      "repository": "hannesrudolph/sqlite-explorer-fastmcp-mcp-server",
+      "commit": "69f3f6c7d878cd5210a27e33fae814a9ec9e4b55",
+      "source_dir": "sqlite_explorer.py",
+      "language": "Python",
+      "org": "hannesrudolph",
+      "selection": "SOURCE_INSPECTED_CALIBRATION_EXCLUDED_FROM_BLIND",
+      "tools": [
+        {
+          "name": "list_tables",
+          "args": {}
+        },
+        {
+          "name": "read_query",
+          "args": {
+            "query": "SELECT label FROM records ORDER BY id",
+            "row_limit": 2
+          }
+        },
+        {
+          "name": "read_query",
+          "args": {
+            "query": "SELECT limit_hint FROM records ORDER BY id",
+            "row_limit": 2
+          }
+        },
+        {
+          "name": "describe_table",
+          "args": {
+            "table_name": "records"
+          }
+        }
+      ],
+      "oracle_ids": [
+        "explicit_row_limit_respected",
+        "label_column_variant_control"
+      ],
+      "dependency": "pip install pinned original fastmcp 0.4.1 source"
+    }
+  ],
+  "denominator": {
+    "selected_standalone_servers": 5,
+    "independent_publishers": 4,
+    "blind_standalone_servers": 4,
+    "blind_unique_publishers": 3,
+    "source_inspected_calibration": 1
+  },
+  "decision_policy": "No hindsight removal or substitution: any unexecutable pinned server remains in denominator as UNVERIFIED. Do not adjust result assertions after seeing failures without documenting protocol-harness repair separate from source claims. No fixes or detector updates during blind run."
+}
