@@ -4,7 +4,9 @@ on:
     branches: ['qualification/p6b12-*']
     paths:
       - '.github/workflows/p6b12-blind-five-server-survey.yml'
-      - 'benchmarks/p6b12/**'
+      - 'benchmarks/p6b12/prelocked_blind_servers.json'
+      - 'benchmarks/p6b12/capture_blind_stdio.py'
+      - 'benchmarks/p6b12/score_blind_discovery.py'
   workflow_dispatch:
 permissions:
   contents: read
