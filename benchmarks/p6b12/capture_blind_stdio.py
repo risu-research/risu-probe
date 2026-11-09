@@ -42,7 +42,7 @@ def source_plan(case:str,root:Path,manifest:dict):
         assert len(json.dumps(p,ensure_ascii=False))<8192
     return probes
 
-async def run(case:str,exe:Path,argv:list[str],manifest:Path,output:Path):
+async def run(case:str,exe:Path,argv:list[str],manifest:Path,output:Path,source:Path|None):
     if case not in CASES or output.exists() or output.is_symlink():
         raise ValueError('Unknown case or refusing to overwrite existing evidence')
     assert exe.exists() and exe.is_file()
@@ -64,7 +64,9 @@ async def run(case:str,exe:Path,argv:list[str],manifest:Path,output:Path):
         # Only allow case's own locally built or Git checked-out file imports.
         if case=='SQLITE':
             assert len(argv)==2 and argv[0]=='-c' and argv[1]=='import sqlite_explorer; sqlite_explorer.mcp.run()'
-            env['PYTHONPATH']=str(exe.parent.parent/'sqlite-source')
+            if source is None or not (source/'sqlite_explorer.py').is_file():
+                raise RuntimeError('Original pinned SQLite Explorer source required')
+            env['PYTHONPATH']=str(source.resolve(strict=True))
         assert len(argv)<=6
         if case=='FS':
             argv=[*argv,str(fixture['fs'])]
@@ -176,7 +178,8 @@ def main():
     a.add_argument('--arg',action='append',default=[])
     a.add_argument('--manifest',type=Path,default=Path('benchmarks/p6b12/prelocked_blind_servers.json'))
     a.add_argument('--out',type=Path,required=True)
+    a.add_argument('--source',type=Path)
     q=a.parse_args()
     asyncio.run(run(q.case,q.executable.expanduser().absolute(),q.arg,
-                    q.manifest,q.out))
+                    q.manifest,q.out,q.source))
 if __name__=='__main__':main()
