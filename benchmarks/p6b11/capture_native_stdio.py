@@ -23,7 +23,9 @@ async def execute(binary:Path,server_args:list[str],family:str,version:str,
                   out:Path,pythonpath:Path|None,hitch_source:Path|None)->dict:
     if family not in SUPPORTED or version not in ('old','fixed'):
         raise ValueError('Only two preregistered synthetic families and revisions')
-    exe=binary.resolve(strict=True)
+    # Preserve the venv Python launcher path: resolving symlinks to the base
+    # interpreter discards venv site-packages (and therefore mcp SDK).
+    exe=binary.expanduser().absolute()
     if not exe.is_file() or not os.access(exe,os.X_OK):
         raise RuntimeError('Executable does not exist or is not executable')
     if out.exists() or out.is_symlink():
