@@ -32,6 +32,7 @@ py-modules = [
   "risu_contract_history",
   "risu_coverage",
   "risu_decision",
+  "risu_display_fidelity",
   "risu_diagnostics",
   "risu_evidence",
   "risu_firstuse",
