@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='check-mcp-cardinality':
+        from risu_mcp_cardinality import cli
+        return cli(args[1:])
     if args and args[0]=='verify-mcp-trace':
         from risu_mcp_trace import cli
         return cli(args[1:])
