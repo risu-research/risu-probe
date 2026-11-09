@@ -41,7 +41,7 @@ async def execute(binary:Path,server_args:list[str],family:str,version:str,
         proc=await asyncio.create_subprocess_exec(str(exe),*server_args,
             cwd=temp,env=env,stdin=asyncio.subprocess.PIPE,
             stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
             limit=MAX_LINE+2)
         trace=[]
         async def send(message):
@@ -54,6 +54,13 @@ async def execute(binary:Path,server_args:list[str],family:str,version:str,
             if 'id' not in message:return None
             answer=await asyncio.wait_for(proc.stdout.readline(),25)
             if not answer or len(answer)>MAX_LINE or not answer.endswith(b'\n'):
+                if family in ('ROBOT682','HITCH60') and proc.stderr is not None:
+                    # These are locally authored synthetic wrappers. Bound the
+                    # import/SDK startup error to assist debugging; no user
+                    # data or production logs are used in these test runs.
+                    startup=await asyncio.wait_for(proc.stderr.read(2048),3)
+                    raise RuntimeError('Synthetic MCP SDK wrapper startup failed: '+
+                                       startup.decode('utf-8','replace')[-1500:])
                 raise RuntimeError('Upstream stdio response absent/over-sized/truncated')
             obj=json.loads(answer)
             if type(obj) is not dict or obj.get('jsonrpc')!='2.0' or obj.get('id')!=message['id']:
