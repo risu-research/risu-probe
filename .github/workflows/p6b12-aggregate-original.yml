@@ -72,6 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           python tools/public_ci_audit.py
+          python -m unittest discover -s tests -p test_p6b12_postfreeze_oracle.py -v
           test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
           test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
           for CASE in FS MEM ALCHEMY GO SQLITE; do
