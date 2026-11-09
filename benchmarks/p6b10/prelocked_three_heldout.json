@@ -1,0 +1,66 @@
+{
+  "schema": "risu-p6b10-prelocked-new-display-heldout-v1",
+  "registered_utc": "2026-11-09T01:25:00Z",
+  "scope": "NEW_EXTERNAL_SOURCE_COMPONENT_FAMILIES_NOT_USED_FOR_B10_RULE_DEVELOPMENT",
+  "engine_trace_blob": "f722cd7fdc380e04a3416ba5defba99f249af950",
+  "engine_display_blob": "f4f6dc4241ce4cfed355f9dddae2307e642b35ad",
+  "old_development_issues": [
+    "https://github.com/cyanheads/mcp-ts-core/issues/760",
+    "https://github.com/cyanheads/mcp-ts-core/issues/785"
+  ],
+  "selection_count": 3,
+  "selected": [
+    {
+      "id": "GEONAMES28",
+      "repository": "cyanheads/geonames-mcp-server",
+      "issue": "https://github.com/cyanheads/geonames-mcp-server/issues/28",
+      "old_commit": "41f908aa208f3fe59f8bb62665951289ec7c70eb",
+      "fixed_commit": "1c098963763d6e90f7fe5e1d7f53caca57fa8c7f",
+      "file": "src/utils/inline-text.ts",
+      "old_file_blob": "3a4ca3d3aba1c51e1db4b05fcfa9802bd454d107",
+      "fixed_file_blob": "e3800e3055d697ebbe2dad91b632135bacac3510",
+      "source_comparator": "inlineText('www.example.com') compared to the original literal string",
+      "mode": "markdown-rendered",
+      "expected_before": "MISMATCH",
+      "expected_fixed": "PASS",
+      "transport": "ACTUAL_UPSTREAM_TYPESCRIPT_FUNCTION_WITH_ADAPTER_RECONSTRUCTED_RESULT"
+    },
+    {
+      "id": "OPENALEX128",
+      "repository": "cyanheads/openalex-mcp-server",
+      "issue": "https://github.com/cyanheads/openalex-mcp-server/issues/128",
+      "old_commit": "5897c18a9cfefda525e55847983ec002bdd8ee35",
+      "fixed_commit": "99bde23f3d55b801483ba50a0d00205be1cbfddb",
+      "file": "src/mcp-server/tools/escape-markdown.ts",
+      "old_file_blob": "87ee3d378d3fad50dfe6326eb2294559cc900bb9",
+      "fixed_file_blob": "d3c5441c8248714d7a6a47145133db97839c08f0",
+      "source_comparator": "escapeMarkdown('alpha\\nbeta','inline') compared to raw source line breaks",
+      "mode": "markdown-rendered",
+      "expected_before": "MISMATCH",
+      "expected_fixed": "PASS",
+      "transport": "ACTUAL_UPSTREAM_TYPESCRIPT_FUNCTION_WITH_ADAPTER_RECONSTRUCTED_RESULT"
+    },
+    {
+      "id": "MITRECWE16",
+      "repository": "cyanheads/mitre-cwe-mcp-server",
+      "issue": "https://github.com/cyanheads/mitre-cwe-mcp-server/issues/16",
+      "old_commit": "7ab0ffa4df3e3d5709cf4b55c08ea9fab9c8b07d",
+      "fixed_commit": "ab635bb83e813f548974380178985362a93a98e7",
+      "file": "src/mcp-server/tools/shared.ts",
+      "old_file_blob": "49a5609afc65b484995e223b259e8d0105475670",
+      "fixed_file_blob": "1ece4ff94421eee79137339e9819d11cb266ad12",
+      "source_comparator": "formatCatalog({literal:'CWE-80'}). Evaluate content[] scalar value as copied raw text",
+      "mode": "raw-copy",
+      "expected_before": "MISMATCH",
+      "expected_fixed": "PASS",
+      "transport": "ACTUAL_UPSTREAM_TYPESCRIPT_FORMAT_COMPONENT_WITH_ADAPTER_RECONSTRUCTED_RESULT"
+    }
+  ],
+  "normal_controls": [
+    "GEONAMES28 normal string without autolink",
+    "OPENALEX128 normal single line",
+    "MITRECWE16 normal simple token"
+  ],
+  "scoring": "Only if pinned source executes for old+fixed, independently verifies mutation vs fix and normal controls, score frozen engine old mismatch+fixed clean. If source cannot execute, mark UNVERIFIED and retain in count. Known dev CYANs cannot be heldout again.",
+  "independence_limit": "All three selected codebases share the same open-source publisher cyanheads though are different repositories. This is cross-project technical transfer, NOT independence of vendor, not ecosystem-wide recall or precision. Upstream helper/component execution + adapter reconstructed MCP results are not original wire bytes."
+}
