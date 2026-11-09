@@ -89,7 +89,7 @@ def oracle(case:str,calls:list)->list[dict]:
               'Echo should return exact synthetic user string')
         # A numeric 3.750000 is equal to 3.75; do not false-flag.
         from decimal import Decimal, InvalidOperation
-        candidates=re.findall(r'(?i)\\bis\\s+([-+]?[0-9]+(?:\\.[0-9]+)?)\\b',text_content(r[1]))
+        candidates=re.findall(r'(?i)\bis\s+([-+]?[0-9]+(?:\.[0-9]+)?)\b',text_content(r[1]))
         try:
             numeric_ok=bool(candidates) and Decimal(candidates[-1])==Decimal('3.75')
         except InvalidOperation:
