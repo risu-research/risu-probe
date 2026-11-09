@@ -1,0 +1,101 @@
+name: RISU P6-B11 Hitch60 original Ruby source through genuine MCP stdio
+on:
+  push:
+    branches: ['qualification/p6b11-*']
+    paths:
+      - 'benchmarks/p6b11/hitch60_actual_ruby_result.rb'
+      - 'benchmarks/p6b11/hitch60_ruby_mcp_stdio_bridge.py'
+      - 'benchmarks/p6b11/hitch_mirror_contract.json'
+      - 'benchmarks/p6b11/capture_native_stdio.py'
+      - 'benchmarks/p6b11/score_raw_stdio.py'
+      - '.github/workflows/p6b11-hitch60-stdio.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-original-ruby-component-with-transport:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lock detector and prepare isolated SDK and Ruby source dependencies
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+          ruby --version
+          gem install json_schemer -v 2.4.0 --no-document
+          python -m venv .b11-h-env
+          .b11-h-env/bin/python -m pip install --disable-pip-version-check . 'mcp==1.29.0'
+          .b11-h-env/bin/python -m pip check
+          mkdir -p .b11-hitch
+      - name: Execute original pinned Ruby normalizer, then bridge untouched result through SDK stdio
+        run: |
+          set -euo pipefail
+          for REV in old fixed; do
+            if [[ "$REV" == old ]]; then
+              SHA=ae5cfde187396d68506bcc8794ff1ab9a11683f7
+              BLOB=ea9de0a3ccee6a0998076784554e6c383c5b439d
+            else
+              SHA=9def5ca30d319b699c2d064e8c6fb4d8c47d0ec4
+              BLOB=d428a4f36e7c5674f66f4ba7a3e0352a3e02456d
+            fi
+            UP=".b11-hitch-source-$REV"
+            mkdir -p "$UP"
+            git -C "$UP" init -q
+            git -C "$UP" -c core.hooksPath=/dev/null remote add origin https://github.com/tylerklose/hitch-rails.git
+            GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C "$UP" -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+            git -C "$UP" -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+            test "$(git -C "$UP" rev-parse HEAD)" = "$SHA"
+            test "$(git -C "$UP" rev-parse HEAD:app/models/hitch/mcp/internal/result_normalizer.rb)" = "$BLOB"
+            ruby benchmarks/p6b11/hitch60_actual_ruby_result.rb "$UP" \
+              ".b11-hitch/$REV-source.json"
+            .b11-h-env/bin/python benchmarks/p6b11/capture_native_stdio.py \
+              --family HITCH60 --revision "$REV" \
+              --binary .b11-h-env/bin/python \
+              --server-arg="$GITHUB_WORKSPACE/benchmarks/p6b11/hitch60_ruby_mcp_stdio_bridge.py" \
+              --hitch-source ".b11-hitch/$REV-source.json" \
+              --out ".b11-hitch/$REV"
+            .b11-h-env/bin/risu-probe verify-mcp-trace ".b11-hitch/$REV/original_stdio.jsonl" \
+              --display-contract benchmarks/p6b11/hitch_mirror_contract.json \
+              --protocol-version 2025-11-25 --format json > ".b11-hitch/$REV-risu.json"
+            rm -rf "$UP"
+          done
+      - name: Check original Ruby results byte-for-byte after real MCP stdio transport and RISU score
+        run: |
+          set -euo pipefail
+          .b11-h-env/bin/python benchmarks/p6b11/score_raw_stdio.py HITCH60 \
+            .b11-hitch/old .b11-hitch/fixed \
+            .b11-hitch/old-risu.json .b11-hitch/fixed-risu.json \
+            .b11-hitch/source_score.json
+          echo B11_HITCH60_ACTUAL_RUBY_SOURCE_AND_RAW_SDK_STDIO_VERIFIED
+      - name: Archive actual pinned source outputs and original SDK stdout bytes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b11-hitch60-original-ruby-bridged-stdio
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b11/prelocked_three_organizations.json
+            .b11-hitch/*/origin.json
+            .b11-hitch/*/original_stdio.jsonl
+            .b11-hitch/*-source.json
+            .b11-hitch/*-risu.json
+            .b11-hitch/source_score.json
