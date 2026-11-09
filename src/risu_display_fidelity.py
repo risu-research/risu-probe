@@ -14,7 +14,7 @@ from typing import Any
 class DisplayContractError(ValueError):
     pass
 
-MODES=frozenset(('markdown-rendered','raw-copy'))
+MODES=frozenset(('markdown-rendered','raw-copy','json-text-mirror'))
 MAX_RULES=48
 MAX_TEXT=4096
 MAX_CONTRACT_BYTES=32768
@@ -37,14 +37,22 @@ def validate(contract: Any) -> list[dict]:
         ids.add(name)
         if type(rule['tool']) is not str or not (1<=len(rule['tool'])<=128):
             raise DisplayContractError('Invalid display rule tool')
+        mode=rule['mode']
+        if type(mode) is not str or mode not in MODES or type(rule['on_error']) is not bool:
+            raise DisplayContractError('Invalid mode or isError match')
+        prefix=rule['prefix_raw']
+        ptr=rule['source']
+        if mode=='json-text-mirror':
+            # A mirror obligation checks the declared complete JSON root in ANY
+            # exact JSON text block; a preceding human summary is permitted.
+            # It cannot be silently turned on for ordinary summarized tools.
+            if rule['content_index'] is not None or prefix!='' or ptr!='':
+                raise DisplayContractError('JSON text mirror requires source root, null index and empty prefix')
+            continue
         if type(rule['content_index']) is not int or not 0<=rule['content_index']<16:
             raise DisplayContractError('Invalid text content index')
-        prefix=rule['prefix_raw']
         if type(prefix) is not str or not (1<=len(prefix)<=128) or '\n' in prefix or '\r' in prefix:
             raise DisplayContractError('Explicit single-line prefix required')
-        if type(rule['mode']) is not str or rule['mode'] not in MODES or type(rule['on_error']) is not bool:
-            raise DisplayContractError('Invalid mode or isError match')
-        ptr=rule['source']
         if type(ptr) is not str or not ptr.startswith('/') or len(ptr)>384:
             raise DisplayContractError('Source must be absolute structuredContent JSON pointer')
         parts=ptr[1:].split('/')
@@ -139,8 +147,65 @@ def _copy_literal(text: str) -> tuple[str|None,str]:
     return text,''
 
 
+def _json_same(a: Any, b: Any) -> bool:
+    """Exact bounded JSON tree equality, with bool != 1 and number types retained."""
+    nodes=[(a,b,0)]
+    count=0
+    while nodes:
+        left,right,depth=nodes.pop()
+        count+=1
+        if count>2048 or depth>32:return False
+        if type(left) is not type(right):return False
+        if type(left) is dict:
+            if left.keys()!=right.keys():return False
+            nodes.extend((left[k],right[k],depth+1) for k in left)
+        elif type(left) is list:
+            if len(left)!=len(right):return False
+            nodes.extend((x,y,depth+1) for x,y in zip(left,right))
+        elif left!=right:return False
+    return True
+
+
+def _json_text_mirror(result: dict) -> tuple[str,str]:
+    """Check an explicitly asserted JSON mirror, never infer from summary text."""
+    if 'structuredContent' not in result:
+        return 'UNVERIFIED','DISPLAY_JSON_SOURCE_UNAVAILABLE'
+    source=result['structuredContent']
+    blocks=result.get('content')
+    if type(blocks) is not list or len(blocks)>16:
+        return 'UNVERIFIED','DISPLAY_TEXT_BLOCK_UNAVAILABLE'
+    textblocks=[x['text'] for x in blocks
+                if type(x) is dict and x.get('type')=='text'
+                and type(x.get('text')) is str]
+    if not textblocks:
+        return 'MISMATCH',''
+    oversized=False
+    for text in textblocks:
+        if len(text)>MAX_TEXT:
+            oversized=True
+            continue
+        try:
+            def unique(items):
+                out={}
+                for k,v in items:
+                    if k in out:raise ValueError('duplicate')
+                    out[k]=v
+                return out
+            value=json.loads(text,object_pairs_hook=unique,
+                             parse_constant=lambda _: (_ for _ in ()).throw(ValueError('nonfinite')))
+        except (ValueError,RecursionError):
+            continue
+        if _json_same(value,source):
+            return 'PASS',''
+    if oversized:
+        return 'UNVERIFIED','DISPLAY_JSON_CANDIDATE_TOO_LARGE'
+    return 'MISMATCH',''
+
+
 def check(result: dict, rule: dict) -> tuple[str,str]:
     """Result is ('PASS'|'MISMATCH'|'UNVERIFIED', fixed structural reason)."""
+    if rule['mode']=='json-text-mirror':
+        return _json_text_mirror(result)
     source=_pointer(result.get('structuredContent',MISSING),rule['source'])
     if type(source) is not str:
         return 'UNVERIFIED','DISPLAY_STRING_SOURCE_UNAVAILABLE'
