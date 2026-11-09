@@ -1,0 +1,64 @@
+name: RISU P6-B12 investigate frozen original native stdout anomalies
+on:
+  push:
+    branches: ['qualification/p6b12-*']
+    paths:
+      - 'benchmarks/p6b12/investigate_original_candidate_bytes.py'
+      - '.github/workflows/p6b12-investigate-first-pass.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-post-freeze-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Retrieve intact GO original stdio and initial score
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42552593436
+          github-token: ${{ github.token }}
+          name: risu-b12-real-native-stdio-GO
+          path: .b12-review/GO
+      - name: Retrieve intact SQLite original stdio and initial score
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 42552593436
+          github-token: ${{ github.token }}
+          name: risu-b12-real-native-stdio-SQLITE
+          path: .b12-review/SQLITE
+      - name: Diagnose candidate and parser coverage from unchanged original upstream stdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          for CASE in GO SQLITE; do
+            find ".b12-review/$CASE" -name origin.json -print
+            python benchmarks/p6b12/investigate_original_candidate_bytes.py \
+              "$CASE" ".b12-review/$CASE/.b12-output/$CASE" \
+              ".b12-review/$CASE/diagnosis.json"
+          done
+          echo B12_ORIGINAL_FIRST_PASS_CANDIDATES_REVIEWED
+      - name: Save follow-up adjudication evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b12-first-pass-unchanged-stdout-postfreeze-review
+          retention-days: 21
+          if-no-files-found: warn
+          path: |
+            .b12-review/GO/diagnosis.json
+            .b12-review/SQLITE/diagnosis.json
