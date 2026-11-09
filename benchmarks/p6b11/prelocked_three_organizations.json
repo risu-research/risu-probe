@@ -1,0 +1,69 @@
+{
+  "schema": "risu-p6b11-three-organization-frozen-source-and-transport-v1",
+  "label": "SELECTION_FROZEN_BEFORE_ANY_SELECTED_UPSTREAM_SOURCE_EXECUTION",
+  "same_project_or_publisher_allowed": false,
+  "preselected_families": 3,
+  "new_rules_developed_before_selection": [
+    "RMC509 from synthetic controlled design and existing public Honua report (Honua excluded)",
+    "RMC507 RMC508 from frozen B10"
+  ],
+  "frozen_engine": {
+    "src/risu_mcp_trace.py": "9f017ca0344d94cf54bd0229ddb14d4f586101c8",
+    "src/risu_display_fidelity.py": "6785b2ed912d3e9a41dda956da537dc2e5f4f8e3"
+  },
+  "exclusions": [
+    "all cyanheads upstream bugs B9/B10",
+    "honua-io/honua-server#6900 served as RMC509 design motivation",
+    "seandavi/bioc-mcp#35 fixed text carries a selected projection, not necessarily complete structuredContent",
+    "previous Go SDK defect GO1139 already used"
+  ],
+  "cases": [
+    {
+      "id": "PARTICULARS15",
+      "repository": "nodelogicau/particulars-cli",
+      "issue": "https://github.com/nodelogicau/particulars-cli/issues/15",
+      "old_commit": "d5707f3cd8320e9ef0519b40cee814aa3610e80d",
+      "official_code_fix_commit": "c13850f57c03ae8bd9f2092f7be8ac7d749e3fc6",
+      "file": "internal/mcp/server.go",
+      "old_blob": "ef9e0d475e2616252c34abcdfdb7cc6778bdd22d",
+      "fixed_blob": "56e4882da42fc4c4026e700c22348d940678e72d",
+      "expected_regression": "MCP tools exposed structured JSON but text-only clients saw counts instead of data",
+      "frozen_rule": "RMC509",
+      "contract": "explicit JSON text mirror of whole structuredContent, no assumption about unrelated servers",
+      "planned_protocol_evidence": "ORIGINAL_UPSTREAM_CLI_STDIO_BYTES_WITH_SYNTHETIC_WORKSPACE",
+      "historical_chronology": "The source change on 2026-10-11 precedes the formal issue report on 2026-10-30. This is an independently selected historical regression, not a claim that the issue was discovered before its fix."
+    },
+    {
+      "id": "HITCH60",
+      "repository": "tylerklose/hitch-rails",
+      "issue": "https://github.com/tylerklose/hitch-rails/issues/60",
+      "old_commit": "ae5cfde187396d68506bcc8794ff1ab9a11683f7",
+      "official_code_fix_commit": "9def5ca30d319b699c2d064e8c6fb4d8c47d0ec4",
+      "file": "app/models/hitch/mcp/internal/result_normalizer.rb",
+      "old_blob": "ea9de0a3ccee6a0998076784554e6c383c5b439d",
+      "fixed_blob": "d428a4f36e7c5674f66f4ba7a3e0352a3e02456d",
+      "expected_regression": "A structured object without explicit text yields an empty content array; the official fix creates JSON text",
+      "frozen_rule": "RMC509",
+      "contract": "explicit complete JSON mirror, only for no-explicit-text code path",
+      "planned_protocol_evidence": "ORIGINAL_RUBY_RESULT_NORMALIZER_SOURCE_AND_OPTIONAL_REAL_MCP_STDIO_WRAPPER",
+      "historical_chronology": "Issue and correction occurred 2026-11-08."
+    },
+    {
+      "id": "ROBOT682",
+      "repository": "robotcodedev/robotcode",
+      "issue": "https://github.com/robotcodedev/robotcode/issues/682",
+      "old_commit": "43aaa4f65df5c30ca6b38eabe4de025bc5123a0",
+      "official_code_fix_commit": "a1a9073c0e3defd1aaabd0f88d7bc91be404e884",
+      "file": "packages/robot/src/robotcode/robot/utils/markdownformatter.py",
+      "old_blob": "d5b229f8058cd7312c9afcef1327591f71ce0f94",
+      "fixed_blob": "34bb39c3c3ade9798cf0ee145b915720e6dcce8e",
+      "expected_regression": "Markdown formatter alters literal code span characters such as #FF00FF while plain text escaping remains correct",
+      "frozen_rule": "RMC507",
+      "contract": "explicit source scalar compared to rendered CommonMark single code span",
+      "planned_protocol_evidence": "ACTUAL_UPSTREAM_PYTHON_FORMATTER_OVER_REAL_MCP_SDK_STDIO_TEST_WRAPPER",
+      "historical_chronology": "The source formatter is not natively an MCP server; stdio wrapper must be labeled test adapter, even when raw response bytes are genuine."
+    }
+  ],
+  "score_policy": "Strict all-three original selected denominator; source reproduction, normal controls, frozen detector finding only on old, and transport provenance tier each reported separately. Execution failure remains UNVERIFIED, no replacement or hidden removal. No ecosystem recall/precision claim.",
+  "safe_capture": "Only locally generated synthetic input/workspaces, exact pinned commits and file blobs; no external MCP endpoints, credentials, network payloads or user data. Upstream dependency downloads allowed in public GitHub CI, no arbitrary remote application calls."
+}
