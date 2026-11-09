@@ -26,6 +26,19 @@ def capture(path:Path,family:str,rev:str):
     for i,tool in enumerate(SUPPORT[family][:-1],10):
         calls=[x for x in lines if x.get('method')=='tools/call' and x.get('id')==i]
         assert len(calls)==1 and calls[0]['params']['name']==tool
+    if family=='HITCH60':
+        original=(path.parent/(rev+'-source.json'))
+        source=json.loads(original.read_text())
+        assert source['schema']=='risu-b11-hitch60-original-ruby-result-v1'
+        assert source['source']=='ACTUAL_PINNED_UPSTREAM_RUBY_RESULT_NORMALIZER'
+        for i,name in enumerate(SUPPORT[family][:-1],10):
+            genuine=source['records'][name]
+            wire=tool_result(lines,i)
+            assert wire.get('content',[])==genuine.get('content',[])
+            assert wire.get('structuredContent')==genuine.get('structuredContent')
+            assert wire.get('isError',False)==genuine.get('isError',False)
+        metadata['original_ruby_component_content_matches_wire']=True
+        metadata['original_ruby_component_sha256']=hashlib.sha256(original.read_bytes()).hexdigest()
     return metadata,lines
 
 def tool_result(messages,id):
@@ -56,7 +69,7 @@ def has_json_mirror(result):
         if json_equal(parsed,src):return True
     return False
 
-def source_truth(family,o,n):
+def source_truth(family,o,n,orig_meta,fix_meta):
     if family=='PARTICULARS15':
         old=[tool_result(o,i) for i in (10,11)]
         fixed=[tool_result(n,i) for i in (10,11)]
@@ -69,13 +82,8 @@ def source_truth(family,o,n):
         missing_old=tool_result(o,10);missing_fixed=tool_result(n,10)
         explicit_old=tool_result(o,11);explicit_fixed=tool_result(n,11)
         text_old=tool_result(o,12);text_fixed=tool_result(n,12)
-        src_files=[old.get('ruby_source_result'),n.get('ruby_source_result')]
-        # The SDK serializer is allowed to add protocol properties, but
-        # source-written content and structuredContent must be untouched.
-        source_verified=True
-        for items,source in ((o,old),(n,fixed)):
-            if 'ruby_source_result' not in source:
-                source_verified=False
+        source_verified=(orig_meta.get('original_ruby_component_content_matches_wire') is True
+                         and fix_meta.get('original_ruby_component_content_matches_wire') is True)
         healthy=all(x.get('isError') is not True for x in
                     (missing_old,missing_fixed,explicit_old,explicit_fixed,text_old,text_fixed))
         reproduced=(healthy and source_verified
@@ -111,7 +119,7 @@ def source_truth(family,o,n):
 def adjudicate(family:str,old:Path,fixed:Path,old_risu:Path,fix_risu:Path):
     a,o=capture(old,family,'old')
     b,n=capture(fixed,family,'fixed')
-    reproduced,normal=source_truth(family,o,n)
+    reproduced,normal=source_truth(family,o,n,a,b)
     oldp=json.loads(old_risu.read_text());fixp=json.loads(fix_risu.read_text())
     want=SUPPORT[family][-1]
     old_codes=[f['rule_id'] for f in oldp.get('findings',[])]
