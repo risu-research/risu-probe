@@ -42,7 +42,7 @@ def validate(contract: Any) -> list[dict]:
         prefix=rule['prefix_raw']
         if type(prefix) is not str or not (1<=len(prefix)<=128) or '\n' in prefix or '\r' in prefix:
             raise DisplayContractError('Explicit single-line prefix required')
-        if rule['mode'] not in MODES or type(rule['on_error']) is not bool:
+        if type(rule['mode']) is not str or rule['mode'] not in MODES or type(rule['on_error']) is not bool:
             raise DisplayContractError('Invalid mode or isError match')
         ptr=rule['source']
         if type(ptr) is not str or not ptr.startswith('/') or len(ptr)>384:
