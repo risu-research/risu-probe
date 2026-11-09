@@ -27,7 +27,10 @@ def parse_rows(result:dict)->list|None:
         raw=block.get('text')
         if not isinstance(raw,str) or len(raw)>8192:continue
         try:doc=json.loads(raw)
-        except (ValueError,TypeError):continue
+        except (ValueError,TypeError):
+            # A mixed human-summary+JSON-text response cannot safely be
+            # counted as one item per block. Do not silently skip prose.
+            return None
         if isinstance(doc,list):return doc
         if isinstance(doc,dict):
             for k in ('result','rows','data','items'):
