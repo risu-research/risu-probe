@@ -1,0 +1,88 @@
+name: Caller Intent Repair Adequacy Controls
+on:
+  push:
+    branches: [ci/external-codeql-baseline-v1]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  intent-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 16
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: google/go-github
+          ref: 0b11dbfbf17f29fb589087727789c6978d500f8d
+          path: sdk
+          persist-credentials: false
+      - name: Install external-SDK intent mutation controls
+        shell: bash
+        run: |
+          mkdir -p audit
+          cat > sdk/github/risu_intent_gate_test.go <<'GO'
+          package github
+          import (
+            "context"
+            "encoding/json"
+            "fmt"
+            "net/http"
+            "strings"
+            "testing"
+          )
+          func TestRISURepairIntentGate(t *testing.T) {
+            cases:=[]struct{name string;readRequested,writeRequested,omitWrite bool;wantEqual,wantIntent bool}{
+              {"original-read-default-write-requested",false,true,false,false,false},
+              {"correct-read-requested-write-requested",true,true,false,true,true},
+              {"misrepair-both-default",false,false,false,true,false},
+              {"misrepair-no-write",true,true,true,true,false},
+            }
+            for _,v:=range cases {t.Run(v.name,func(t *testing.T){
+              client,mux,_:=setup(t)
+              reqBranch:="feature";path:="docs/a.md"
+              getBranch,getPath,putBranch,putPath,putSHA:="","","","",""
+              didWrite:=false
+              mux.HandleFunc("/repos/owner/repo/contents/",func(w http.ResponseWriter,r *http.Request){
+                target:=strings.TrimPrefix(r.URL.Path,"/repos/owner/repo/contents/")
+                if r.Method==http.MethodGet{
+                  getPath=target
+                  getBranch=r.URL.Query().Get("ref")
+                  if getBranch==""{getBranch="main"}
+                  fmt.Fprint(w,`{"sha":"identical-blob","type":"file","name":"x"}`)
+                }else if r.Method==http.MethodPut{
+                  didWrite=true;putPath=target
+                  var p struct{SHA string `json:"sha"`;Branch string `json:"branch"`}
+                  if e:=json.NewDecoder(r.Body).Decode(&p);e!=nil{t.Fatal(e)}
+                  putBranch=p.Branch;putSHA=p.SHA
+                  fmt.Fprint(w,`{"content":{"sha":"updated"},"commit":{"sha":"commit"}}`)
+                }else{t.Fatalf("unexpected HTTP method %s",r.Method)}
+              })
+              var opts *RepositoryContentGetOptions
+              if v.readRequested{opts=&RepositoryContentGetOptions{Ref:reqBranch}}
+              file,_,_,err:=client.Repositories.GetContents(context.Background(),"owner","repo",path,opts)
+              if err!=nil||file==nil{t.Fatalf("get failed %v",err)}
+              if !v.omitWrite{
+                writeBranch:="main";if v.writeRequested{writeBranch=reqBranch}
+                message:="edit"
+                put:=&RepositoryContentFileOptions{Branch:&writeBranch,SHA:file.SHA,Content:[]byte("updated"),Message:&message}
+                if _,_,err=client.Repositories.CreateFile(context.Background(),"owner","repo",path,put);err!=nil{t.Fatal(err)}
+              }
+              weak:=!didWrite||(getBranch==putBranch&&getPath==putPath)
+              strong:=didWrite&&getBranch==reqBranch&&putBranch==reqBranch&&getPath==path&&putPath==path&&putSHA=="identical-blob"
+              if weak!=v.wantEqual||strong!=v.wantIntent{t.Fatalf("weak=%v strong=%v expected weak=%v strong=%v",weak,strong,v.wantEqual,v.wantIntent)}
+              t.Logf("RISU_INTENT_CASE name=%s requested=%s:%q get=%s:%q put=%s:%q wrote=%v weak=%v strong=%v",v.name,reqBranch,path,getBranch,getPath,putBranch,putPath,didWrite,weak,strong)
+            })}
+          }
+          GO
+      - name: Real SDK behavior and automatic adequate-repair rejection
+        shell: bash
+        run: |
+          cd sdk
+          go test ./github -run '^TestRISURepairIntentGate$' -v -count=1 -timeout=6m | tee ../audit/real_sdk_intent_cases.log
+      - name: Upload experiment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-sdk-intent-counterexamples
+          path: audit
+          if-no-files-found: warn
