@@ -1,6 +1,6 @@
 # RISU Probe
 
-**Status: experimental preview (`0.9.22.dev0`).** Official product source migrated from the verified P6-A branch. This is the public developer repository. This is the readable product source for the code that passed P5-E's Windows/Linux qualification. Do not confuse this preview with a PyPI release or MCP standards certification.
+**Status: experimental preview (`0.9.25.dev0`).** Official product source migrated from the verified P6-A branch. This is the public developer repository. This is the readable product source for the code that passed P5-E's Windows/Linux qualification. Do not confuse this preview with a PyPI release or MCP standards certification.
 
 ## Install from this source checkout
 
@@ -77,3 +77,28 @@ risu-probe check . --mcp-trace local-mcp.jsonl --mcp-protocol-version 2025-11-25
 ```
 
 The generic trace verifier matches `tools/list` with `tools/call` responses and checks declared output schemas without contacting an MCP server. Its reports distinguish source parse, captured semantic inconsistencies and incomplete evidence. **Captures are unauthenticated; observations in supplied files are not proof of production incidents.** The CI tests only synthetic public data. See [P6-B4 evidence and scope](docs/P6B4_GENERIC_MCP_TRACE.md).
+
+## P6-B15 · Opt-in MCP result and effect contracts
+
+The offline `check-mcp-observations` command verifies user-declared result and
+persistent-state obligations against recorded, correlated MCP JSON-RPC messages:
+
+```sh
+risu-probe check-mcp-observations original_stdio.jsonl \
+  --contract observation_contract.json \
+  --witness state_witness.json \
+  --format json --out observation-report.json
+```
+
+`--witness` is required for state-change checks; JSON result checks work
+with only the contract and recorded trace. The checker uses strictly
+bounded, declarative rule IDs `RME610` (effect mismatch) and `RME620`
+(declared JSON result mismatch). It abstains on missing or unsupported
+evidence and never executes the input project.
+
+The three-publisher qualification checked 14 native source calls.
+Thirteen valid obligations passed; one preregistered rule contradicted
+the source server's original tool description, and was correctly
+separated from confirmed upstream bugs. The B14 original replay detects
+two existing development-set discrepancies. See the
+[B15 reproduction, independent audit and evidence boundaries](docs/P6B15_FROZEN_OBSERVATION_AND_EXTERNAL_AUDIT.md).
