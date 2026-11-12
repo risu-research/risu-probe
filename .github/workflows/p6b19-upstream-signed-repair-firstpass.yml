@@ -107,6 +107,11 @@ jobs:
           set -euo pipefail
           python -m pip install --disable-pip-version-check .
           mkdir -p .b19-final
+          for VERSION in VULNERABLE FIXED; do
+            cp .b19-official/"$VERSION"/mcp_server_git-*.whl ".b19-native-firstpass/$VERSION/"
+            cp .b19-official/"$VERSION"/publish_attestation_verified.json ".b19-native-firstpass/$VERSION/"
+            cp .b19-official/"$VERSION"/source_code_equivalence.json ".b19-native-firstpass/$VERSION/"
+          done
           python -m risu_p5d_cli compare-signed-mcp-repair \
             --evidence-root .b19-native-firstpass \
             --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
