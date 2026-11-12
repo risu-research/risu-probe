@@ -1,0 +1,162 @@
+name: RISU P6-B22 independent dual POSIX principal native reexecution and signature/execve audit
+on:
+  push:
+    branches: ['qualification/p6b22-*']
+    paths:
+      - 'benchmarks/p6b22/independent_os_owner_preflight_audit.py'
+      - '.github/workflows/p6b22-independent-os-owner-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-issuer-original-source-and-os-execve:
+    name: Separate VM, new owner's protected Ed25519 key, unchanged external MCP and source-free evidence audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Obtain first source-native real OS two-account owner signed and pre-call evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43332919600
+          github-token: ${{ github.token }}
+          name: risu-b22-firstpass-real-separate-os-owner-actual-precall
+          path: .b22-first-unaltered
+      - name: Independently check frozen source with upstream vendor's original PyPI wheel and installed requirements
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<49' .
+          python benchmarks/p6b22/independent_os_owner_preflight_audit.py \
+            --evidence-root .b22-first-unaltered/.b22-firstpass \
+            --original-package .b22-first-unaltered/.b22-package \
+            --out .b22-first-unaltered/FIRST_INDEPENDENT_OS_OWNER_AUDIT.json
+          python - <<'PY'
+          import json
+          r=json.load(open('.b22-first-unaltered/FIRST_INDEPENDENT_OS_OWNER_AUDIT.json'))
+          assert r['authorized_native_upstream_calls']==3
+          assert r['denied_before_original_server_execve']==7
+          assert r['all_denied_original_target_bytes_preserved'] is True
+          assert r['separate_posix_resource_owner_signed_before_after_observations']==20
+          assert r['independent_natural_person_consent']=='NOT_OBTAINED'
+          print('B22_INDEPENDENT_FIRST_ORIGINAL_REAL_OS_TWO_PRINCIPAL_OWNER_AUDIT_PASS')
+          PY
+      - name: Install OS execve tracer and POSIX ACL on an independent fresh hosted VM
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq strace acl
+          command -v setfacl
+          strace -V | head -1
+      - name: Reinstall exact original non-Git upstream MCP into new isolated virtualenv
+        run: |
+          set -euo pipefail
+          python -m venv .b22-repeat-upstream-venv
+          .b22-repeat-upstream-venv/bin/python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+          .b22-repeat-upstream-venv/bin/python -m pip install --disable-pip-version-check --no-deps \
+            .b22-first-unaltered/.b22-package/filesystem_mcp-1.0.2-*.whl
+          .b22-repeat-upstream-venv/bin/python -m pip check
+          .b22-repeat-upstream-venv/bin/python -I - <<'PY'
+          import pathlib,hashlib,filesystem_mcp.server as m,importlib.metadata
+          assert importlib.metadata.version('filesystem-mcp')=='1.0.2'
+          assert hashlib.sha256(pathlib.Path(m.__file__).read_bytes()).hexdigest()=='c754a7720d52d92eb49324649b19f58b07b20703fcc2c2c1b02ce1f20152fcc8'
+          print('B22_INDEPENDENT_SECOND_UPSTREAM_UNMODIFIED_MODULE_VERIFIED')
+          PY
+      - name: New actual owner OS principal, newly generated protected Ed25519 key and 10 original enforcement decisions
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b22/run_real_os_principal_gate.py \
+            --original-python .b22-repeat-upstream-venv/bin/python \
+            --published-wheels .b22-first-unaltered/.b22-package \
+            --issuer-script benchmarks/p6b22/owner_account_issuer.py \
+            --out .b22-second-native-owner
+          python benchmarks/p6b22/independent_os_owner_preflight_audit.py \
+            --evidence-root .b22-second-native-owner \
+            --original-package .b22-first-unaltered/.b22-package \
+            --out .b22-second-native-owner/SECOND_INDEPENDENT_OS_OWNER_AUDIT.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.load(open('.b22-first-unaltered/FIRST_INDEPENDENT_OS_OWNER_AUDIT.json'))
+          b=json.load(open('.b22-second-native-owner/SECOND_INDEPENDENT_OS_OWNER_AUDIT.json'))
+          assert a['issuer_public_key_sha256']!=b['issuer_public_key_sha256']
+          for x in (a,b):
+            assert x['authorized_native_upstream_calls']==3
+            assert x['denied_before_original_server_execve']==7
+            assert x['independent_natural_person_consent']=='NOT_OBTAINED'
+            assert x['separate_posix_resource_owner_signed_before_after_observations']==20
+            assert x['new_external_upstream_vulnerabilities']==0
+          assert a['original_denial_reasons']==b['original_denial_reasons']
+          print('B22_TWO_INDEPENDENT_VM_OS_OWNER_SIGNERS_SAME_PRECALL_EXECVE_OUTCOMES')
+          PY
+      - name: Independent auditor rejects post-freeze corrupted owner signed observation
+        run: |
+          set -euo pipefail
+          cp -r .b22-second-native-owner .b22-adversarial
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('.b22-adversarial/observation_denied_no_grant_before.json')
+          v=json.loads(p.read_text())
+          v['observation']['exists']=True
+          p.write_text(json.dumps(v))
+          PY
+          if python benchmarks/p6b22/independent_os_owner_preflight_audit.py \
+            --evidence-root .b22-adversarial \
+            --original-package .b22-first-unaltered/.b22-package \
+            --out .b22-adversarial/MUST_NOT_EXIST.json; then
+            echo 'Altered OS owner signed observer unexpectedly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b22-adversarial/MUST_NOT_EXIST.json
+          rm -rf .b22-adversarial
+          cp -r .b22-second-native-owner .b22-adversarial
+          printf 'synthetic-mutant' >> .b22-adversarial/allowed_create_AFTER_ORIGINAL_TARGET.bin
+          if python benchmarks/p6b22/independent_os_owner_preflight_audit.py \
+            --evidence-root .b22-adversarial \
+            --original-package .b22-first-unaltered/.b22-package \
+            --out .b22-adversarial/MUST_NOT_EXIST2.json; then
+            echo 'Altered actual target bytes unexpectedly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b22-adversarial/MUST_NOT_EXIST2.json
+          rm -rf .b22-adversarial
+          cp -r .b22-second-native-owner .b22-adversarial
+          printf 'execve("/tmp/fake", ["-m", "filesystem_mcp"])\n' >> \
+             .b22-adversarial/denied_no_grant.execve.strace
+          if python benchmarks/p6b22/independent_os_owner_preflight_audit.py \
+            --evidence-root .b22-adversarial \
+            --original-package .b22-first-unaltered/.b22-package \
+            --out .b22-adversarial/MUST_NOT_EXIST3.json; then
+            echo 'Faked OS source execution syscall evidence unexpectedly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b22-adversarial/MUST_NOT_EXIST3.json
+          echo B22_INDEPENDENT_OWNER_OBSERVATION_FILE_BYTES_OS_SYSCALL_TAMPERS_REJECTED
+      - name: Preserve new independent original source, all OS syscall traces, new owner signatures and audits
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b22-second-independent-real-os-owner-native-precall-audit
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b22-first-unaltered/FIRST_INDEPENDENT_OS_OWNER_AUDIT.json
+            .b22-second-native-owner/
+            benchmarks/p6b22/independent_os_owner_preflight_audit.py
