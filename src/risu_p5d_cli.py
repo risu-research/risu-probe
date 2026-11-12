@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='verify-mcp-origin':
+        from risu_mcp_origin import cli
+        return cli(args[1:])
     if args and args[0]=='qualify-mcp-observations':
         from risu_mcp_authority import cli
         return cli(args[1:])
