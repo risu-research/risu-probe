@@ -1,0 +1,14 @@
+{
+  "schema": "risu-p6b16-frozen-catalog-authority-before-independent-source-v1",
+  "date": "2026-11-12",
+  "development_base": "Original B15 three-owner 14-call source evidence, all treated as development; no new bug claims",
+  "detector_source_blob": "be24472b0fea8d8e7a252a7a36158cf8873128de",
+  "observation_source_blob": "4314e9bf92e2ec75c421bab25eae3b43f1424a08",
+  "parser_source_blob": "9f017ca0344d94cf54bd0229ddb14d4f586101c8",
+  "tests_source_blob": "1c6bd54c737987d82ae986c228f804df34ab81a0",
+  "ci_cross_platform": "https://github.com/risu-research/risu-probe/actions/runs/43294334043",
+  "ci_replay_original": "https://github.com/risu-research/risu-probe/actions/runs/43294477328",
+  "primary_rule": "Only catalog-borne outputSchema with an unambiguous structured-content JSON object and exact required typed paths can qualify an RME620 mismatch. readOnlyHint is advisory, never a qualified state-effect violation. All caller-only unsupported state obligations yield quarantined mismatches.",
+  "evaluation_policy": "No modifying the frozen authority source blob based on evaluation output. New external project selected after detector freeze and original source Git commit pinned. Any harness correction must preserve raw first-pass evidence and record previous attempt.",
+  "excludes": "No auto semantic parsing of description text. No claim server integrity from captured bytes. No spoof resistance without independently trusted signature. No global precision/recall from nonrandom short cohorts."
+}
