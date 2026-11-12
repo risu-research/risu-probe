@@ -330,6 +330,10 @@ def run(args):
     g_stale=grant("before-unrelated-owner-write",f_stale,"CREATE")
     execute("sudo","-u",usernames["owner"],"-H",gateway_py,"-c",
         "import pathlib;pathlib.Path("+repr(str(t_stale))+").write_text('owner-changed-state')")
+    # Make the file itself OS-writable for the executor to isolate
+    # signed stale-state refusal from the *different* OS DAC refusal.
+    execute("sudo","-u",usernames["owner"],"setfacl","-m",
+            "u:"+usernames["exec"]+":rw",t_stale)
     gateway("denied_stale_state",f_stale,g_stale,t_stale,False)
     assert records["denied_stale_state"]["gateway_reason"]=="STALE_PRECALL_TARGET_STATE"
 
