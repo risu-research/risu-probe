@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='compare-signed-mcp-repair':
+        from risu_mcp_signed_repair import cli
+        return cli(args[1:])
     if args and args[0]=='verify-mcp-runtime':
         from risu_mcp_runtime_origin import cli
         return cli(args[1:])
