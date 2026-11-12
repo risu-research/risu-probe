@@ -200,8 +200,10 @@ async def run_case(py,case,root,plan,private,owner,manifest):
             if target.is_file():
                 (directory/"actual_after_payload.bin").write_bytes(target.read_bytes())
             record["after"]=after
-            record["tool_result_success"]=type(actual.get("result")) is dict and
-                actual["result"].get("isError") is not True and "error" not in actual
+            record["tool_result_success"]=(
+                type(actual.get("result")) is dict and
+                actual["result"].get("isError") is not True and
+                "error" not in actual)
             record["payload_correct"]=after["sha"]==sha(SHORT.encode())
             record["grant_sha256_after_tool"]=sha(grant_path.read_bytes())
             if record["grant_sha256_after_tool"]!=pre_hash or not record["tool_result_success"] or not record["payload_correct"]:
