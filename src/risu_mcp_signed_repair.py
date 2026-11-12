@@ -147,14 +147,13 @@ def inspect(root,freeze):
     fixed=evidence[("FIXED","CONFIGURED")]["marker_after"]
     normal_a=evidence[("VULNERABLE","NORMAL")]["marker_after"]
     normal_b=evidence[("FIXED","NORMAL")]["marker_after"]
-    for v in VERSIONS:
-        for row in expected:
-            require(evidence[(v,row["id"])]["marker_after"] is
-                    row["marker_expected_by_version"][identities[v]["version"]]
-                    or True,
-                    "IMPOSSIBLE_EXPECTED_ROW")
+    expectation_agreement=all(
+        evidence[(v,row["id"])]["marker_after"] is
+        row["marker_expected_by_version"][identities[v]["version"]]
+        for v in VERSIONS for row in expected
+    )
     ordinary_preserved=not normal_a and not normal_b
-    prior_bug_reproduced=vulnerability and not fixed and ordinary_preserved
+    prior_bug_reproduced=vulnerability and not fixed and ordinary_preserved and expectation_agreement
     return {
         "schema":CHECKER,
         "known_advisory":freeze["issue"]["id"],
@@ -167,6 +166,7 @@ def inspect(root,freeze):
             "fixed_configured_marker_executed":fixed,
             "both_normal_controls_preserved":ordinary_preserved,
             "known_security_repair_reproduced":prior_bug_reproduced,
+            "all_predeclared_behavioral_expectations_met":expectation_agreement,
             "previously_unknown_upstream_defects_found":0,
             "population_recall":"NOT_ESTIMABLE"
         },
