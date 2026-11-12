@@ -9,6 +9,10 @@ jobs:
   floci-s3-control:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['2.0.1', '2.2.0']
     steps:
       - uses: actions/checkout@v4
         with:
@@ -16,9 +20,9 @@ jobs:
       - name: Start pinned independent S3 backend
         shell: bash
         run: |
-          docker pull floci/floci:2.0.1
-          docker run -d --name floci-s3-control -p 127.0.0.1:4566:4566 floci/floci:2.0.1
-          docker image inspect floci/floci:2.0.1 --format '{{json .RepoDigests}}'
+          docker pull floci/floci:${{ matrix.version }}
+          docker run -d --name floci-s3-control -p 127.0.0.1:4566:4566 floci/floci:${{ matrix.version }}
+          docker image inspect floci/floci:${{ matrix.version }} --format '{{json .RepoDigests}}'
       - name: Install fixed AWS test client
         shell: bash
         run: |
@@ -28,13 +32,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p results
-          S3_TEST_ENDPOINT=http://127.0.0.1:4566 S3_CONTROL_OUTPUT=results/floci-2.0.1.json \
+          S3_BACKEND_VERSION=${{ matrix.version }} S3_TEST_ENDPOINT=http://127.0.0.1:4566 S3_CONTROL_OUTPUT=results/floci-${{ matrix.version }}.json \
             python3 research/backend/floci_s3_control.py 2>&1 | tee results/control.log
           docker logs floci-s3-control > results/backend.log 2>&1 || true
       - name: Preserve control and backend runtime logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: floci-s3-2.0.1-control
+          name: floci-s3-${{ matrix.version }}-control
           path: results/
           if-no-files-found: warn
