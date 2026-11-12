@@ -167,7 +167,7 @@ def judge(root,plan):
     validate_plan(plan)
     declarations={item["id"]:item for item in plan["sensors"]}
     results={}
-    external_paths=set()
+    external_paths={}
     for cell in CELLS:
         row=plan["cells"][cell]
         trace=relative(root,row["trace"])
@@ -234,9 +234,10 @@ def judge(root,plan):
                    bool(HEX.fullmatch(source["sha256"])) and
                    sha(original.read_bytes())==source["sha256"],
                    "OBSERVER_SOURCE_FILE_CONTENT_MISMATCH")
-            ensure(source["file"] not in external_paths,
+            ensure(source["file"] not in external_paths or
+                   external_paths[source["file"]]==cell,
                    "REUSED_SENSOR_ORIGINAL_ACROSS_EXPERIMENT_CELLS")
-            external_paths.add(source["file"])
+            external_paths[source["file"]]=cell
             raw=load_json(original)
             ensure(pointer(raw,source["before_pointer"])==before and
                    type(pointer(raw,source["before_pointer"])) is type(before) and
@@ -292,7 +293,7 @@ def judge(root,plan):
             "all_predeclared_patterns_met":all_patterns,
             "all_four_original_mcp_result_bodies_identical":identical_responses,
             "tool_response_only_observability_gap":(
-                identical_responses and any(
+                identical_responses and all_patterns and any(
                     x["effect_suppressed_in_after_trigger"] for x in decisions)),
             "new_upstream_defects_claimed":0
         },
