@@ -1,0 +1,105 @@
+name: Historical S3 CodeQL Domain-Aware Baseline
+on:
+  push:
+    branches: [ci/pldi-overcast-v06]
+  workflow_dispatch:
+permissions:
+  contents: read
+  security-events: read
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: before
+            pin: 4d08f68d17031e8f31e3f2cd06e2514249984ce1
+          - variant: after
+            pin: 18397a7d68080ffe2142ab0f5aa56e03fa698161
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: overcast-sh/overcast
+          ref: ${{ matrix.pin }}
+          persist-credentials: false
+      - name: Author domain-aware query (explicit S3 semantics)
+        shell: bash
+        run: |
+          mkdir -p .codeql/research
+          cat > .codeql/research/qlpack.yml <<'YML'
+          name: research/s3-conditional-effects
+          version: 0.0.1
+          dependencies:
+            codeql/go-all: '*'
+          YML
+          cat > .codeql/research/UncheckedConditionalWrites.ql <<'QL'
+          /**
+           * @name S3 object commit without recognized conditional preflight
+           * @description Domain-aware candidate. Presence of parser alone is insufficient for correctness.
+           * @kind problem
+           * @id research/s3-write-missing-guard
+           * @problem.severity warning
+           * @precision medium
+           */
+          import go
+          from CallExpr commit
+          where
+            commit.getCalleeName() = "commitVersion" and
+            commit.getEnclosingFunction().getName() in ["PutObject","CompleteMultipartUpload","CopyObject"] and
+            not exists(CallExpr guarded |
+              guarded.getEnclosingFunction() = commit.getEnclosingFunction() and
+              guarded.getCalleeName() = "checkConditionalWrite"
+            )
+          select commit, "Resource mutation with no recognized destination conditional-write enforcement."
+          QL
+          cat > .codeql/research/RecognizedConditionalWrites.ql <<'QL'
+          /**
+           * @name S3 commit with present conditional preflight
+           * @description Review site; not a proof that guard is effective or atomic.
+           * @kind problem
+           * @id research/s3-write-guard-present
+           * @problem.severity recommendation
+           * @precision medium
+           */
+          import go
+          from CallExpr commit, CallExpr guarded
+          where
+            commit.getCalleeName() = "commitVersion" and
+            commit.getEnclosingFunction().getName() in ["PutObject","CompleteMultipartUpload","CopyObject"] and
+            guarded.getEnclosingFunction() = commit.getEnclosingFunction() and
+            guarded.getCalleeName() = "checkConditionalWrite"
+          select commit, "Condition preflight call exists; validate resource binding, failure exit, and lock lifetime."
+          QL
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          build-mode: autobuild
+          queries: security-extended,./.codeql/research/UncheckedConditionalWrites.ql,./.codeql/research/RecognizedConditionalWrites.ql
+      - uses: github/codeql-action/analyze@v4
+        with:
+          upload: false
+          output: codeql-results
+      - name: Count relevant findings
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,glob,collections,pathlib
+          outcomes={}
+          for p in glob.glob('codeql-results/**/*.sarif',recursive=True):
+              for run in json.load(open(p)).get('runs',[]):
+                  for item in run.get('results',[]):
+                      key=item.get('ruleId','')
+                      outcomes[key]=outcomes.get(key,0)+1
+          print('CODEQL_S3_RESULT',json.dumps(outcomes,sort_keys=True))
+          pathlib.Path('codeql-summary.json').write_text(json.dumps({'variant':'${{ matrix.variant }}','rules':outcomes},indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeql-s3-${{ matrix.variant }}
+          path: |
+            codeql-results/
+            codeql-summary.json
+          if-no-files-found: warn
