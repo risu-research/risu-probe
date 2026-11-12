@@ -1,0 +1,153 @@
+name: RISU P6-B21 complete original-source and owner-signed direction evidence handoff
+on:
+  push:
+    branches: ['qualification/p6b21-*']
+    paths:
+      - 'docs/P6B21_OWNER_SIGNED_DIRECTIONAL_EFFECTS.md'
+      - 'benchmarks/p6b21/HANDOFF_KO.md'
+      - '.github/workflows/p6b21-final-owner-scope-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  complete-triple-verified-owner-signed-original-evidence:
+    name: Reverify two native source runs, original signed pre-call grants, actual file bytes and source archive
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Recover every original firstpass source byte, native MCP stdout, original signed grants and fixture owner key
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43327020115
+          github-token: ${{ github.token }}
+          name: risu-b21-original-native-owner-signed-directional-firstpass
+          path: .b21-complete/first-original
+      - name: Recover all independent second owner keys, native original calls and raw physical effect evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43327518214
+          github-token: ${{ github.token }}
+          name: risu-b21-second-independent-original-mcp-and-owner-signature-audit
+          path: .b21-complete/second-original
+      - name: Independently verify the frozen B20 B21 source and third-party original evidence chain
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<49' .
+          python benchmarks/p6b21/independent_signed_owner_real_effect_audit.py \
+            --evidence .b21-complete/first-original/.b21-original \
+            --product-report .b21-complete/first-original/.b21-original/REAL_DIRECTED_SIGNED_OWNER_FIRSTPASS.json \
+            --out .b21-complete/FINAL_FIRST_REAL_INDEPENDENT_AUDIT.json
+          python benchmarks/p6b21/independent_signed_owner_real_effect_audit.py \
+            --evidence .b21-complete/second-original/.b21-second-original \
+            --product-report .b21-complete/second-original/.b21-audit/SECOND_REAL_OWNER_VERIFIER.json \
+            --out .b21-complete/FINAL_SECOND_REAL_INDEPENDENT_AUDIT.json
+      - name: Re-run generic direction and signed owner checker on both original source-native captures
+        run: |
+          set -euo pipefail
+          for REL in first-original/.b21-original second-original/.b21-second-original; do
+            EVIDENCE=".b21-complete/$REL"
+            RESULT=".b21-complete/RECHECK_$(echo "$REL" | tr '/.-' '___').json"
+            python -m risu_p5d_cli verify-mcp-effect-authority \
+              --plan benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json \
+              --evidence-root "$EVIDENCE" \
+              --authority-manifest "$EVIDENCE/SIGNED_OWNER_AUTHORITY_MANIFEST.json" \
+              --trust-root "$EVIDENCE/pretrusted_synthetic_owner_root.json" \
+              --trusted-root-sha256 "$(cat "$EVIDENCE/PREISSUED_OWNER_ROOT_SHA256.txt")" \
+              --format json --out "$RESULT"
+            test -s "$RESULT"
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('.b21-complete')
+          a=json.load(open(root/'FINAL_FIRST_REAL_INDEPENDENT_AUDIT.json'))
+          b=json.load(open(root/'FINAL_SECOND_REAL_INDEPENDENT_AUDIT.json'))
+          assert a['owner_public_root_sha256']!=b['owner_public_root_sha256']
+          for item in (a,b):
+              assert item['owner_authority_class']=='CI_LOCAL_FIXTURE_ONLY'
+              assert item['independently_verified_owner_signatures']==4
+              assert item['original_native_MCP_calls_independently_audited']==4
+              assert item['typed_directional_assessments']==12
+              assert item['within_signed_owner_fixture_scope']==9
+              assert item['outside_signed_fixture_scope']==3
+              assert item['real_upstream_vulnerabilities_discovered']==0
+          original_a=json.load(open(root/'first-original/.b21-original/REAL_DIRECTED_SIGNED_OWNER_FIRSTPASS.json'))
+          original_b=json.load(open(root/'second-original/.b21-audit/SECOND_REAL_OWNER_VERIFIER.json'))
+          for item in (original_a,original_b):
+              assert item['summary']['valid_pinned_owner_signatures']==4
+              assert item['summary']['within_signed_scope']==9
+              assert item['summary']['outside_signed_scope']==3
+              assert item['summary']['cases_with_signed_scope_violations']==1
+          assert [(x['case'],x['direction_by_typed_sensor'],x['observed_outside_signed_scope'])
+              for x in a['original_per_case']]==[
+              (x['case'],x['direction_by_typed_sensor'],x['observed_outside_signed_scope'])
+              for x in b['original_per_case']]
+          print('B21_FINAL_TWO_REAL_OWNER_KEYS_AND_EIGHT_ORIGINAL_MCP_CALLS_VERIFIED')
+          PY
+      - name: Ensure no private signing key is exported and build complete file-level SHA ledger
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output=.b21-complete/COMPLETE_B21_RESEARCH_SOURCE.zip HEAD
+          cp benchmarks/p6b21/HANDOFF_KO.md .b21-complete/README_KO.md
+          cp docs/P6B21_OWNER_SIGNED_DIRECTIONAL_EFFECTS.md .b21-complete/TECHNICAL_AUDIT.md
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path('.b21-complete')
+          files=sorted(p for p in root.rglob('*') if p.is_file() and not p.is_symlink())
+          forbidden=('.pem','.key','.p12','.pfx')
+          assert not any(p.name.endswith(forbidden) for p in files),'Private key material must not be in export'
+          for p in files:
+              if p.suffix=='.json' and 'pretrusted_synthetic_owner_root' in p.name:
+                  assert 'private' not in p.read_text().lower()
+          manifest={
+            'schema':'risu-b21-original-signed-owner-directional-handoff-v1',
+            'branch_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'frozen_owner_checker_blob':'2f33e0f919b00f4205d3533b13124581288a3832',
+            'first_original_ci':43327020115,
+            'independent_owner_reexecution_ci':43327518214,
+            'previous_and_new_444_tests_each_3os_ci':43326394106,
+            'original_external_source_native_calls':8,
+            'distinct_real_generated_preexecution_owner_signatures':8,
+            'typed_directional_observations':24,
+            'predeclared_signed_policy_scope_violations':6,
+            'new_unreported_upstream_defects':0,
+            'permission_claim_scope':'CI synthetic resource owner fixture; NOT verified real end-user OAuth authorization',
+            'private_keys_exported':False,
+            'files':[{
+               'path':p.relative_to(root).as_posix(),
+               'bytes':p.stat().st_size,
+               'sha256':hashlib.sha256(p.read_bytes()).hexdigest()
+            } for p in files]
+          }
+          (root/'B21_SHA256_EVIDENCE_LEDGER.json').write_text(
+              json.dumps(manifest,sort_keys=True,indent=2)+'\n')
+          print('B21_FINAL_HANDOFF_FILE_SHA256_COUNT',len(files))
+          PY
+      - name: Upload independently checked two complete original native source runs and verified signed resource owner evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b21-verified-real-owner-signed-direction-and-scope-handoff
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b21-complete/
