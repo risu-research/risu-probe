@@ -36,7 +36,10 @@ def generate(case: str, root: Path, destination: Path):
         direction='request' if 'method' in msg else 'response'
         lines[(ident,direction)]=no
     witnesses=[]
+    only_state_rules={'SP':{'sp_guard'}, 'ME':{'me_guard','me_positive'}}[case]
     for item in calls:
+        if item['case'] not in only_state_rules:
+            continue
         n=item['call_id']
         assert item['response']==json.loads(raw.splitlines()[lines[(n,'response')]-1])
         assert item['tool']==json.loads(raw.splitlines()[lines[(n,'request')]-1])['params']['name']
