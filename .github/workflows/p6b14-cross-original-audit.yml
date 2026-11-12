@@ -95,5 +95,7 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
           path: |
-            benchmarks/p6b14/prelocked_native_effect_cohort.json
+            benchmarks/p6b14/**
+            docs/P6B14_NATIVE_EFFECT_AND_ANALYSIS_AUDIT.md
+            .github/workflows/p6b14-*.yml
             .b14-audit/B14_CROSS_ORIGINAL_RESULT.json
