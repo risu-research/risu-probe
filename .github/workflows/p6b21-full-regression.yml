@@ -1,0 +1,60 @@
+name: RISU P6-B21 signed owner permissions and direction cross-platform regression
+on:
+  push:
+    branches: ['qualification/p6b21-*']
+    paths:
+      - 'src/risu_mcp_effect_authority.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b21_effect_owner_authority.py'
+      - '.github/workflows/p6b21-full-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  previous-product-and-new-authority:
+    name: B21 original RISU and Ed25519 scoped direction tests ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve frozen B19 and B20 product source
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          test "$(git hash-object src/risu_mcp_signed_repair.py)" = 41bb9439174c37a53481db3e025cb9601ae6040f
+          test "$(git hash-object src/risu_mcp_runtime_origin.py)" = eba052165106bd85cb935ed505544ea33819054b
+      - name: Install wheel with optional signed owner verifier and test entire historical package
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b21-whl
+          python -m pip wheel --no-deps -w .b21-whl .
+          python -m venv .b21-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b21-installed/Scripts/python.exe
+            CLI=.b21-installed/Scripts/risu-probe.exe
+          else
+            PY=.b21-installed/bin/python
+            CLI=.b21-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b21-whl/risu_probe_preview-*.whl
+          "$PY" -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli verify-mcp-effect-authority --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B21_ALL_PREVIOUS_AND_SIGNED_DIRECTIONAL_OWNER_TESTS_PASS
