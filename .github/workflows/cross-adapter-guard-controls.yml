@@ -132,6 +132,37 @@ jobs:
           RISU_FIX_REF=0 RISU_FIX_PATH=1 go test ./github -run TestRISUCrossAdapterEffectiveTarget -count=1 -timeout=6m -v | tee ../../audit/sdk_path_only_wire.log
           RISU_FIX_REF=1 RISU_FIX_PATH=1 go test ./github -run TestRISUCrossAdapterEffectiveTarget -count=1 -timeout=6m -v | tee ../../audit/sdk_both_wire.log
           go test ./github -run 'TestRepositoriesService_(GetContents|CreateFile)' -count=1 -timeout=6m -v | tee ../../audit/sdk_original_unit_tests.log
+      - name: Real independent GitLab normal-control and sensitivity tests
+        shell: bash
+        run: |
+          mkdir -p audit
+          cd external/gitlab-control
+          go test ./internal/tools/files -run 'TestUpdate_WithAllOptionalFields|TestFileActions_EncodedPath_ReachesGitLabEscapedOnce' -count=1 -timeout=6m -v | tee ../../audit/gitlab_positive.log
+          python3 - <<'PY'
+          import pathlib
+          f=pathlib.Path("internal/tools/files/files.go")
+          s=f.read_text()
+          exact="opts.LastCommitID = new(input.LastCommitID)"
+          assert s.count(exact)==1, "normal control changed unexpectedly"
+          f.write_text(s.replace(exact,'// injected dropped optimistic-lock guard',1))
+          PY
+          set +e
+          go test ./internal/tools/files -run '^TestUpdate_WithAllOptionalFields        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-adapter-pinned-evidence
+          path: audit/
+          if-no-files-found: warn
+ -count=1 -timeout=6m -v > ../../audit/gitlab_mutation.log 2>&1
+          status=$?
+          set -e
+          cp ../../audit/gitlab_mutation.log /dev/null
+          git checkout -- internal/tools/files/files.go
+          if [ "$status" -eq 0 ]; then echo "MUTATION_NOT_DETECTED"; exit 1; fi
+          if ! grep -q 'last_commit_id' ../../audit/gitlab_mutation.log; then
+            echo "MUTATION_FAILURE_NOT_ATTRIBUTED_TO_GUARD"; tail -50 ../../audit/gitlab_mutation.log; exit 1
+          fi
+          echo "GITLAB_NORMAL_CONTROL_AND_GUARD_MUTATION_PASS"
       - name: Upload read-only experiment evidence
         if: always()
         uses: actions/upload-artifact@v4
