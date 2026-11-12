@@ -228,6 +228,9 @@ def verify_preflight(request_path,grant_path,trust_path,trust_sha,
     demand(os.access(directory,os.W_OK|os.X_OK),
            "EXECUTOR_LACKS_REAL_OS_DAC_PERMISSION")
     initial=file_state(target)
+    if initial["exists"]:
+        demand(os.access(target,os.W_OK),
+               "EXECUTOR_LACKS_REAL_TARGET_FILE_DAC_PERMISSION")
     grant=read_document(grant_path)
     demand(type(grant) is dict and set(grant)=={
         "schema","policy","signature_ed25519_b64"} and
