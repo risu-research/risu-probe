@@ -56,14 +56,12 @@ def run(args):
     base=Path("/tmp/risu-b22-two-real-uids-"+rid)
     base.mkdir(mode=0o755)
     base.chmod(0o755)
-    usernames={"owner":"risu22owner","exec":"risu22exec","group":"risu22shared"}
+    # Use EXISTING, independent, nonprivileged Unix identities rather than
+    # useradd/PAM, which can block on certain GitHub-hosted Ubuntu images.
+    # Neither user receives elevated privileges or access to the runner home.
+    usernames={"owner":"www-data","exec":"nobody","group":"www-data"}
     for name in (usernames["owner"],usernames["exec"]):
-        execute("id",name,expect=1)
-    execute("sudo","groupadd",usernames["group"])
-    for x in ("owner","exec"):
-        execute("sudo","useradd","-m","-s","/bin/bash",usernames[x])
-        execute("sudo","chmod","700","/home/"+usernames[x])
-        execute("sudo","usermod","-aG",usernames["group"],usernames[x])
+        execute("id",name,expect=0)
     uid_owner=int(execute("id","-u",usernames["owner"]).stdout.strip())
     uid_exec=int(execute("id","-u",usernames["exec"]).stdout.strip())
     assert uid_owner!=uid_exec and uid_owner!=0 and uid_exec!=0
@@ -74,14 +72,19 @@ def run(args):
     requests=base/"requests"
     for p in (permitted,published,ledger,results,requests):p.mkdir(mode=0o755)
     execute("sudo","chown",usernames["owner"]+":"+usernames["group"],permitted)
-    execute("sudo","chmod","2770",permitted)
+    execute("sudo","chmod","2700",permitted)
+    execute("sudo","setfacl","-m","u:"+usernames["exec"]+":rwx",permitted)
     execute("sudo","chown",usernames["owner"]+":"+usernames["group"],published)
     execute("sudo","chmod","755",published)
     for p in (ledger,results):
         execute("sudo","chown",usernames["exec"]+":"+usernames["group"],p)
         execute("sudo","chmod","700" if p==ledger else "755",p)
     requests.chmod(0o755)
-    private=Path("/home")/usernames["owner"]/"b22-private-owner-ed25519.pem"
+    private_home=base/"owner-private-home"
+    private_home.mkdir(mode=0o700)
+    execute("sudo","chown",usernames["owner"]+":"+usernames["group"],private_home)
+    execute("sudo","chmod","700",private_home)
+    private=private_home/"b22-private-owner-ed25519.pem"
     root=published/"owner-pretrusted-public.json"
     rev_empty=published/"revocations_epoch0.json"
     # GitHub runner home is deliberately private; never loosen its
@@ -286,9 +289,12 @@ def run(args):
     # signature may never override. Restore for later fixtures.
     f_acl,t_acl=request("owner-posix-dac-withdrawn")
     g_acl=grant("os-dac-denied",f_acl,"CREATE")
+    execute("sudo","setfacl","-x","u:"+usernames["exec"],permitted)
     execute("sudo","-u",usernames["owner"],"chmod","700",permitted)
     try:gateway("denied_os_dac",f_acl,g_acl,t_acl,False)
-    finally:execute("sudo","-u",usernames["owner"],"chmod","2770",permitted)
+    finally:
+        execute("sudo","-u",usernames["owner"],"chmod","2700",permitted)
+        execute("sudo","setfacl","-m","u:"+usernames["exec"]+":rwx",permitted)
 
     # 9: owner grants for a non-existing file but then physically writes
     # different bytes before the attempted execution. Stale approval
