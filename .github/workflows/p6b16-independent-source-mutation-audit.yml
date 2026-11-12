@@ -1,0 +1,101 @@
+name: RISU P6-B16 immutable source-first and labeled mutation cross-audit
+on:
+  push:
+    branches: ['qualification/p6b16-*']
+    paths:
+      - 'benchmarks/p6b16/source_wire_fault_injection.py'
+      - 'benchmarks/p6b16/audit_originals_and_mutations.py'
+      - '.github/workflows/p6b16-independent-source-mutation-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-evidence-independent-epoch-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download original AISH source-native firstpass
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43295550845
+          github-token: ${{ github.token }}
+          name: risu-b16-new-original-AISH
+          path: .b16-firstpass/AISH
+      - name: Download original MM source-native firstpass
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43295550845
+          github-token: ${{ github.token }}
+          name: risu-b16-new-original-MM
+          path: .b16-firstpass/MM
+      - name: Preserve frozen product hash, inject only labeled offline counterfactuals
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_authority.py)" = be24472b0fea8d8e7a252a7a36158cf8873128de
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+          python -m pip install --disable-pip-version-check .
+          python benchmarks/p6b16/source_wire_fault_injection.py \
+            --original .b16-firstpass/AISH --out .b16-synthetic
+      - name: Independent original bytes, tool versioning and injection audit
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b16/audit_originals_and_mutations.py \
+            --aish .b16-firstpass/AISH --mm .b16-firstpass/MM \
+            --mutations .b16-synthetic \
+            --out .b16-final/B16_ORIGINAL_INDEPENDENT_AUDIT.json
+          python - <<'PY'
+          import json
+          d=json.load(open('.b16-final/B16_ORIGINAL_INDEPENDENT_AUDIT.json'))
+          assert d['new_original_owners']==2
+          assert d['seven_original_tool_calls']==7
+          assert d['original_upstream_confirmed_new_bugs']==0
+          assert d['synthetic_fault_injection']['qualified_mutation_cases']==2
+          assert d['synthetic_fault_injection']['quarantined_mutation_cases']==1
+          print('B16_CROSS_SOURCE_SEVEN_ORIGINAL_AND_THREE_SYNTHETIC_MUTATIONS_PASS')
+          PY
+      - name: Tamper original source transcript must be rejected by independent auditor
+        run: |
+          set -euo pipefail
+          cp -r .b16-firstpass/AISH .b16-firstpass/AISH_TAMPER
+          printf ' ' >> .b16-firstpass/AISH_TAMPER/.b16-source/original_stdio.jsonl
+          if python benchmarks/p6b16/audit_originals_and_mutations.py \
+            --aish .b16-firstpass/AISH_TAMPER --mm .b16-firstpass/MM \
+            --mutations .b16-synthetic \
+            --out .b16-final/MUST_NOT_EXIST.json; then
+            echo "Tampered genuine original source incorrectly accepted" >&2
+            exit 3
+          fi
+          test ! -e .b16-final/MUST_NOT_EXIST.json
+          echo B16_TAMPERED_FIRSTPASS_ORIGINAL_REJECTED
+      - name: Preserve precise firstpass checksums, synthetic-only evidence and audit ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b16-independent-two-originals-and-mutation-audit
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b16-final/B16_ORIGINAL_INDEPENDENT_AUDIT.json
+            .b16-synthetic/SYNTHETIC_INJECTION_LEDGER.json
+            benchmarks/p6b16/FROZEN_AUTHORITY_BEFORE_NEW_SOURCES.json
+            benchmarks/p6b16/FROZEN_NEW_ORIGINAL_SERVERS.json
+            benchmarks/p6b16/source_wire_fault_injection.py
+            benchmarks/p6b16/audit_originals_and_mutations.py
