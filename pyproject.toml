@@ -12,10 +12,11 @@ license = "Apache-2.0"
 authors = [{name = "RISU Research"}]
 dependencies = ["PyYAML==6.0.2", "jsonschema>=4.23,<5", "markdown-it-py>=3.0,<5"]
 
-[project.optional-dependencies]
-effect-authority = ["cryptography>=43,<49"]
 keywords = ["mcp", "openapi", "api", "static-analysis", "compatibility"]
 classifiers = ["Programming Language :: Python :: 3", "Operating System :: OS Independent", "Topic :: Software Development :: Quality Assurance"]
+
+[project.optional-dependencies]
+effect-authority = ["cryptography>=43,<49"]
 
 [project.scripts]
 risu-probe = "risu_p5d_cli:main"
