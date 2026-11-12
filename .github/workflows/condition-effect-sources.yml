@@ -1,0 +1,37 @@
+name: Historical S3 Source Snapshot for Static Analysis
+on:
+  push:
+    branches: [ci/pldi-overcast-v06]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-snapshot:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: before
+            pin: 4d08f68d17031e8f31e3f2cd06e2514249984ce1
+          - variant: after
+            pin: 18397a7d68080ffe2142ab0f5aa56e03fa698161
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: overcast-sh/overcast
+          ref: ${{ matrix.pin }}
+          persist-credentials: false
+      - name: Collect only four pinned Go source files
+        shell: bash
+        run: |
+          mkdir -p snapshot
+          for n in handler_object.go handler_multipart.go conditional_write.go handler.go; do
+            cp "internal/services/s3/$n" "snapshot/$n"
+          done
+          git rev-parse HEAD > snapshot/commit.txt
+          sha256sum snapshot/*.go > snapshot/source_sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: condition-effect-src-${{ matrix.variant }}
+          path: snapshot/
