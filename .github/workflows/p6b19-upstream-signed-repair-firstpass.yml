@@ -78,8 +78,8 @@ jobs:
             "$PY" -m pip check
             "$PY" -m pip freeze | LC_ALL=C sort > ".b19-official/$VERSION/installed_dependencies.txt"
           done
-          diff -u <(grep -v -i '^mcp-server-git==' .b19-official/VULNERABLE/installed_dependencies.txt) \
-            <(grep -v -i '^mcp-server-git==' .b19-official/FIXED/installed_dependencies.txt)
+          diff -u <(grep -v -i '^mcp-server-git[ =@]' .b19-official/VULNERABLE/installed_dependencies.txt) \
+            <(grep -v -i '^mcp-server-git[ =@]' .b19-official/FIXED/installed_dependencies.txt)
           python benchmarks/p6b19/verify_upstream_pypi_release.py installed \
             --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
             --root .b19-official --venvs .b19-venvs
