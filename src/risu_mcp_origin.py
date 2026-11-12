@@ -122,7 +122,7 @@ def pinned_sources(root,manifest):
             raise OriginError('WORKTREE_BYTES_DIVERGE_FROM_PINNED_GIT_BLOB')
         # Git blob SHA-1 is a VCS locator; separate SHA-256 avoids
         # treating collision-prone SHA-1 as the only content checksum.
-        envelope=b'blob '+str(len(raw)).encode()+bytes([0])+raw
+        envelope=b'blob '+str(len(object_bytes)).encode()+bytes([0])+object_bytes
         if hashlib.sha1(envelope).hexdigest()!=blob:
             raise OriginError('GIT_BLOB_CONTENT_ID_MISMATCH')
         files[item['tool']]={'path':path,'git_blob_sha1':blob,
