@@ -66,6 +66,18 @@ if p is not None:
  r={"case":"match-stale-body","body":read_body("stale")[0],"expect":"two"}
  r["pass"]=r["body"]=="two";rows.append(r)
 invoke("match-missing","put_object",404,Key="missing",Body=b"bad",IfMatch='"00000000000000000000000000000000"')
+# Holdout operation-family check: CopyObject destination preconditions (AWS Oct. 2025).
+invoke("copy-source-initial","put_object",200,Key="copy-source",Body=b"source")
+invoke("copy-dest-initial","put_object",200,Key="copy-dest",Body=b"preserved")
+invoke("copy-none-existing","copy_object",412,Key="copy-dest",
+       CopySource={"Bucket":bucket,"Key":"copy-source"},IfNoneMatch="*")
+r={"case":"copy-none-existing-body","body":read_body("copy-dest")[0],"expect":"preserved"}
+r["pass"]=r["body"]=="preserved";rows.append(r)
+invoke("copy-stale-initial","put_object",200,Key="copy-stale",Body=b"preserved")
+invoke("copy-match-stale","copy_object",412,Key="copy-stale",
+       CopySource={"Bucket":bucket,"Key":"copy-source"},IfMatch='"00000000000000000000000000000000"')
+r={"case":"copy-match-stale-body","body":read_body("copy-stale")[0],"expect":"preserved"}
+r["pass"]=r["body"]=="preserved";rows.append(r)
 def contender(i):
  try:
   r=client.put_object(Bucket=bucket,Key="race",Body=("writer-%02d"%i).encode(),IfNoneMatch="*")
