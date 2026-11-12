@@ -1,0 +1,30 @@
+{
+  "schema": "risu-p6b15-freeze-before-external-heldout-v1",
+  "date": "2026-11-12",
+  "development_evidence": "B14 real native stdio evidence from firstpass run 43283214546; explicitly development-only",
+  "frozen_parent_commit": "e1b81c9684a16be13048bbfdc2902fdfcc041991",
+  "frozen_blobs": {
+    "src/risu_mcp_observations.py": "4314e9bf92e2ec75c421bab25eae3b43f1424a08",
+    "src/risu_mcp_trace.py": "9f017ca0344d94cf54bd0229ddb14d4f586101c8",
+    "src/risu_p5d_cli.py": "2c1c2b31f42c0149716d3ac271ffe1a82c9c0eee",
+    "tests/test_p6b15_observation_contract.py": "b6d6d15ca143c0ec88abb52a02e62a3a83e511e9"
+  },
+  "passed_development_ci": "https://github.com/risu-research/risu-probe/actions/runs/43288608423",
+  "claimed_rules": {
+    "RME610": "Caller-specified tool and exact argument predicate expected unchanged/changed independent committed state; if matched correlated native MCP wire and supplied state hashes disagree then mismatch.",
+    "RME620": "Caller-specified successful JSON-object result carrier and required typed JSON fields missing/malformed; isError true yields unverified rather than spurious mismatch."
+  },
+  "abstentions": [
+    "Absent or incomplete original MCP response",
+    "Mismatched/unbound trace SHA256",
+    "Absent independently captured state witness",
+    "Unsupported result shape",
+    "Reported tool error for JSON success obligation",
+    "Nonmatching explicit contract",
+    "Ambiguous duplicate ID",
+    "Unknown external provenance"
+  ],
+  "source_policy": "No product-rule change or evaluation-case substitution after seeing heldout native outputs. Any harness changes must be separately logged as postfreeze corrections and preserve original firstpass.",
+  "novelty_standard": "No credit for B14 development cases. Only previously unseen project owners and predeclared native source and calls qualify as heldout; source-informed setup is not blind if implementation was inspected before tests.",
+  "claims_limited": "A frozen checker finding is observation with caller-supplied evidence and explicit contract, not verified upstream vulnerability or production incident."
+}
