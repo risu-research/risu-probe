@@ -217,6 +217,20 @@ class TestB22Precall(unittest.TestCase):
             self.rejects()
         self.assertFalse((self.ledger/("a"*64)).exists())
 
+    def test_valid_signed_overwrite_still_denied_if_individual_file_os_dac_forbids(self):
+        self.target.write_text("older owner-controlled file")
+        self.policy["pre_state_sha256"]=digest(self.target.read_bytes())
+        self.policy["allowed_operation"]="REPLACE"
+        self.save_grant()
+        real_access=os.access
+        def blocked_only_target(path,mode):
+            if str(path)==str(self.target) and mode==os.W_OK:
+                return False
+            return real_access(path,mode)
+        with patch("risu_mcp_preflight.os.access",side_effect=blocked_only_target):
+            self.rejects()
+        self.assertFalse((self.ledger/("a"*64)).exists())
+
     def test_negative_preflight_does_not_spawn_any_original_server(self):
         self.policy["allowed_operation"]="NO_CHANGE"
         self.save_grant()
