@@ -71,6 +71,12 @@ jobs:
         run: |
           gofmt -e audit-out/repos_contents_repaired.go > /dev/null
           echo PATCHED_FULL_SDK_SYNTAX_PASS
+      - name: Run actual go-github SDK tests on disposable repair
+        shell: bash
+        run: |
+          cp audit-out/repos_contents_repaired.go external/sdk/github/repos_contents.go
+          cd external/sdk
+          go test ./github -run 'TestRepositoriesService_(GetContents|CreateFile)' -count=1 -timeout=6m -v | tee ../../audit-out/sdk-unit-tests.log
       - name: Retain read-only audit artifacts
         if: always()
         uses: actions/upload-artifact@v4
