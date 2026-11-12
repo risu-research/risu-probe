@@ -1,0 +1,59 @@
+name: RISU P6-B22 complete historical regression and preflight fail-closed adversarial tests
+on:
+  push:
+    branches: ['qualification/p6b22-*']
+    paths:
+      - 'src/risu_mcp_preflight.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b22_preflight_gateway.py'
+      - '.github/workflows/p6b22-full-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  all-installed:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve old source blobs and public CI security constraints
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          test "$(git hash-object src/risu_mcp_signed_repair.py)" = 41bb9439174c37a53481db3e025cb9601ae6040f
+      - name: Install actual wheel and run every original and B22 adversarial test
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b22-wheel
+          python -m pip wheel --no-deps -w .b22-wheel .
+          python -m venv .b22-wheel-install
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b22-wheel-install/Scripts/python.exe
+            CLI=.b22-wheel-install/Scripts/risu-probe.exe
+          else
+            PY=.b22-wheel-install/bin/python
+            CLI=.b22-wheel-install/bin/risu-probe
+          fi
+          "$PY" -m pip install .b22-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli enforce-mcp-preflight --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B22_COMPLETE_PREVIOUS_AND_PRECALL_ENFORCEMENT_REGRESSION_PASS
