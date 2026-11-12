@@ -41,6 +41,8 @@ def invoke(name,method,expect_status=None,**kw):
  except ClientError as exc:
   status=exc.response["ResponseMetadata"]["HTTPStatusCode"]
   err=exc.response.get("Error",{}).get("Code")
+  message=exc.response.get("Error",{}).get("Message","")
+  print("RISU_ERROR_DETAIL",json.dumps({"case":name,"status":status,"code":err,"message":message[:500]}),flush=True)
   result=None
   ans={}
  item={"case":name,"status":status,"error":err,
@@ -53,7 +55,10 @@ def read_body(key):
   x=client.get_object(Bucket=bucket,Key=key)
   return x["Body"].read().decode(),200
  except ClientError as e:
-  return None,e.response["ResponseMetadata"]["HTTPStatusCode"]
+  code=e.response.get("Error",{}).get("Code")
+  status=e.response["ResponseMetadata"]["HTTPStatusCode"]
+  print("RISU_READ_ERROR",json.dumps({"key":key,"status":status,"code":code}),flush=True)
+  return None,status
 for attempt in range(25):
  try:
   client.create_bucket(Bucket=bucket)
@@ -68,7 +73,9 @@ r={"case":"ordinary-body","body":read_body("ordinary")[0],"expect":"B"}
 r["pass"]=r["body"]=="B";rows.append(r)
 invoke("none-absent","put_object",200,Key="new",Body=b"first",IfNoneMatch="*")
 invoke("initial-protected","put_object",200,Key="protected",Body=b"before")
+print("RISU_PRECONDITION_SNAPSHOT",json.dumps({"key":"protected","value":read_body("protected")}),flush=True)
 invoke("none-existing","put_object",412,Key="protected",Body=b"bad",IfNoneMatch="*")
+print("RISU_POSTCONDITION_SNAPSHOT",json.dumps({"key":"protected","value":read_body("protected")}),flush=True)
 r={"case":"none-existing-body","body":read_body("protected")[0],"expect":"before"}
 r["pass"]=r["body"]=="before";rows.append(r)
 p,_=invoke("match-initial","put_object",200,Key="match",Body=b"before")
@@ -78,20 +85,24 @@ p,_=invoke("stale-initial","put_object",200,Key="stale",Body=b"one")
 if p is not None:
  etag=p["ETag"]
  invoke("stale-mutator","put_object",200,Key="stale",Body=b"two")
+ print("RISU_PRECONDITION_SNAPSHOT",json.dumps({"key":"stale","value":read_body("stale")}),flush=True)
  invoke("match-stale","put_object",412,Key="stale",Body=b"bad",IfMatch=etag)
+ print("RISU_POSTCONDITION_SNAPSHOT",json.dumps({"key":"stale","value":read_body("stale")}),flush=True)
  r={"case":"match-stale-body","body":read_body("stale")[0],"expect":"two"}
  r["pass"]=r["body"]=="two";rows.append(r)
 invoke("match-missing","put_object",404,Key="missing",Body=b"bad",IfMatch='"00000000000000000000000000000000"')
 # Holdout operation-family check: CopyObject destination preconditions (AWS Oct. 2025).
 invoke("copy-source-initial","put_object",200,Key="copy-source",Body=b"source")
+invoke("copy-alternate-source-initial","put_object",200,Key="copy-src-ok.txt",Body=b"source2")
+print("RISU_COPY_SOURCE_SNAPSHOT",json.dumps({"original":read_body("copy-source"),"alternate":read_body("copy-src-ok.txt")}),flush=True)
 invoke("copy-dest-initial","put_object",200,Key="copy-dest",Body=b"preserved")
 invoke("copy-none-existing","copy_object",412,Key="copy-dest",
-       CopySource={"Bucket":bucket,"Key":"copy-source"},IfNoneMatch="*")
+       CopySource={"Bucket":bucket,"Key":"copy-src-ok.txt"},IfNoneMatch="*")
 r={"case":"copy-none-existing-body","body":read_body("copy-dest")[0],"expect":"preserved"}
 r["pass"]=r["body"]=="preserved";rows.append(r)
 invoke("copy-stale-initial","put_object",200,Key="copy-stale",Body=b"preserved")
 invoke("copy-match-stale","copy_object",412,Key="copy-stale",
-       CopySource={"Bucket":bucket,"Key":"copy-source"},IfMatch='"00000000000000000000000000000000"')
+       CopySource={"Bucket":bucket,"Key":"copy-src-ok.txt"},IfMatch='"00000000000000000000000000000000"')
 r={"case":"copy-match-stale-body","body":read_body("copy-stale")[0],"expect":"preserved"}
 r["pass"]=r["body"]=="preserved";rows.append(r)
 def contender(i):
