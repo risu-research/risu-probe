@@ -109,6 +109,35 @@ def validate(research:Path,pkg:Path):
         ensure(rec["file_before"]==claim_state(pre) and
                rec["file_after"]==claim_state(post),
                "External source physical file bytes not equal recorded original state")
+        # The real different POSIX resource owner (not MCP executor) signed
+        # both physical file observations from its protected private key.
+        for stage,expected_bytes in (("before",pre),("after",post)):
+            owner_path=research/("observation_"+label+"_"+stage+".json")
+            owner_source=owner_path.read_bytes()
+            ensure(digest(owner_source)==rec[
+                stage+"_owner_signed_physical_observation_sha256"],
+                "Independent OS owner original signed physical observation not preserved")
+            signed_obs=load(owner_path)
+            ensure(signed_obs["schema"]=="risu-b22-os-owner-physical-state-observation-v1",
+                   "Physical observer schema is not independently OS owner-signed")
+            body=signed_obs["observation"]
+            try:
+                pub.verify(base64.b64decode(signed_obs["owner_ed25519_signature_b64"],
+                    validate=True),
+                    b"RISU-B22-OWNER-PHYSICAL-OBSERVATION-V1"+bytes([0])+canon(body))
+            except (InvalidSignature,ValueError) as e:
+                raise ValueError("Independent physical resource owner observation signature invalid") from e
+            ensure(body["owner_uid"]==info["owner_uid"] and
+                   body["issuer"]==signed_root["issuer"] and
+                   body["resource_id"]==signed_root["resource_id"] and
+                   body["case_id"]==label and body["phase"]==stage,
+                   "Owner physical observation not bound to actual OS principal and case")
+            raw=(base64.b64decode(body["content_b64"],validate=True)
+                 if body["exists"] else None)
+            ensure(raw==expected_bytes and
+                   body["sha256"]==(digest(raw) if raw is not None else None)
+                   and body["size"]==(len(raw) if raw is not None else 0),
+                   "Owner-signed original file bytes diverge from actual archived target")
         native_seen=('-m", "filesystem_mcp"' in tracer or
                      "'-m', 'filesystem_mcp'" in tracer)
         ensure(rec["actual_original_server_execve_seen"] is native_seen,
@@ -208,6 +237,7 @@ def validate(research:Path,pkg:Path):
         "owner_private_key_never_in_export":True,
         "owner_private_key_mode_from_original_owner_process":"0600",
         "owner_revocation_signatures_independently_verified":len(signed_epochs),
+        "separate_posix_resource_owner_signed_before_after_observations":20,
         "authorized_native_upstream_calls":actual_calls,
         "denied_before_original_server_execve":unseen,
         "all_denied_original_target_bytes_preserved":True,
