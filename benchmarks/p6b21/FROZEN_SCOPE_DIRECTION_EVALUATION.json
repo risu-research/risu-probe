@@ -1,0 +1,141 @@
+{
+  "schema": "risu-p6b21-preset-owner-scope-and-direction-freeze-v1",
+  "created_on": "2026-11-12",
+  "product": {
+    "path": "src/risu_mcp_effect_authority.py",
+    "git_blob": "2f33e0f919b00f4205d3533b13124581288a3832",
+    "base_effect_product_blob": "ab8191a3ca153ac079fcd07d128ddfcd7a06e99f",
+    "b19_product_blob": "41bb9439174c37a53481db3e025cb9601ae6040f"
+  },
+  "protocol": {
+    "policy_schema": "risu-mcp-owner-precall-grant-v1",
+    "signature": "Ed25519 owner policy envelope domain-separated exact canonical JSON",
+    "trust_root": "Fresh local ephemeral private key held only in CI harness memory; public key and SHA256 emitted and frozen before first actual native MCP tool call",
+    "root_grade": "CI_LOCAL_FIXTURE_ONLY",
+    "resource_authority": "test runner OS user creates and controls entirely synthetic temporary directories; no claim of independent externally verified organization/domain ownership",
+    "owner_scope": "exact fixture URI per original case, exact target path argument hash, full tool arguments SHA256, package wheel SHA256, issued/expires timestamps, unique nonce and signed directional operations",
+    "readOnly_hint": "advisory only, never authenticates owner authorization",
+    "observer": "original before/after actual file bytes, metadata, original stdio and trusted signed grant preissued in separate source evidence",
+    "duration_minutes_max": 60,
+    "replay_claim": "single-bundle nonce uniqueness only; no durable global replay database"
+  },
+  "external_original": {
+    "repository": "kujirahand/mcp_server-filesystem",
+    "commit": "1aff1e094ed317ec2c5de06591978781d660c48a",
+    "git_blob": "f886fcbc6e61f3be8e6fd76b6e5f3ad1f8cbb7b6",
+    "pypi_package": "filesystem-mcp",
+    "version": "1.0.2",
+    "original_wheel_sha256": "94610f0b73df1d3ada4ef0353353eb93695645c7b82f71ca80ed13dc1022c235",
+    "source_module_sha256": "c754a7720d52d92eb49324649b19f58b07b20703fcc2c2c1b02ce1f20152fcc8",
+    "release_upstream_publisher_signed": false,
+    "prior_B20_source_use": true,
+    "novel_security_discovery_claim": false
+  },
+  "selected_original_tool": "write_file",
+  "before_after_version_semantics": "Same upstream release four controlled tool calls; not a before/fix software version comparison",
+  "cases": [
+    {
+      "cell": "before_trigger",
+      "setup": "target absent",
+      "signed_scope": {
+        "presence": [
+          "ACTIVATE"
+        ],
+        "contents": [
+          "CREATE"
+        ],
+        "size": [
+          "INCREASE"
+        ]
+      },
+      "expected_effects": [
+        "ACTIVATE",
+        "CREATE",
+        "INCREASE"
+      ],
+      "expected_policy_violations": 0
+    },
+    {
+      "cell": "before_control",
+      "setup": "target already equals new payload",
+      "signed_scope": {
+        "presence": [
+          "NO_CHANGE"
+        ],
+        "contents": [
+          "NO_CHANGE"
+        ],
+        "size": [
+          "NO_CHANGE"
+        ]
+      },
+      "expected_effects": [
+        "NO_CHANGE",
+        "NO_CHANGE",
+        "NO_CHANGE"
+      ],
+      "expected_policy_violations": 0
+    },
+    {
+      "cell": "after_trigger",
+      "setup": "target absent",
+      "signed_scope": {
+        "presence": [
+          "NO_CHANGE"
+        ],
+        "contents": [
+          "NO_CHANGE"
+        ],
+        "size": [
+          "NO_CHANGE"
+        ]
+      },
+      "expected_effects": [
+        "ACTIVATE",
+        "CREATE",
+        "INCREASE"
+      ],
+      "expected_policy_violations": 3,
+      "classification": "DELIBERATELY_OUTSIDE_FIXTURE_OWNER_SIGNED_SCOPE_BY_TEST_DESIGN_NOT_UPSTREAM_BUG"
+    },
+    {
+      "cell": "after_control",
+      "setup": "target preexists with longer benign text",
+      "signed_scope": {
+        "presence": [
+          "NO_CHANGE"
+        ],
+        "contents": [
+          "REPLACE"
+        ],
+        "size": [
+          "DECREASE"
+        ]
+      },
+      "expected_effects": [
+        "NO_CHANGE",
+        "REPLACE",
+        "DECREASE"
+      ],
+      "expected_policy_violations": 0
+    }
+  ],
+  "expected": {
+    "native_calls": 4,
+    "valid_owner_signatures": 4,
+    "typed_directional_assessments": 12,
+    "directional_changes": 8,
+    "within_signed_scope": 9,
+    "outside_signed_scope": 3,
+    "cases_with_violations": 1,
+    "confirmed_new_external_defects": 0
+  },
+  "exclusions": [
+    "No ability to infer the legal owner of arbitrary target resources from Ed25519 signatures",
+    "No actual MCP server-side enforcement of the preissued signed policy",
+    "No extrapolation to unrelated production user access controls",
+    "No independent trusted timestamping or durable nonce ledger",
+    "No automatic explanation of hidden/unmonitored effects",
+    "No claim of new vulnerability in normal upstream file writer"
+  ]
+}
