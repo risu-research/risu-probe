@@ -181,3 +181,38 @@ upstream behavioral defect was found in the original example server.
 Read the [B18 full source-to-executable research record](docs/P6B18_EXECUTED_ORIGINAL_GO_BINARY_PROVENANCE.md)
 for the complete reproducible run, signatures, Git blobs, original
 stdout, source/runner trust boundaries and controls.
+
+## P6-B19 · Upstream signed releases, real security repair and invisible MCP side effects
+
+RISU's opt-in `compare-signed-mcp-repair` evaluates the original
+**publisher-attested official releases** and an independently observed
+persistent effect against a frozen, explicit historical repair contract:
+
+```sh
+risu-probe compare-signed-mcp-repair \
+  --evidence-root original-signed-release-captures \
+  --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+  --format json --out real_repair.json
+```
+
+B19 is grounded in upstream
+`modelcontextprotocol/servers` `mcp-server-git` PyPI **Trusted Publishing**
+wheel files for vulnerable `2026.11.4` and fixed `2026.11.11`,
+independently Sigstore-verified using the official PyPI attestation client.
+The wheels, exact Git source code and installed modules matched byte-for-byte.
+
+The public `core.fsmonitor` read-only `git_status` security defect
+(GHSA-6hqx-gqrx-c5r2) was reproduced with a harmless isolated
+marker-writer: only the old release executed it, while both versions
+returned successful normal tool results. **All four original MCP tool
+result JSON bodies were identical** across the vulnerable, fixed and
+normal controls. The complete experiment was independently rerun
+under fresh original processes; all eight actual results matched.
+
+This is a reproducible **known upstream security repair**, not a new
+vulnerability discovery. It is a narrow research comparator with
+independent effect witnesses, not an arbitrary exploit scanner. A PyPI
+publish attestation authenticates the publisher's release artifact, not
+a complete upstream SLSA build or running-process identity.
+
+[Detailed B19 source-and-effect audit](docs/P6B19_PUBLISHER_SIGNED_HIDDEN_EFFECT_REPAIR.md).
