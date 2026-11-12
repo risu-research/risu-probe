@@ -47,7 +47,8 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update -qq
-          sudo apt-get install -y -qq strace
+          sudo apt-get install -y -qq strace acl
+          command -v setfacl
           strace -V | head -n 1
       - name: Acquire exact unchanged public PyPI original and compare pinned upstream Git source
         env:
