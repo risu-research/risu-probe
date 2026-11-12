@@ -1,0 +1,74 @@
+name: External S3 Conditional Write Regression
+on:
+  push:
+    branches: [ci/pldi-overcast-v06]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  s3-conditional-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: before
+            ref: 4d08f68d17031e8f31e3f2cd06e2514249984ce1
+            fixed: '0'
+          - variant: after
+            ref: 18397a7d68080ffe2142ab0f5aa56e03fa698161
+            fixed: '1'
+    steps:
+      - name: Checkout independent experiment
+        uses: actions/checkout@v4
+        with:
+          path: harness
+          persist-credentials: false
+      - name: Checkout exact public Overcast revision
+        uses: actions/checkout@v4
+        with:
+          repository: overcast-sh/overcast
+          ref: ${{ matrix.ref }}
+          path: upstream
+          persist-credentials: false
+      - name: Setup Go toolchain
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.27.0'
+          cache: false
+      - name: Execute identical behavior and concurrency oracle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$GITHUB_WORKSPACE/evidence"
+          cp "$GITHUB_WORKSPACE/harness/research/backend/overcast_risu_guard_test.go" upstream/tests/integration/s3/risu_historical_guard_test.go
+          cd upstream
+          OVERCAST_STATE=memory RISU_FIXED=${{ matrix.fixed }} go test ./tests/integration/s3 -run '^TestRISUBackendGuardHistory$' -count=1 -timeout=12m -v 2>&1 | tee "$GITHUB_WORKSPACE/evidence/${{ matrix.variant }}.log"
+      - name: Summarize observable effects
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import pathlib,json,re
+          root=pathlib.Path("evidence")
+          log=root/"${{ matrix.variant }}.log"
+          s=log.read_text() if log.exists() else ""
+          rows=re.findall(r"RISU_OUTCOME case=([^ ]+) actual=(\d+) expected=(\d+)",s)
+          races=re.findall(r"RISU_RACE winners=(\d+) rejects=(\d+) total=(\d+)",s)
+          report={
+            "schema":"risu.overcast.historical-wire.v1",
+            "variant":"${{ matrix.variant }}",
+            "ref":"${{ matrix.ref }}",
+            "passed":"--- PASS: TestRISUBackendGuardHistory" in s and "\nPASS\n" in s,
+            "cases":[{"name":n,"actual":int(x),"expected":int(y)} for n,x,y in rows],
+            "races":[{"winners":int(a),"rejects":int(b),"total":int(c)} for a,b,c in races]}
+          (root/"${{ matrix.variant }}.json").write_text(json.dumps(report,indent=2)+"\n")
+          print("RISU_S3_RESULT",json.dumps(report,sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: overcast-history-${{ matrix.variant }}
+          path: evidence/
+          if-no-files-found: warn
