@@ -27,7 +27,11 @@ jobs:
         run: |
           mkdir -p snapshot
           for n in handler_object.go handler_multipart.go conditional_write.go handler.go; do
-            cp "internal/services/s3/$n" "snapshot/$n"
+            if [ -f "internal/services/s3/$n" ]; then
+              cp "internal/services/s3/$n" "snapshot/$n"
+            else
+              printf '%s\n' "$n" >> snapshot/missing_files.txt
+            fi
           done
           git rev-parse HEAD > snapshot/commit.txt
           sha256sum snapshot/*.go > snapshot/source_sha256.txt
