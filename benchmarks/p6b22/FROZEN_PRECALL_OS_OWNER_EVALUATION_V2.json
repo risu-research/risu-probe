@@ -1,0 +1,48 @@
+{
+  "schema": "risu-b22-amended-precall-owner-os-dac-source-positive-v2",
+  "date": "2026-11-12",
+  "reason": "The first live signed replacement reached unchanged upstream tool but OS file-level DAC denied it; strengthen preflight to check individual file write access and have the independent owner issue actual POSIX ACL before a permitted replacement.",
+  "original_precommitted_plan": "benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION.json",
+  "prior_original_development_ci": [
+    43330772759,
+    43331140769,
+    43331373782,
+    43331933104,
+    43332141328,
+    43332259400,
+    43332409951
+  ],
+  "known_before_run": "Real separate owner UID 33, executor UID 65534; allowed create and no-op succeeded, real replay was blocked before original process. The owner-signed replacement previously returned original tool failure because OS DAC did not permit file write.",
+  "expected_after_amendment": "Exactly 3 source-native authorized MCP tool calls; 7 denied before original source execve; all denied file bytes preserved; independent actual owner signs 20 before/after physical state observations.",
+  "new_kernel": {
+    "path": "src/risu_mcp_preflight.py",
+    "git_blob": "651af884c3303bbe6729a751a89b57d939e9eb6d",
+    "behavior": "requires real filesystem target write permission in addition to owner signature for existing files"
+  },
+  "original_package": {
+    "package": "filesystem-mcp 1.0.2",
+    "wheel_sha256": "94610f0b73df1d3ada4ef0353353eb93695645c7b82f71ca80ed13dc1022c235",
+    "git_commit": "1aff1e094ed317ec2c5de06591978781d660c48a"
+  },
+  "owner_key_and_acl": "www-data resource-owner vs nobody executor with file and directory ACL, distinct true OS principal but no independent consenting human",
+  "preregistered_case_labels": [
+    "allowed_create",
+    "allowed_noop",
+    "allowed_replace",
+    "denied_replay",
+    "denied_no_grant",
+    "denied_signed_scope",
+    "denied_revoked",
+    "denied_os_dac",
+    "denied_stale_state",
+    "denied_tampered_request"
+  ],
+  "source_reliability_boundary": "Not a blind bug-finding evaluation; rule was amended after a real source-informed development run, previous failures preserved, later validation is engineering qualification only.",
+  "limits": [
+    "Sudo-privileged CI operator controls OS principal provisioning",
+    "No real user consent or OAuth source",
+    "Trusted owner root anchored by same CI workflow, not independent real-world identity provider",
+    "No exhaustive hidden effect sandbox or TOCTOU-free path resolver",
+    "External repo original distribution not upstream PEP740 signer-attested"
+  ]
+}
