@@ -251,3 +251,43 @@ source-bound but not cryptographically remotely attested; an observed
 state change is not itself authorization or causal proof.
 
 See the [B20 research and evidence report](docs/P6B20_GENERIC_NATIVE_EFFECT_EVIDENCE_RESEARCH.md).
+
+## P6-B21 · Directed MCP effects and pinned owner-signed permission scopes
+
+The opt-in `verify-mcp-effect-authority` command adds **directional**
+state transitions (activation/deactivation, creation/deletion/replacement,
+counter increase/decrease) and post-execution conformance to a
+separately pinned **resource owner's Ed25519-signed pre-call policy**.
+
+```sh
+pip install '.[effect-authority]'
+risu-probe verify-mcp-effect-authority \
+  --plan PREDECLARED_EFFECT_MATRIX.json \
+  --evidence-root ORIGINAL_MCP_AND_EXTERNAL_EFFECTS \
+  --authority-manifest SIGNED_OWNER_AUTHORITY_MANIFEST.json \
+  --trust-root OWNER_PUBLIC_KEYS.json \
+  --trusted-root-sha256 OUT_OF_BAND_TRUST_ROOT_SHA256 \
+  --format json --out directional_scope_report.json
+```
+
+The verifier independently binds the actual original `tools/call` and
+target resource **argument value** to the signed scope, exact source
+distribution digest, actor claim, unique nonce, validity interval,
+and external actual before/after observations. MCP annotations are
+informational only and never grant resource authorization.
+
+In two independent runs, a fresh Ed25519 owner key was generated for
+each run **before executing** the unmodified third-party
+`filesystem-mcp==1.0.2` server. Normal file creation, unchanged writes,
+a deliberately policy-prohibited creation, and a genuinely shorter-file
+replacement were audited. The source-native external calls, signatures
+and byte-level effects were independently revalidated.
+
+**Important scope:** The owner and target are synthetic CI temporary
+fixtures actually controlled by the CI runner. This is a verified
+*fixture-owner scope audit*, not end-user OAuth permission verification,
+upstream software wrongdoing, or runtime prevention. A key signature
+alone cannot prove legal or production resource ownership. The tool is
+post-hoc and does not block an action before the MCP server runs.
+
+[Complete B21 research and trust-boundary report](docs/P6B21_OWNER_SIGNED_DIRECTIONAL_EFFECTS.md).
