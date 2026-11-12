@@ -227,8 +227,8 @@ def verify(trace,contract,source_manifest,source_checkout,witness=None):
         'claimed_repository':manifest['repository'],'claimed_full_commit':manifest['revision'],
         'sources_verified_against_local_git_objects':len(evidence),
         'source_files':[{'tool_hash':hashlib.sha256(k.encode()).hexdigest()[:16],
-                         'path':v['path'],'git_blob_sha1':v['blob'],
-                         'file_sha256':v['sha256'],'static_parse_reason':source_decls[k]['reason']}
+                         'path':v['path'],'git_blob_sha1':v['git_blob_sha1'],
+                         'file_sha256':v['source_sha256'],'static_parse_reason':source_decls[k]['reason']}
                         for k,v in evidence.items()],
         'summary':{'matched_obligations':len(checks),**counts,
                    'uncorrelated_catalog_anomalies':len(anomalies)},
