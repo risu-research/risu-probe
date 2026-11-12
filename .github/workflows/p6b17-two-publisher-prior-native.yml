@@ -1,0 +1,156 @@
+name: RISU P6-B17 pre-existing external source declaration controls
+on:
+  push:
+    branches: ['qualification/p6b17-*']
+    paths:
+      - 'benchmarks/p6b17/FROZEN_UPSTREAM_ORIGIN_COHORT.json'
+      - '.github/workflows/p6b17-two-publisher-prior-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-git-object-and-old-source:
+    name: B17 earlier real source pinned ${{ matrix.case }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: AISH
+            repo: AI-Shell-Team/aish
+            sha: c9ad99acac291dd3a7b38162b6159bf5b01a1ed9
+            path: scripts/mcp-servers/python/features_server.py
+            blob: 91d8470deee0df4ec58c4543f2c36d4e7ff470de
+          - case: MM
+            repo: MarvinRomson/master-mcp
+            sha: 75dc67c58e6468cdd81a6e5c3cb0a2f1521af93d
+            path: search_mcp_server.py
+            blob: b9e746df29655533102ed729d2de6bd3f7862d42
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch earlier externally preserved real stdio and catalog source
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43295550845
+          github-token: ${{ github.token }}
+          name: risu-b16-new-original-${{ matrix.case }}
+          path: .b17-prior-firstpass
+      - name: Checkout immutable actual upstream source from independently pinned commit
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+          git init -q .b17-upstream
+          git -C .b17-upstream -c core.hooksPath=/dev/null remote add origin "https://github.com/${{ matrix.repo }}.git"
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b17-upstream -c core.hooksPath=/dev/null fetch -q --depth=1 --no-tags origin "${{ matrix.sha }}"
+          git -C .b17-upstream -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b17-upstream rev-parse HEAD)" = "${{ matrix.sha }}"
+      - name: Re-fetch original publisher Git tree through independent GitHub API
+        env:
+          REPOSITORY: ${{ matrix.repo }}
+          REVISION: ${{ matrix.sha }}
+          FILEPATH: ${{ matrix.path }}
+          BLOB: ${{ matrix.blob }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .b17-results
+          python - <<'PY'
+          import os,urllib.request,json,subprocess,hashlib
+          from pathlib import Path
+          r,s,p,b=[os.environ[x] for x in ('REPOSITORY','REVISION','FILEPATH','BLOB')]
+          url='https://api.github.com/repos/'+r+'/git/trees/'+s+'?recursive=1'
+          req=urllib.request.Request(url,headers={'Accept':'application/vnd.github+json',
+             'User-Agent':'risu-b17-public-source-check',
+             'Authorization':'Bearer '+os.environ['GITHUB_TOKEN']})
+          with urllib.request.urlopen(req,timeout=25) as handle:
+              tree=json.load(handle)
+          assert tree['truncated'] is False
+          items=[x for x in tree['tree'] if x.get('path')==p and x.get('type')=='blob']
+          assert len(items)==1 and items[0]['sha']==b
+          local=subprocess.check_output(['git','-C','.b17-upstream','rev-parse',s+':'+p],text=True).strip()
+          assert local==b
+          raw=subprocess.check_output(['git','-C','.b17-upstream','cat-file','blob',b])
+          d={'repository':r,'commit':s,'path':p,'remote_git_blob_sha1':b,
+              'checkout_git_blob_sha1':local,
+              'source_sha256':hashlib.sha256(raw).hexdigest(),
+              'publisher_tree_correlated':True}
+          Path('.b17-results/remote_provider_tree.json').write_text(json.dumps(d,indent=2,sort_keys=True)+chr(10))
+          print('B17_PRIOR_PUBLISHER_REMOTE_TREE_MATCH',r,b)
+          PY
+      - name: Reconstruct only strictly frozen original-source declarative pins
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,os
+          from pathlib import Path
+          c=os.environ['CASE']
+          frozen=json.load(open('benchmarks/p6b17/FROZEN_UPSTREAM_ORIGIN_COHORT.json'))
+          d=next(x for x in frozen['dev'] if x['id']==c)
+          tools=[d['tool']] if c=='AISH' else d['tools']
+          manifest={'schema':'risu-mcp-upstream-source-manifest-v1',
+             'repository':d['repository'],'revision':d['revision'],
+             'sources':[{'tool':t,'path':d['path'],'git_blob_sha1':d['git_blob_sha1']}
+                         for t in tools]}
+          Path('.b17-results/source_manifest.json').write_text(
+            json.dumps(manifest,indent=2,sort_keys=True)+chr(10))
+          PY
+      - name: Apply frozen B17 origin verifier to original prior native wire and publish nonpromotions
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          DIR=.b17-prior-firstpass/.b16-source
+          python -m risu_p5d_cli verify-mcp-origin \
+            "$DIR/original_stdio.jsonl" \
+            --contract "$DIR/contract.json" \
+            --witness "$DIR/state_witness.json" \
+            --source-manifest .b17-results/source_manifest.json \
+            --source-checkout .b17-upstream \
+            --format json --out .b17-results/source_origin.json
+          python - <<'PY'
+          import os,json
+          name=os.environ['CASE']
+          report=json.load(open('.b17-results/source_origin.json'))
+          earlier=json.load(open('.b17-prior-firstpass/.b16-source/catalog_authority_firstpass.json'))
+          assert report['trace_sha256']==earlier['trace_sha256']
+          s=report['summary']
+          if name=='AISH':
+              assert s['matched_obligations']==4,s
+              assert s['SOURCE_CORROBORATED_PASS']==2,s
+              assert s['NOT_PROMOTED']==2,s
+          else:
+              assert s['matched_obligations']==2,s
+              assert s['NOT_PROMOTED']==2,s
+              assert s['SOURCE_CORROBORATED_PASS']==0,s
+          assert s['SOURCE_CORROBORATED_MISMATCH']==0,s
+          assert s['QUARANTINED_SOURCE_CONFLICT']==0,s
+          print('B17_PRIOR_NATIVE_SOURCE_ORIGIN',name,s)
+          PY
+      - name: Preserve earlier native source lineage and grade boundaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b17-prior-native-source-${{ matrix.case }}
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b17-results/source_manifest.json
+            .b17-results/source_origin.json
+            .b17-results/remote_provider_tree.json
