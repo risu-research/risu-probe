@@ -1,0 +1,127 @@
+name: RISU P6-B16 heldout original catalog change and schema transport
+on:
+  push:
+    branches: ['qualification/p6b16-*']
+    paths:
+      - 'benchmarks/p6b16/FROZEN_NEW_ORIGINAL_SERVERS.json'
+      - 'benchmarks/p6b16/capture_new_originals.py'
+      - '.github/workflows/p6b16-new-native-catalog-epoch.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-public-original:
+    name: B16 source-native ${{ matrix.case }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: AISH
+            repo: AI-Shell-Team/aish
+            sha: c9ad99acac291dd3a7b38162b6159bf5b01a1ed9
+          - case: MM
+            repo: MarvinRomson/master-mcp
+            sha: 75dc67c58e6468cdd81a6e5c3cb0a2f1521af93d
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify unmodified product and source-pinned first-pass denominator
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_authority.py)" = be24472b0fea8d8e7a252a7a36158cf8873128de
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+          python - <<'PY'
+          import os,json
+          m=json.load(open('benchmarks/p6b16/FROZEN_NEW_ORIGINAL_SERVERS.json'))
+          x=next(z for z in m['cases'] if z['id']==os.environ['CASE'])
+          assert (x['repo'],x['sha'])==(os.environ['REPO'],os.environ['REV'])
+          assert len(m['cases'])==2
+          assert m['denominator']['tools_calls']==7
+          print('B16_SOURCE_COHORT_FROZEN_BEFORE_NATIVE_EXEC',x['id'],x['sha'])
+          PY
+        env:
+          CASE: ${{ matrix.case }}
+          REPO: ${{ matrix.repo }}
+          REV: ${{ matrix.sha }}
+      - name: Checkout exact unmodified third-party source commit
+        run: |
+          set -euo pipefail
+          git init -q .b16-upstream
+          git -C .b16-upstream -c core.hooksPath=/dev/null remote add origin "https://github.com/${{ matrix.repo }}.git"
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b16-upstream -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "${{ matrix.sha }}"
+          git -C .b16-upstream -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b16-upstream rev-parse HEAD)" = "${{ matrix.sha }}"
+      - name: Install source-compatible original SDK and unchanged B16 product
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m pip install --disable-pip-version-check 'mcp==1.30.0'
+          python -m pip check
+      - name: Capture unaltered native MCP stdio across an original catalog change
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b16/capture_new_originals.py \
+            --case "${{ matrix.case }}" --source .b16-upstream \
+            --executable "$(command -v python)" --out .b16-source
+          test -s .b16-source/origin.json
+          test -s .b16-source/original_stdio.jsonl
+      - name: Evaluate frozen authority against original source declarations
+        run: |
+          set -euo pipefail
+          if [[ -s .b16-source/contract.json && -s .b16-source/original_stdio.jsonl ]]; then
+            python -m risu_p5d_cli qualify-mcp-observations \
+              .b16-source/original_stdio.jsonl --contract .b16-source/contract.json \
+              --witness .b16-source/state_witness.json \
+              --format json --out .b16-source/catalog_authority_firstpass.json
+          fi
+          python - <<'PY'
+          import os,json
+          from pathlib import Path
+          root=Path('.b16-source')
+          origin=json.loads((root/'origin.json').read_text())
+          assert origin['status']=='CAPTURED_ORIGINAL',origin
+          assert origin['case']==os.environ['CASE']
+          report=json.loads((root/'catalog_authority_firstpass.json').read_text())
+          assert report['trace_sha256']==origin['trace_sha256']
+          s=report['summary']
+          if os.environ['CASE']=='AISH':
+              assert origin['calls_executed']==5 and origin['catalog_change_notifications_seen']==1,origin
+              assert s['matched_obligations']==4,s
+              assert s['qualified_passes']==2,s
+              assert s['advisory_passes']==1,s
+              assert s['qualified_mismatches']==0 and s['quarantined_mismatches']==0,s
+          else:
+              assert origin['calls_executed']==2,origin
+              assert s['matched_obligations']==2,s
+              assert s['qualified_mismatches']==0 and s['quarantined_mismatches']==0,s
+          print('B16_NEW_PINNED_NATIVE_AUTHORITY_FIRSTPASS',origin['case'],s)
+          PY
+        env:
+          CASE: ${{ matrix.case }}
+      - name: Preserve original wire and all incomplete cases before posthoc debugging
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b16-new-original-${{ matrix.case }}
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b16/FROZEN_NEW_ORIGINAL_SERVERS.json
+            .b16-source/original_stdio.jsonl
+            .b16-source/origin.json
+            .b16-source/calls.json
+            .b16-source/contract.json
+            .b16-source/state_witness.json
+            .b16-source/catalog_authority_firstpass.json
