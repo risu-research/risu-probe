@@ -1,0 +1,116 @@
+name: External Cross-Layer CodeQL Comparison
+on:
+  push:
+    branches: [ci/external-codeql-baseline-v1]
+  workflow_dispatch:
+permissions:
+  contents: read
+  security-events: read
+jobs:
+  api-aware-codeql:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: localagi
+            upstream: mudler/LocalAGI
+            pin: 7aa0c8fea076722b277ca521038ae9f132d3f4d1
+          - target: sdk-v69
+            upstream: google/go-github
+            pin: 0b11dbfbf17f29fb589087727789c6978d500f8d
+          - target: gitlab-normal
+            upstream: jmrplens/gitlab-mcp-server
+            pin: 96126637cecea17d74fbc6bfc8a4265c974e7d3c
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.upstream }}
+          ref: ${{ matrix.pin }}
+          persist-credentials: false
+      - name: Build equally explicit Go API-aware CodeQL checks
+        shell: bash
+        run: |
+          mkdir -p .codeql/research
+          cat > .codeql/research/qlpack.yml <<'YML'
+          name: research/cross-adapter-codeql
+          version: 0.0.1
+          dependencies:
+            codeql/go-all: '*'
+          YML
+          cat > .codeql/research/RefPair.ql <<'QL'
+          /**
+           * @name Default-ref preflight paired with conditional write
+           * @description Candidate: file read at implicit ref before a separate conditional file write.
+           * @kind problem
+           * @id research/default-ref-preflight
+           * @problem.severity warning
+           * @precision medium
+           */
+          import go
+          from CallExpr readCall, CallExpr writeCall
+          where
+            readCall.getCalleeName() = "GetContents" and
+            writeCall.getCalleeName() = "CreateFile" and
+            readCall.getEnclosingFunction() = writeCall.getEnclosingFunction() and
+            readCall.getArgument(4).toString() = "nil" and
+            readCall.getArgument(3).toString() = writeCall.getArgument(3).toString()
+          select writeCall, "Read is default-ref and write is separate; verify effective branch and target identity."
+          QL
+          cat > .codeql/research/SDKRoute.ql <<'QL'
+          /**
+           * @name Read/write SDK route encoder mismatch
+           * @description Candidate: same file content API has escaped read path and raw write path.
+           * @kind problem
+           * @id research/sdk-route-encoding-asymmetry
+           * @problem.severity warning
+           * @precision medium
+           */
+          import go
+          from CallExpr readFmt, CallExpr writeFmt
+          where
+            readFmt.getCalleeName() = "Sprintf" and
+            writeFmt.getCalleeName() = "Sprintf" and
+            readFmt.getEnclosingFunction().getName() = "GetContents" and
+            writeFmt.getEnclosingFunction().getName() = "CreateFile" and
+            readFmt.getArgument(0).toString().matches("%contents/%") and
+            writeFmt.getArgument(0).toString().matches("%contents/%") and
+            readFmt.getArgument(3).toString() = "escapedPath" and
+            writeFmt.getArgument(3).toString() = "path"
+          select writeFmt, "SDK GetContents escapes file path but CreateFile uses raw path; check decoded targets."
+          QL
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          build-mode: autobuild
+          queries: security-extended,./.codeql/research/RefPair.ql,./.codeql/research/SDKRoute.ql
+      - uses: github/codeql-action/analyze@v4
+        with:
+          upload: false
+          output: codeql-output
+      - name: Summarize all CodeQL results by rule
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,glob,pathlib,collections
+          output={}
+          for filename in glob.glob("codeql-output/**/*.sarif",recursive=True):
+              obj=json.load(open(filename))
+              for run in obj.get("runs",[]):
+                  results=run.get("results",[])
+                  output[filename]={
+                      "total":len(results),
+                      "rules":dict(collections.Counter(x.get("ruleId") for x in results)),
+                      "sites":[{"rule":x.get("ruleId"),"uri":(x.get("locations") or [{}])[0].get("physicalLocation",{}).get("artifactLocation",{}).get("uri")} for x in results]}
+          pathlib.Path("codeql-result-summary.json").write_text(json.dumps(output,indent=2)+"\n")
+          print("CROSS_ADAPTER_CODEQL_RESULTS",json.dumps(output))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: codeql-compare-${{ matrix.target }}
+          path: |
+            codeql-output/
+            codeql-result-summary.json
+          if-no-files-found: warn
