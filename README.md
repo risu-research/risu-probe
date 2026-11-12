@@ -216,3 +216,38 @@ publish attestation authenticates the publisher's release artifact, not
 a complete upstream SLSA build or running-process identity.
 
 [Detailed B19 source-and-effect audit](docs/P6B19_PUBLISHER_SIGNED_HIDDEN_EFFECT_REPAIR.md).
+
+## P6-B20 · Generic original MCP effect-matrix verification
+
+The opt-in `verify-mcp-effects` command evaluates original native MCP
+responses together with bounded **independent before/after effect witnesses**.
+It has no Git-specific rule, advisory identifier or package version embedded
+in the classifier.
+
+```sh
+risu-probe verify-mcp-effects \
+  --plan frozen_effect_matrix.json \
+  --evidence-root original_native_observations \
+  --format json --out effect_report.json
+```
+
+Each effect is a strictly typed boolean, counter or SHA-256 digest, bound to
+an original observer JSON file by SHA-256 and exact JSON pointers. Four
+predeclared paired cases support suppressed, preserved, absent or custom
+effect truth tables. The original `tools/list`, one successful
+`tools/call`, raw trace hash, arguments and response hashes must match
+before any effect result is admitted.
+
+The developer positive is the previous **official publisher-attested
+B19 historical security repair**, explicitly excluded from the independent
+denominator. The frozen generic checker then passed a genuine
+**unmodified non-Git source** from `kujirahand/filesystem-mcp==1.0.2`
+with three different state observables, two independently reexecuted
+four-case original runs and byte-level independent audits.
+
+The new external cohort is a **normal functionality holdout**, not a new
+upstream bug or software fix. Effects from a CI-supplied observer are
+source-bound but not cryptographically remotely attested; an observed
+state change is not itself authorization or causal proof.
+
+See the [B20 research and evidence report](docs/P6B20_GENERIC_NATIVE_EFFECT_EVIDENCE_RESEARCH.md).
