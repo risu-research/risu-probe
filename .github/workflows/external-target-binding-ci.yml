@@ -67,27 +67,16 @@ jobs:
           (out/'audit.json').write_text(json.dumps(evidence,indent=2)+'\n')
           print('PINNED_EXTERNAL_SOURCE_AUDIT_PASS',json.dumps(conditions,sort_keys=True))
           PY
-      - name: Install actual SDK HTTP wire regression test
+      - name: Install real SDK route regression test
         shell: bash
         run: |
           cat > external/sdk/github/risu_target_binding_test.go <<'GO'
           package github
-          import (
-            "context"
-            "encoding/json"
-            "fmt"
-            "net/http"
-            "os"
-            "strings"
-            "testing"
-          )
+          import ("context"; "encoding/json"; "fmt"; "net/http"; "os"; "strings"; "testing")
           func TestRISUSDKGuardWritePath(t *testing.T) {
-            vectors:=[]struct{path string;baselineMismatch bool}{
-              {"docs/a.txt",false},
-              {"docs/C#/intro.md",true},
-              {"notes/what?.md",true},
-              {"docs/%23literal.md",true},
-              {"docs/[draft].md",false},
+            vectors:=[]struct{path string;bad bool}{
+              {"docs/a.txt",false},{"docs/C#/intro.md",true},{"notes/what?.md",true},
+              {"docs/%23literal.md",true},{"docs/[draft].md",false},
             }
             fixed:=os.Getenv("RISU_EXPECT_FIXED")=="1"
             for _,tt:=range vectors {
@@ -103,10 +92,10 @@ jobs:
                   case http.MethodPut:
                     writePath=target
                     var p struct{SHA string `json:"sha"`}
-                    if err:=json.NewDecoder(r.Body).Decode(&p);err!=nil{t.Errorf("invalid PUT body: %v",err)}
+                    if err:=json.NewDecoder(r.Body).Decode(&p);err!=nil{t.Errorf("PUT body %v",err)}
                     if p.SHA!="approved"{t.Errorf("caller SHA lost: %q",p.SHA)}
                     fmt.Fprint(w,`{"content":{"sha":"updated"},"commit":{"sha":"commit"}}`)
-                  default:t.Errorf("unexpected request %s",r.Method)
+                  default:t.Errorf("unexpected %s",r.Method)
                   }
                 })
                 ctx:=context.Background()
@@ -115,37 +104,18 @@ jobs:
                 if _,_,err:=client.Repositories.CreateFile(ctx,"owner","repo",tt.path,opts);err!=nil{t.Fatal(err)}
                 mismatch:=readPath!=writePath
                 t.Logf("RISU_SDK_WIRE fixed=%v input=%q get=%q put=%q mismatch=%v",fixed,tt.path,readPath,writePath,mismatch)
-                if fixed&&mismatch{t.Fatalf("patched SDK disagrees")}
-                if !fixed&&mismatch!=tt.baselineMismatch{t.Fatalf("baseline expected mismatch=%v got %v",tt.baselineMismatch,mismatch)}
-                if fixed&&(readPath!=tt.path||writePath!=tt.path){t.Fatalf("patched identity lost")}
+                if fixed&&mismatch{t.Fatal("patched SDK mismatch")}
+                if !fixed&&mismatch!=tt.bad{t.Fatal("baseline mismatch classification wrong")}
+                if fixed&&(readPath!=tt.path||writePath!=tt.path){t.Fatal("patched identity lost")}
               })
             }
           }
           GO
-      - name: Run actual unpatched SDK HTTP target controls
+      - name: Run unpatched actual SDK route controls
         shell: bash
         run: |
           cd external/sdk
-          RISU_EXPECT_FIXED=0 go test ./github -run '^TestRISUSDKGuardWritePath        run: |
-          gofmt -e audit-out/repos_contents_repaired.go > /dev/null
-          echo PATCHED_FULL_SDK_SYNTAX_PASS
-      - name: Run actual go-github SDK tests on disposable repair
-        shell: bash
-        run: |
-          cp audit-out/repos_contents_repaired.go external/sdk/github/repos_contents.go
-          cd external/sdk
-          go test ./github -run 'TestRepositoriesService_(GetContents|CreateFile)' -count=1 -timeout=6m -v | tee ../../audit-out/sdk-unit-tests.log
-      - name: Run actual patched SDK HTTP target controls
-        shell: bash
-        run: |
-          cd external/sdk
-          RISU_EXPECT_FIXED=1 go test ./github -run '^TestRISUSDKGuardWritePath        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: external-binding-audit
-          path: audit-out/
-          if-no-files-found: warn
- -count=1 -timeout=6m -v | tee ../../audit-out/sdk-unpatched-wire.log
+          RISU_EXPECT_FIXED=0 go test ./github -run 'TestRISUSDKGuardWritePath' -count=1 -timeout=6m -v | tee ../../audit-out/sdk-unpatched-wire.log
       - name: Syntax-check repaired full SDK
         run: |
           gofmt -e audit-out/repos_contents_repaired.go > /dev/null
@@ -156,32 +126,11 @@ jobs:
           cp audit-out/repos_contents_repaired.go external/sdk/github/repos_contents.go
           cd external/sdk
           go test ./github -run 'TestRepositoriesService_(GetContents|CreateFile)' -count=1 -timeout=6m -v | tee ../../audit-out/sdk-unit-tests.log
-      - name: Retain read-only audit artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: external-binding-audit
-          path: audit-out/
-          if-no-files-found: warn
- -count=1 -timeout=6m -v | tee ../../audit-out/sdk-patched-wire.log
-      - name: Retain read-only audit artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: external-binding-audit
-          path: audit-out/
-          if-no-files-found: warn
- -count=1 -timeout=6m -v | tee ../../audit-out/sdk-unpatched-wire.log
-      - name: Syntax-check repaired full SDK
-        run: |
-          gofmt -e audit-out/repos_contents_repaired.go > /dev/null
-          echo PATCHED_FULL_SDK_SYNTAX_PASS
-      - name: Run actual go-github SDK tests on disposable repair
+      - name: Run patched actual SDK route controls
         shell: bash
         run: |
-          cp audit-out/repos_contents_repaired.go external/sdk/github/repos_contents.go
           cd external/sdk
-          go test ./github -run 'TestRepositoriesService_(GetContents|CreateFile)' -count=1 -timeout=6m -v | tee ../../audit-out/sdk-unit-tests.log
+          RISU_EXPECT_FIXED=1 go test ./github -run 'TestRISUSDKGuardWritePath' -count=1 -timeout=6m -v | tee ../../audit-out/sdk-patched-wire.log
       - name: Retain read-only audit artifacts
         if: always()
         uses: actions/upload-artifact@v4
