@@ -114,7 +114,14 @@ def run(args):
     assert root_object["owner_uid"]==uid_owner and root_object["executor_uid"]==uid_exec
     # Different actual POSIX account cannot read the signing private key.
     no_secret=execute("sudo","-u",usernames["exec"],"test","-r",private,expect=1)
-    assert private.stat().st_uid==uid_owner and private.stat().st_mode&0o077==0
+    # Neither runner nor MCP executor has permission to stat this file
+    # under the real resource owner's chmod 0700 home. Verify the private
+    # key metadata *from the owner OS principal itself*.
+    stat_code=("import os,json,pathlib; p=pathlib.Path("+repr(str(private))+");"
+               "s=p.stat();print(json.dumps({'uid':s.st_uid,'mode':oct(s.st_mode&0o777)}))")
+    private_verified=json.loads(execute("sudo","-u",usernames["owner"],"-H",
+             gateway_py,"-c",stat_code).stdout.strip())
+    assert private_verified["uid"]==uid_owner and private_verified["mode"]=="0o600"
     execute(*signer,"revocation","--private",private,"--root",root,
             "--out",rev_empty,"--sequence",0)
     current_rev=rev_empty
@@ -131,8 +138,8 @@ def run(args):
       "owner_is_distinct_OS_user":True,
       "owner_resource_directory_uid":permitted.stat().st_uid,
       "executor_nonce_ledger_uid":ledger.stat().st_uid,
-      "private_key_uid":private.stat().st_uid,
-      "private_key_mode":oct(private.stat().st_mode&0o777),
+      "private_key_uid":private_verified["uid"],
+      "private_key_mode":private_verified["mode"],
       "executor_can_read_owner_private_key":False,
       "original_module_sha256":mod.stdout.strip(),
       "original_publisher_wheel_sha256":sha(original_wheel.read_bytes()),
