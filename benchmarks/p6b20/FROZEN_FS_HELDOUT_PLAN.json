@@ -1,0 +1,44 @@
+{
+  "schema": "risu-mcp-effect-matrix-plan-v1",
+  "experiment": "B20_KUJIRAHAND_FILESYSTEM_ORIGINAL_WRITE_EFFECT_REPEAT",
+  "classification": "HELDOUT_NORMAL_CONTROL",
+  "tool": "write_file",
+  "cells": {
+    "before_trigger": {
+      "trace": "before_trigger/original_stdio.jsonl",
+      "episode": "before_trigger/episode.json"
+    },
+    "before_control": {
+      "trace": "before_control/original_stdio.jsonl",
+      "episode": "before_control/episode.json"
+    },
+    "after_trigger": {
+      "trace": "after_trigger/original_stdio.jsonl",
+      "episode": "after_trigger/episode.json"
+    },
+    "after_control": {
+      "trace": "after_control/original_stdio.jsonl",
+      "episode": "after_control/episode.json"
+    }
+  },
+  "sensors": [
+    {
+      "id": "target-file-existence",
+      "kind": "boolean",
+      "pattern": "preserved-in-both-trigger-cases",
+      "expected": null
+    },
+    {
+      "id": "target-file-content-digest",
+      "kind": "digest",
+      "pattern": "preserved-in-both-trigger-cases",
+      "expected": null
+    },
+    {
+      "id": "target-file-byte-count",
+      "kind": "counter",
+      "pattern": "preserved-in-both-trigger-cases",
+      "expected": null
+    }
+  ]
+}
