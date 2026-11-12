@@ -114,7 +114,11 @@ def pinned_sources(root,manifest):
         if blob!=item['git_blob_sha1'] or git(root,'cat-file','-t',blob,max_bytes=100).strip()!=b'blob':
             raise OriginError('DECLARED_GIT_TREE_BLOB_MISMATCH')
         object_bytes=git(root,'cat-file','blob',blob)
-        if object_bytes!=raw:
+        # Git for Windows may checkout text files with CRLF while the
+        # committed blob remains LF. Allow only that deterministic newline
+        # conversion; never normalize other content or run Git filters.
+        eol_normalized = object_bytes != raw
+        if eol_normalized and (b'\\r\\n' not in raw or raw.replace(b'\\r\\n',b'\\n')!=object_bytes):
             raise OriginError('WORKTREE_BYTES_DIVERGE_FROM_PINNED_GIT_BLOB')
         # Git blob SHA-1 is a VCS locator; separate SHA-256 avoids
         # treating collision-prone SHA-1 as the only content checksum.
@@ -122,7 +126,9 @@ def pinned_sources(root,manifest):
         if hashlib.sha1(envelope).hexdigest()!=blob:
             raise OriginError('GIT_BLOB_CONTENT_ID_MISMATCH')
         files[item['tool']]={'path':path,'git_blob_sha1':blob,
-            'source_sha256':sha256(raw),'source_text':raw}
+            'source_sha256':sha256(object_bytes),
+            'working_tree_eol_normalized':eol_normalized,
+            'source_text':object_bytes}
     return files
 
 
@@ -228,7 +234,9 @@ def verify(trace,contract,source_manifest,source_checkout,witness=None):
         'sources_verified_against_local_git_objects':len(evidence),
         'source_files':[{'tool_hash':hashlib.sha256(k.encode()).hexdigest()[:16],
                          'path':v['path'],'git_blob_sha1':v['git_blob_sha1'],
-                         'file_sha256':v['source_sha256'],'static_parse_reason':source_decls[k]['reason']}
+                         'file_sha256':v['source_sha256'],
+                         'working_tree_eol_normalized':v['working_tree_eol_normalized'],
+                         'static_parse_reason':source_decls[k]['reason']}
                         for k,v in evidence.items()],
         'summary':{'matched_obligations':len(checks),**counts,
                    'uncorrelated_catalog_anomalies':len(anomalies)},
