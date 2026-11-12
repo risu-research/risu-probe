@@ -1,0 +1,139 @@
+name: RISU P6-B19 authentic publisher-attested releases and real repaired MCP side effect
+on:
+  push:
+    branches: ['qualification/p6b19-*']
+    paths:
+      - 'benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json'
+      - 'benchmarks/p6b19/FROZEN_DETECTOR_BEFORE_NATIVE_EVAL.json'
+      - 'benchmarks/p6b19/verify_upstream_pypi_release.py'
+      - 'benchmarks/p6b19/capture_official_signed_git_versions.py'
+      - '.github/workflows/p6b19-upstream-signed-repair-firstpass.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  true-publisher-signed-wheels-before-after:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lock published original wheel versions, real issue and frozen RISU detector before evaluation
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_signed_repair.py)" = 41bb9439174c37a53481db3e025cb9601ae6040f
+          test "$(git hash-object src/risu_mcp_runtime_origin.py)" = eba052165106bd85cb935ed505544ea33819054b
+          python - <<'PY'
+          import json
+          f=json.load(open('benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json'))
+          d=json.load(open('benchmarks/p6b19/FROZEN_DETECTOR_BEFORE_NATIVE_EVAL.json'))
+          assert d['detector_source_git_blob']=='41bb9439174c37a53481db3e025cb9601ae6040f'
+          assert f['issue']['id']=='GHSA-6hqx-gqrx-c5r2'
+          assert f['runtime']['total_original_native_calls']==4
+          assert {x['version'] for x in f['versions']}=={'2026.11.4','2026.11.11'}
+          assert f['publisher']['repository']=='modelcontextprotocol/servers'
+          print('B19_FROZEN_UPSTREAM_SIGNED_WHEEL_AND_REAL_BUG_COHORT_CHECKED')
+          PY
+      - name: Install PyPI's independent official PEP740 signature-verification client
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'pypi-attestations==0.0.31'
+          pypi-attestations verify pypi --help
+      - name: Obtain both immutable PyPI official vendor wheels and exact upstream Git source
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b19/verify_upstream_pypi_release.py acquire \
+            --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+            --root .b19-official
+      - name: Cryptographically verify upstream actual trusted-publisher attestations on BOTH wheels
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b19/verify_upstream_pypi_release.py attest \
+            --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+            --root .b19-official
+          echo B19_TWO_ORIGINAL_PYPI_PUBLISH_ATTESTATIONS_SIGNATURE_VERIFIED
+      - name: Install both original unmodified verified wheels into isolated identical Python dependencies
+        run: |
+          set -euo pipefail
+          mkdir -p .b19-venvs
+          for VERSION in VULNERABLE FIXED; do
+            python -m venv ".b19-venvs/$VERSION"
+            PY=".b19-venvs/$VERSION/bin/python"
+            "$PY" -m pip install --disable-pip-version-check \
+              'mcp==2.3.0' 'GitPython==3.1.60' 'click==8.3.0' 'pydantic==2.12.5'
+            WHEEL=(.b19-official/"$VERSION"/mcp_server_git-*.whl)
+            test "${#WHEEL[@]}" -eq 1
+            "$PY" -m pip install --disable-pip-version-check --no-deps "${WHEEL[0]}"
+            "$PY" -m pip check
+            "$PY" -m pip freeze | LC_ALL=C sort > ".b19-official/$VERSION/installed_dependencies.txt"
+          done
+          diff -u <(grep -v -i '^mcp-server-git==' .b19-official/VULNERABLE/installed_dependencies.txt) \
+            <(grep -v -i '^mcp-server-git==' .b19-official/FIXED/installed_dependencies.txt)
+          python benchmarks/p6b19/verify_upstream_pypi_release.py installed \
+            --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+            --root .b19-official --venvs .b19-venvs
+          echo B19_INDEPENDENT_OFFICIAL_WHEEL_INSTALL_BYTE_EQUIVALENT_TO_PINNED_UPSTREAM_SOURCE
+      - name: Run only harmless locally confined Git config marker; capture 4 genuine upstream MCP stdio calls
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b19/capture_official_signed_git_versions.py \
+            --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+            --wheel-root .b19-official --venvs .b19-venvs \
+            --out .b19-native-firstpass
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('.b19-native-firstpass')
+          for version in ('VULNERABLE','FIXED'):
+              for case in ('CONFIGURED','NORMAL'):
+                  x=json.loads((root/version/case/'original_effect_witness.json').read_text())
+                  assert x['status']=='CAPTURED_ORIGINAL_NATIVE',x
+                  print('B19_REAL_TOOL_AND_SIDEEFFECT_FIRSTPASS',version,case,
+                        'marker',x['marker_after'],'tool_error',x['tool_result_iserror'])
+          PY
+      - name: Run source-frozen B19 checker on signed wheel and original native wire
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          mkdir -p .b19-final
+          python -m risu_p5d_cli compare-signed-mcp-repair \
+            --evidence-root .b19-native-firstpass \
+            --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+            --format json --out .b19-final/REAL_BEFORE_AFTER_FIRSTPASS.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('.b19-final/REAL_BEFORE_AFTER_FIRSTPASS.json').read_text())
+          print('B19_FROZEN_REAL_ORIGINAL_SECURITY_BEFORE_AFTER',r['summary'])
+          assert r['summary']['publisher_signed_wheels_checked']==2
+          assert r['summary']['actual_native_mcp_calls_correlated']==4
+          assert r['summary']['known_security_repair_reproduced'] is True,r['summary']
+          assert r['summary']['both_normal_controls_preserved'] is True
+          assert r['summary']['previously_unknown_upstream_defects_found']==0
+          print('B19_UPSTREAM_SIGNED_KNOWN_REAL_SECURITY_REPAIR_REPRODUCED')
+          PY
+      - name: Archive ALL original source-signed wheels, first-pass raw and incomplete evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b19-real-publisher-signed-git-security-repair-firstpass
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json
+            benchmarks/p6b19/FROZEN_DETECTOR_BEFORE_NATIVE_EVAL.json
+            .b19-official/
+            .b19-native-firstpass/
+            .b19-final/REAL_BEFORE_AFTER_FIRSTPASS.json
