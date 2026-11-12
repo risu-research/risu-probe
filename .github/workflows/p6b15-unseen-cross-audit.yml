@@ -92,3 +92,13 @@ jobs:
             benchmarks/p6b15/FROZEN_UNSEEN_ORIGINAL_SERVERS.json
             benchmarks/p6b15/audit_three_unseen_originals.py
             .b15-heldout/B15_FROZEN_CROSS_AUDIT.json
+            README.md
+            docs/P6B15_FROZEN_OBSERVATION_AND_EXTERNAL_AUDIT.md
+            src/risu_mcp_observations.py
+            src/risu_mcp_trace.py
+            src/risu_p5d_cli.py
+            pyproject.toml
+            tests/test_p6b15_observation_contract.py
+            benchmarks/p6b15/prepare_b14_development.py
+            benchmarks/p6b15/capture_unseen_native.py
+            .github/workflows/p6b15-*.yml
