@@ -1,0 +1,187 @@
+name: RISU P6-B18 independent signed executable replay and 16 evidence corruption controls
+on:
+  push:
+    branches: ['qualification/p6b18-*']
+    paths:
+      - 'benchmarks/p6b18/independent_source_runtime_audit.py'
+      - 'benchmarks/p6b18/negative_runtime_evidence_controls.py'
+      - '.github/workflows/p6b18-second-runtime-independent-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  attestations: read
+jobs:
+  independent-original-binary-reexecution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      attestations: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download source original independently built binary A
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43304077747
+          github-token: ${{ github.token }}
+          name: risu-b18-original-independent-builder-A
+          path: .b18-a
+      - name: Download source original independently built binary B
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43304077747
+          github-token: ${{ github.token }}
+          name: risu-b18-original-independent-builder-B
+          path: .b18-b
+      - name: Download pristine first-pass original process and signed CI evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43304077747
+          github-token: ${{ github.token }}
+          name: risu-b18-original-source-signed-build-live-process
+          path: .b18-original
+      - name: Acquire and verify original upstream source independently again
+        run: |
+          set -euo pipefail
+          git init -q .b18-upstream
+          git -C .b18-upstream -c core.hooksPath=/dev/null remote add origin https://github.com/modelcontextprotocol/go-sdk.git
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b18-upstream -c core.hooksPath=/dev/null fetch -q --depth=1 --no-tags origin 328036ea2090c83f28c41a42ee4c9e5ec7393a4f
+          git -C .b18-upstream -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b18-upstream rev-parse HEAD)" = 328036ea2090c83f28c41a42ee4c9e5ec7393a4f
+          for SRC in examples/server/toolschemas/main.go go.mod go.sum; do
+            test -s ".b18-upstream/$SRC"
+          done
+      - name: Re-verify Sigstore attestations directly for independently built binary B
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .b18-audit
+          cmp .b18-a/mcp-toolschemas .b18-b/mcp-toolschemas
+          gh attestation verify .b18-b/mcp-toolschemas \
+            --repo risu-research/risu-probe \
+            --signer-workflow risu-research/risu-probe/.github/workflows/p6b18-source-build-runtime.yml \
+            --format json > .b18-audit/independent_gh_sigstore_verified.json
+          chmod +x .b18-b/mcp-toolschemas
+          python - <<'PY'
+          import json,os,hashlib
+          from pathlib import Path
+          raw=Path('.b18-audit/independent_gh_sigstore_verified.json').read_bytes()
+          x=json.loads(raw)
+          assert type(x) is list and len(x)>0
+          digest=hashlib.sha256(Path('.b18-b/mcp-toolschemas').read_bytes()).hexdigest()
+          expected='c11061e35013c28f273e92ed44ff8f76eb21f8d547a76c93c7b2840c8cc5ef8f'
+          assert digest==expected
+          cert=x[0]['verificationResult']['signature']['certificate']
+          assert cert['githubWorkflowRepository']=='risu-research/risu-probe'
+          assert '/runs/43304077747/' in cert['runInvocationURI']
+          statement=x[0]['verificationResult']['statement']
+          assert any(v['digest'].get('sha256')==expected for v in statement['subject'])
+          record={'schema':'risu-b18-gh-attestation-cli-result-v1',
+                  'verified':True,'subject_sha256':digest,
+                  'attestation_repository':'risu-research/risu-probe',
+                  'signer_workflow':'.github/workflows/p6b18-source-build-runtime.yml',
+                  'verification_run_id':int(os.environ['GITHUB_RUN_ID']),
+                  'verification_report_sha256':hashlib.sha256(raw).hexdigest(),
+                  'scope':'independent CI signature verification of RISU build A matching builder B bytes'}
+          Path('.b18-audit/independently_verified_subject.json').write_text(
+              json.dumps(record,indent=2,sort_keys=True)+chr(10))
+          print('B18_INDEPENDENT_SECOND_BINARY_SIGSTORE_VERIFIED',digest)
+          PY
+      - name: Independently execute original binary B as separate live MCP process
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b18/capture_actual_go_process.py \
+            --binary .b18-b/mcp-toolschemas \
+            --frozen benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json \
+            --attestation .b18-audit/independently_verified_subject.json \
+            --out .b18-second-execution
+          test -s .b18-second-execution/runtime_witness.json
+          test -s .b18-second-execution/original_stdio.jsonl
+      - name: Independently audit two real processes and signed binary without RISU product import
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python benchmarks/p6b18/independent_source_runtime_audit.py \
+            --original .b18-original \
+            --builder-a-binary .b18-a/mcp-toolschemas \
+            --builder-b-binary .b18-b/mcp-toolschemas \
+            --source .b18-upstream \
+            --signed-proof .b18-audit/independent_gh_sigstore_verified.json \
+            --replay .b18-second-execution \
+            --out .b18-audit/SECOND_INDEPENDENT_SOURCE_TO_EXECUTABLE_AUDIT.json
+          python - <<'PY'
+          import json
+          p=json.load(open('.b18-audit/SECOND_INDEPENDENT_SOURCE_TO_EXECUTABLE_AUDIT.json'))
+          assert p['independent_build_runner_hashes_equal'] is True
+          assert p['github_actions_signer_cryptographically_verified_externally'] is True
+          assert p['actual_original_native_mcp_calls_checked']==4
+          assert p['second_independent_process_execution']['four_semantically_identical_original_response_objects']
+          assert p['actual_original_mcp_defects_found']==0
+          print('B18_TWO_REAL_ORIGINAL_BINARY_PROCESSES_CROSS_AUDITED')
+          PY
+      - name: Evaluate frozen product on original second process evidence
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m risu_p5d_cli verify-mcp-runtime \
+            .b18-second-execution/original_stdio.jsonl \
+            --frozen-cohort benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json \
+            --source-manifest benchmarks/p6b18/SOURCE_GIT_OBJECT_MANIFEST.json \
+            --source-checkout .b18-upstream \
+            --binary .b18-b/mcp-toolschemas \
+            --builder-a .b18-a/builder.json \
+            --builder-b .b18-b/builder.json \
+            --runtime-witness .b18-second-execution/runtime_witness.json \
+            --attestation-result .b18-audit/independently_verified_subject.json \
+            --format json --out .b18-audit/second_execution_product.json
+          echo B18_SECOND_ORIGINAL_PROCESS_PRODUCT_PASS
+      - name: Inject and reject 16 independent evidence corruptions without editing original files
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b18/negative_runtime_evidence_controls.py \
+            --original .b18-original \
+            --checkout .b18-upstream \
+            --binary-a .b18-a/mcp-toolschemas \
+            --binary-b .b18-b/mcp-toolschemas \
+            --attestation .b18-original/.b18-evidence/attestation_verified.json \
+            --out .b18-audit/SYNTHETIC_NEGATIVE_16.json
+          python - <<'PY'
+          import json
+          r=json.load(open('.b18-audit/SYNTHETIC_NEGATIVE_16.json'))
+          assert r['synthetic_mutation_denominator']==16
+          assert r['synthetic_mutations_rejected']==16
+          assert r['original_real_upstream_defects']==0
+          print('B18_ALL_16_SEPARATELY_LABELED_MUTATIONS_REJECTED')
+          PY
+      - name: Preserve independent second original process and signed verifier output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b18-second-live-original-and-independent-audit
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b18-audit/independent_gh_sigstore_verified.json
+            .b18-audit/independently_verified_subject.json
+            .b18-audit/SECOND_INDEPENDENT_SOURCE_TO_EXECUTABLE_AUDIT.json
+            .b18-audit/second_execution_product.json
+            .b18-audit/SYNTHETIC_NEGATIVE_16.json
+            .b18-second-execution/runtime_witness.json
+            .b18-second-execution/original_stdio.jsonl
+            .b18-second-execution/per_call_original.json
+            benchmarks/p6b18/independent_source_runtime_audit.py
+            benchmarks/p6b18/negative_runtime_evidence_controls.py
