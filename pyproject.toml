@@ -50,6 +50,7 @@ py-modules = [
   "risu_mcp_runtime_origin",
   "risu_mcp_signed_repair",
   "risu_mcp_effects",
+  "risu_mcp_effect_authority",
   "risu_nested_schema",
   "risu_obligations",
   "risu_onboarding",
