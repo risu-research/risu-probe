@@ -24,7 +24,7 @@ ROOT="risu-b22-os-owner-root-v1"
 GRANT="risu-b22-precall-owner-grant-v1"
 REV="risu-b22-owner-revocation-v1"
 OBS="risu-b22-os-owner-physical-state-observation-v1"
-OBSPREFIX=b"RISU-B22-OWNER-PHYSICAL-OBSERVATION-V1\\x00"
+OBSPREFIX=b"RISU-B22-OWNER-PHYSICAL-OBSERVATION-V1"+bytes([0])
 PREFIX=b"RISU-B22-OS-OWNER-PRECALL-V1\x00"
 REVPREFIX=b"RISU-B22-OS-OWNER-REVOCATION-V1\x00"
 
