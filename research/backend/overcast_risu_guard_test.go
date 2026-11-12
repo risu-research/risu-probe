@@ -103,4 +103,35 @@ func TestRISUBackendGuardHistory(t *testing.T){
   status,body,_:=risuWire(t,srv,"GET","race.txt",nil,nil)
   if status!=200||!strings.HasPrefix(body,"writer-"){t.Fatalf("wrong final race state %d %q",status,body)}
  })
+ t.Run("copy-normal-control",func(t *testing.T){
+  risuWire(t,srv,"PUT","copy-src.txt",[]byte("source-content"),nil)
+  status,_,_:=risuWire(t,srv,"PUT","copy-normal.txt",nil,map[string]string{
+    "x-amz-copy-source":"/risu-guard-bucket/copy-src.txt"})
+  risuStatus(t,"copy-normal",status,200)
+  _,body,_:=risuWire(t,srv,"GET","copy-normal.txt",nil,nil)
+  if body!="source-content"{t.Fatalf("copy changed content %q",body)}
+ })
+ t.Run("copy-destination-conditional-coverage",func(t *testing.T){
+  risuWire(t,srv,"PUT","copy-dst.txt",[]byte("preserved"),nil)
+  status,_,_:=risuWire(t,srv,"PUT","copy-dst.txt",nil,map[string]string{
+    "x-amz-copy-source":"/risu-guard-bucket/copy-src.txt",
+    "If-None-Match":"*"})
+  // The September 4 fix covers PutObject and multipart, but not CopyObject.
+  // A correct S3 CopyObject endpoint should return 412 and preserve the dest.
+  risuStatus(t,"copy-star-existing",status,200)
+  _,body,_:=risuWire(t,srv,"GET","copy-dst.txt",nil,nil)
+  if body!="source-content"{t.Fatalf("unprotected copy did not commit: %q",body)}
+  t.Logf("RISU_COVERAGE op=CopyObject condition=If-None-Match result=%d final=%q aws_expected=412",status,body)
+ })
+ t.Run("copy-stale-etag-coverage",func(t *testing.T){
+  risuWire(t,srv,"PUT","copy-stale.txt",[]byte("preserved"),nil)
+  status,_,_:=risuWire(t,srv,"PUT","copy-stale.txt",nil,map[string]string{
+    "x-amz-copy-source":"/risu-guard-bucket/copy-src.txt",
+    "If-Match":"\"00000000000000000000000000000000\""})
+  risuStatus(t,"copy-match-stale",status,200)
+  _,body,_:=risuWire(t,srv,"GET","copy-stale.txt",nil,nil)
+  if body!="source-content"{t.Fatalf("unprotected stale copy did not commit: %q",body)}
+  t.Logf("RISU_COVERAGE op=CopyObject condition=If-Match result=%d final=%q aws_expected=412",status,body)
+ })
+
 }
