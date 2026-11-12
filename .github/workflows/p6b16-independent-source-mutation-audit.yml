@@ -99,3 +99,12 @@ jobs:
             benchmarks/p6b16/FROZEN_NEW_ORIGINAL_SERVERS.json
             benchmarks/p6b16/source_wire_fault_injection.py
             benchmarks/p6b16/audit_originals_and_mutations.py
+            src/risu_mcp_authority.py
+            src/risu_mcp_observations.py
+            src/risu_mcp_trace.py
+            src/risu_p5d_cli.py
+            pyproject.toml
+            tests/test_p6b16_catalog_authority.py
+            README.md
+            docs/P6B16_CATALOG_BOUND_AUTHORITY_RESEARCH.md
+            .github/workflows/p6b16-*.yml
