@@ -1,0 +1,195 @@
+name: RISU P6-B17 independent signed publisher and native source audit
+on:
+  push:
+    branches: ['qualification/p6b17-*']
+    paths:
+      - 'benchmarks/p6b17/audit_independent_gcp_origin.py'
+      - '.github/workflows/p6b17-independent-origin-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independently-reacquire-published-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download immutable first-pass native original from initial independent run
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43300343923
+          github-token: ${{ github.token }}
+          name: risu-b17-gcp-native-origin-source-firstpass
+          path: .b17-reacquired
+      - name: Re-fetch publisher source commit as separate isolated repo
+        run: |
+          set -euo pipefail
+          git init -q .b17-upstream
+          git -C .b17-upstream -c core.hooksPath=/dev/null remote add origin https://github.com/GoogleCloudPlatform/mcp-python-sdk-grpc-poc.git
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b17-upstream -c core.hooksPath=/dev/null fetch -q --depth=1 --no-tags origin cedc20fdc8fdf22fc8b411a3947ae03c71cbc926
+          git -C .b17-upstream -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b17-upstream rev-parse HEAD)" = cedc20fdc8fdf22fc8b411a3947ae03c71cbc926
+      - name: Independently confirm published signed GitHub commit and owner type
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .b17-cross
+          python - <<'PY'
+          import json,os,urllib.request
+          from pathlib import Path
+          root='https://api.github.com/repos/GoogleCloudPlatform/mcp-python-sdk-grpc-poc'
+          def get(url):
+              req=urllib.request.Request(url,headers={'User-Agent':'risu-b17-independent-source-audit',
+                 'Accept':'application/vnd.github+json','Authorization':'Bearer '+os.environ['GITHUB_TOKEN']})
+              with urllib.request.urlopen(req,timeout=25) as f:
+                  return json.load(f)
+          record=get(root+'/commits/cedc20fdc8fdf22fc8b411a3947ae03c71cbc926')
+          repo=get(root)
+          assert record['sha']=='cedc20fdc8fdf22fc8b411a3947ae03c71cbc926'
+          assert repo['full_name']=='GoogleCloudPlatform/mcp-python-sdk-grpc-poc'
+          assert repo['owner']['type']=='Organization'
+          verification=record['commit']['verification']
+          assert verification['verified'] is True,verification
+          assert verification['reason']=='valid'
+          evidence={'schema':'risu-b17-independent-publisher-commit-verification-v1',
+             'github_repository':repo['full_name'],
+             'github_owner_type':repo['owner']['type'],
+             'commit':record['sha'],'github_verified_signature':verification['verified'],
+             'github_signature_reason':verification['reason'],
+             'caveat':'GitHub-reported valid commit signature supports published Git commit provenance; it cannot authenticate running MCP process executable.'}
+          Path('.b17-cross/remote_signed_commit.json').write_text(json.dumps(evidence,indent=2,sort_keys=True)+chr(10))
+          print('B17_GITHUB_PUBLISHED_SIGNED_COMMIT_VERIFIED')
+          PY
+      - name: Audit original raw stdout and source literal without importing B17 checker
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+          python benchmarks/p6b17/audit_independent_gcp_origin.py \
+            --artifact .b17-reacquired \
+            --checkout .b17-upstream \
+            --provider-proof .b17-reacquired/.b17-evidence/provider_tree_check.json \
+            --out .b17-cross/INDEPENDENT_ORIGINAL_SOURCE_REPORT.json
+      - name: Reuse frozen product for clearly labeled synthetic source/catalog negatives
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          mkdir -p .b17-synthetic
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          original=Path('.b17-reacquired/.b17-original/original_stdio.jsonl')
+          baseline=[json.loads(x) for x in original.read_text().splitlines()]
+          catalog=json.loads(json.dumps(baseline))
+          tool=next(v for v in catalog if type(v.get('result')) is dict and type(v['result'].get('tools')) is list)
+          schema=next(t for t in tool['result']['tools'] if t.get('name')=='get_weather')['outputSchema']
+          schema['properties']['synthetic_extra_field']={'type':'string'}
+          result=json.loads(json.dumps(baseline))
+          target=next(v for v in result if v.get('id')==20 and type(v.get('result')) is dict)
+          assert type(target['result']['structuredContent']['humidity']) is int
+          target['result']['structuredContent']['humidity']='not_an_integer'
+          for name,lines in [('changed_catalog',catalog),('changed_success_result',result)]:
+              path=Path('.b17-synthetic')/(name+'.jsonl')
+              path.write_text(''.join(json.dumps(x,ensure_ascii=False,separators=(',',':'))+chr(10) for x in lines))
+          print('B17_SYNTHETIC_CASES_DERIVED_FROM_UNCHANGED_ORIGINAL')
+          PY
+          for TEST in changed_catalog changed_success_result; do
+            python -m risu_p5d_cli verify-mcp-origin ".b17-synthetic/$TEST.jsonl" \
+              --source-checkout .b17-upstream \
+              --source-manifest benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json \
+              --contract .b17-reacquired/.b17-original/contract.json \
+              --format json --out ".b17-synthetic/$TEST.json"
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=Path('.b17-synthetic')
+          catalog=json.loads((d/'changed_catalog.json').read_text())
+          result=json.loads((d/'changed_success_result.json').read_text())
+          assert catalog['summary']['QUARANTINED_SOURCE_CONFLICT']==2,catalog['summary']
+          assert catalog['summary']['SOURCE_CORROBORATED_PASS']==0
+          assert result['summary']['SOURCE_CORROBORATED_MISMATCH']==1,result['summary']
+          assert result['summary']['SOURCE_CORROBORATED_PASS']==1
+          assert result['summary']['QUARANTINED_SOURCE_CONFLICT']==0
+          print('B17_SYNTHETIC_SCHEMA_CONFLICT_QUARANTINED_AND_RESULT_TYPE_MISMATCH_CORROBORATED')
+          PY
+      - name: Refuse tampered worktree, forged source blob and incorrect provider evidence
+        run: |
+          set -euo pipefail
+          SRC=examples/servers/structured_output_lowlevel.py
+          cp ".b17-upstream/$SRC" .b17-synthetic/original_python_source_backup.py
+          printf '\n# B17 synthetic tamper\n' >> ".b17-upstream/$SRC"
+          if python -m risu_p5d_cli verify-mcp-origin \
+            .b17-reacquired/.b17-original/original_stdio.jsonl \
+            --source-checkout .b17-upstream \
+            --source-manifest benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json \
+            --contract .b17-reacquired/.b17-original/contract.json \
+            --format json --out .b17-synthetic/MUST_NOT_EXIST.json; then
+              echo 'Tampered upstream source accepted' >&2
+              exit 3
+          fi
+          test ! -e .b17-synthetic/MUST_NOT_EXIST.json
+          git -C .b17-upstream checkout -- "$SRC"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          m=json.load(open('benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json'))
+          m['sources'][0]['git_blob_sha1']='0'*40
+          Path('.b17-synthetic/forged_source.json').write_text(json.dumps(m))
+          original=Path('.b17-reacquired/.b17-evidence/provider_tree_check.json')
+          p=json.loads(original.read_text())
+          p['remote_git_tree_blob_sha1']='0'*40
+          Path('.b17-synthetic/forged_provider_proof.json').write_text(json.dumps(p))
+          PY
+          if python -m risu_p5d_cli verify-mcp-origin \
+            .b17-reacquired/.b17-original/original_stdio.jsonl \
+            --source-checkout .b17-upstream \
+            --source-manifest .b17-synthetic/forged_source.json \
+            --contract .b17-reacquired/.b17-original/contract.json \
+            --format json --out .b17-synthetic/MUST_NOT_EXIST2.json; then
+              echo 'Forged source pin accepted' >&2
+              exit 3
+          fi
+          test ! -e .b17-synthetic/MUST_NOT_EXIST2.json
+          if python benchmarks/p6b17/audit_independent_gcp_origin.py \
+            --artifact .b17-reacquired --checkout .b17-upstream \
+            --provider-proof .b17-synthetic/forged_provider_proof.json \
+            --out .b17-cross/MUST_NOT_EXIST.json; then
+              echo 'Forged independently sourced GitHub tree accepted' >&2
+              exit 3
+          fi
+          test ! -e .b17-cross/MUST_NOT_EXIST.json
+          echo B17_ALL_FORGED_SOURCE_AND_REMOTE_PROOF_NEGATIVES_REJECTED
+      - name: Preserve independent upstream proof and all synthetic-only mutation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b17-independent-signed-origin-and-negatives
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b17-cross/INDEPENDENT_ORIGINAL_SOURCE_REPORT.json
+            .b17-cross/remote_signed_commit.json
+            .b17-synthetic/changed_catalog.jsonl
+            .b17-synthetic/changed_catalog.json
+            .b17-synthetic/changed_success_result.jsonl
+            .b17-synthetic/changed_success_result.json
+            benchmarks/p6b17/audit_independent_gcp_origin.py
+            benchmarks/p6b17/FROZEN_UPSTREAM_ORIGIN_COHORT.json
+            benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json
