@@ -1,0 +1,94 @@
+{
+  "schema": "risu-p6b18-executed-binary-predeclared-v1",
+  "created_date": "2026-11-12",
+  "classification": "SOURCE_INFORMED_EXTERNAL_EXAMPLE_AND_REPRODUCIBLE_BUILD_COHORT_NOT_BLIND_BUG_DISCOVERY",
+  "source": {
+    "repository": "modelcontextprotocol/go-sdk",
+    "revision": "328036ea2090c83f28c41a42ee4c9e5ec7393a4f",
+    "files": [
+      {
+        "path": "examples/server/toolschemas/main.go",
+        "blob": "0a2cfbd214798cd094fbe63162e78e7cc5bcab33"
+      },
+      {
+        "path": "go.mod",
+        "blob": "3287a95780c8160bdbb4554fb2f509ca369197a4"
+      },
+      {
+        "path": "go.sum",
+        "blob": "c13454aad50d66edfca523be20fd9c230ff100c7"
+      }
+    ]
+  },
+  "build": {
+    "toolchain": "go1.25.0",
+    "goos": "linux",
+    "goarch": "amd64",
+    "cgo_enabled": "0",
+    "module": "github.com/modelcontextprotocol/go-sdk",
+    "target": "./examples/server/toolschemas",
+    "flags": [
+      "-trimpath",
+      "-buildvcs=false",
+      "-mod=readonly",
+      "-ldflags=-buildid="
+    ],
+    "dependency_policy": "original go.sum and -mod=readonly; GitHub hosted runner obtains pinned public modules",
+    "binary_name": "mcp-toolschemas",
+    "separate_builder_jobs": 2,
+    "required_binary_byte_equivalence": true
+  },
+  "runtime": {
+    "backend": "linux-procfs-pid-exe-original-native-stdio",
+    "record_launch_file_digest": true,
+    "record_live_proc_exe_sha256_pre": true,
+    "record_live_proc_exe_sha256_post": true,
+    "record_parent_process_pid": true,
+    "record_subprocess_pid_and_cmdline": true,
+    "record_device_inode_pre_post": true,
+    "expected_original_calls": [
+      {
+        "tool": "simple greeting",
+        "arguments": {
+          "name": "RISU"
+        }
+      },
+      {
+        "tool": "manual greeting",
+        "arguments": {
+          "name": "B18"
+        }
+      },
+      {
+        "tool": "manual greeting",
+        "arguments": {
+          "name": "NAME_TOO_LONG_FOR_ORIGINAL_TOOL"
+        }
+      },
+      {
+        "tool": "unvalidated greeting",
+        "arguments": {
+          "user": "B18"
+        }
+      }
+    ],
+    "selected_count": 4,
+    "fixture_policy": "synthetic input only, original external binary no source patch, no production state, no server internet"
+  },
+  "signature": {
+    "attesting_repository": "risu-research/risu-probe",
+    "flow": ".github/workflows/p6b18-source-build-runtime.yml",
+    "provider": "GitHub Actions Sigstore keyless artifact attestation",
+    "limitation": "Signing identity is RISU qualification CI, NOT modelcontextprotocol publisher-signed binary. SLSA attestation proves builder workflow provenance to the extent its verified signer and subject digest are trusted, not a secure upstream release."
+  },
+  "independent_oracles": [
+    "Original GitHub repository remote tree and pinned blob IDs",
+    "Builder A and Builder B on isolated runners yield identical exact binary SHA256",
+    "Public GitHub workflow attestation signer identity+digest independently verified with gh attestation verify",
+    "Runtime procfs /proc/<pid>/exe digest while the original process executes exactly matches attested binary",
+    "Native JSON-RPC stdout transcript recorded and bound to live PID and binary hashes",
+    "Original tool response and catalog match selected four original calls",
+    "Tamper binary, forged source ref, wrong witness hash, wrong attestation subject and wrong process runtime digest all fail closed"
+  ],
+  "claim_policy": "Never call CLI-integrity or GitHub attestation result true cryptographic authentication of the upstream publisher deployment. Distinguish source-correlated, reproducible, CI-signed build, live runtime match, and external vendor attestation."
+}
