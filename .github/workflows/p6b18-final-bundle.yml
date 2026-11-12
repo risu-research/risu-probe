@@ -1,0 +1,143 @@
+name: RISU P6-B18 verified executed-source-to-runtime provenance handoff bundle
+on:
+  push:
+    branches: ['qualification/p6b18-*']
+    paths:
+      - 'docs/P6B18_EXECUTED_ORIGINAL_GO_BINARY_PROVENANCE.md'
+      - 'benchmarks/p6b18/HANDOFF_KO.md'
+      - '.github/workflows/p6b18-final-bundle.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  attestations: read
+jobs:
+  archive-signed-source-and-genuine-executed-binaries:
+    name: Independently recheck and package source, both executables, process witnesses and audits
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      attestations: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Retain both original independently built executable artifacts
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43304077747
+          github-token: ${{ github.token }}
+          name: risu-b18-original-independent-builder-A
+          path: .b18-handoff/builder-A
+      - name: Retain original second builder binary
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43304077747
+          github-token: ${{ github.token }}
+          name: risu-b18-original-independent-builder-B
+          path: .b18-handoff/builder-B
+      - name: Retain original signed first executed process and native wire
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43304077747
+          github-token: ${{ github.token }}
+          name: risu-b18-original-source-signed-build-live-process
+          path: .b18-handoff/firstpass
+      - name: Retain independent second real process and 16 synthetic negative cases
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43305633121
+          github-token: ${{ github.token }}
+          name: risu-b18-second-live-original-and-independent-audit
+          path: .b18-handoff/second-execution
+      - name: Independently reacquire publisher original Git source objects
+        run: |
+          set -euo pipefail
+          git init -q .b18-upstream
+          git -C .b18-upstream -c core.hooksPath=/dev/null remote add origin https://github.com/modelcontextprotocol/go-sdk.git
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b18-upstream -c core.hooksPath=/dev/null fetch -q --depth=1 --no-tags origin 328036ea2090c83f28c41a42ee4c9e5ec7393a4f
+          git -C .b18-upstream -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b18-upstream rev-parse HEAD)" = 328036ea2090c83f28c41a42ee4c9e5ec7393a4f
+      - name: Reverify original binary attestation's cryptographic signer and subject
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(git hash-object src/risu_mcp_runtime_origin.py)" = eba052165106bd85cb935ed505544ea33819054b
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+          test "$(git hash-object src/risu_mcp_authority.py)" = be24472b0fea8d8e7a252a7a36158cf8873128de
+          cmp .b18-handoff/builder-A/mcp-toolschemas .b18-handoff/builder-B/mcp-toolschemas
+          gh attestation verify .b18-handoff/builder-A/mcp-toolschemas \
+            --repo risu-research/risu-probe \
+            --signer-workflow risu-research/risu-probe/.github/workflows/p6b18-source-build-runtime.yml \
+            --format json > .b18-handoff/third_independent_sigstore_verification.json
+          echo B18_VERIFIED_ARCHIVE_SIGNER_AND_ORIGINAL_BINARY
+      - name: Re-run separate independent auditor without using RISU product code
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python benchmarks/p6b18/independent_source_runtime_audit.py \
+            --original .b18-handoff/firstpass \
+            --builder-a-binary .b18-handoff/builder-A/mcp-toolschemas \
+            --builder-b-binary .b18-handoff/builder-B/mcp-toolschemas \
+            --source .b18-upstream \
+            --signed-proof .b18-handoff/third_independent_sigstore_verification.json \
+            --replay .b18-handoff/second-execution/.b18-second-execution \
+            --out .b18-handoff/FINAL_INDEPENDENT_PUBLISHER_BUILD_RUNTIME_AUDIT.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('.b18-handoff')
+          a=json.loads((root/'FINAL_INDEPENDENT_PUBLISHER_BUILD_RUNTIME_AUDIT.json').read_text())
+          n=json.loads((root/'second-execution/.b18-audit/SYNTHETIC_NEGATIVE_16.json').read_text())
+          assert a['remote_provider_source_objects_checked']==3
+          assert a['actual_original_native_mcp_calls_checked']==4
+          assert a['second_independent_process_execution']['four_semantically_identical_original_response_objects']
+          assert a['actual_original_mcp_defects_found']==0
+          assert n['synthetic_mutations_rejected']==n['synthetic_mutation_denominator']==16
+          print('B18_FINAL_SOURCE_TWO_BUILDS_TWO_REAL_EXECUTIONS_16_NEGATIVES_AUDITED')
+          PY
+      - name: Preserve original complete source tree and independent SHA256 file ledger
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output=.b18-handoff/COMPLETE_B18_RESEARCH_SOURCE.zip HEAD
+          cp benchmarks/p6b18/HANDOFF_KO.md .b18-handoff/README_KO.md
+          cp docs/P6B18_EXECUTED_ORIGINAL_GO_BINARY_PROVENANCE.md .b18-handoff/TECHNICAL_AUDIT.md
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('.b18-handoff')
+          paths=sorted(p for p in root.rglob('*') if p.is_file() and not p.is_symlink())
+          ledger=[{'path':p.relative_to(root).as_posix(),
+                   'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+                   'bytes':p.stat().st_size} for p in paths]
+          obj={'schema':'risu-p6b18-executed-source-handoff-manifest-v1',
+               'initial_signed_builder_run':43304077747,
+               'independent_second_live_process_run':43305633121,
+               'full_regression_run':43304723059,
+               'frozen_b18_product_source_blob':'eba052165106bd85cb935ed505544ea33819054b',
+               'original_external_source_revision':'328036ea2090c83f28c41a42ee4c9e5ec7393a4f',
+               'original_executed_binary_sha256':'c11061e35013c28f273e92ed44ff8f76eb21f8d547a76c93c7b2840c8cc5ef8f',
+               'files':ledger}
+          (root/'B18_SHA256_MANIFEST.json').write_text(json.dumps(obj,indent=2,sort_keys=True)+chr(10))
+          print('B18_VERIFIED_BUNDLE_SHA256_FILES',len(ledger))
+          PY
+      - name: Upload original binary + source + two executions + complete independently audited evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b18-verified-original-source-build-runtime-handoff
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b18-handoff/
