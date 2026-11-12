@@ -279,6 +279,12 @@ def run(args):
     old="RISU B22 original longer synthetic text for genuine replacement\n"
     execute("sudo","-u",usernames["owner"],"-H",gateway_py,"-c",
         "import pathlib;pathlib.Path("+repr(str(t_replace))+").write_text("+repr(old)+")")
+    # The resource owner explicitly grants this separate executor
+    # OS-level *file* write permission, in addition to its Ed25519
+    # operation-specific consent. The earlier post-signature OS DAC
+    # refusal remains preserved as a negative evidence run.
+    execute("sudo","-u",usernames["owner"],"setfacl","-m",
+            "u:"+usernames["exec"]+":rw",t_replace)
     g_replace=grant("replace",f_replace,"REPLACE")
     gateway("allowed_replace",f_replace,g_replace,t_replace,True)
 
