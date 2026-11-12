@@ -118,7 +118,7 @@ def pinned_sources(root,manifest):
         # committed blob remains LF. Allow only that deterministic newline
         # conversion; never normalize other content or run Git filters.
         eol_normalized = object_bytes != raw
-        if eol_normalized and (b'\\r\\n' not in raw or raw.replace(b'\\r\\n',b'\\n')!=object_bytes):
+        if eol_normalized and (bytes([13,10]) not in raw or raw.replace(bytes([13,10]),bytes([10]))!=object_bytes):
             raise OriginError('WORKTREE_BYTES_DIVERGE_FROM_PINNED_GIT_BLOB')
         # Git blob SHA-1 is a VCS locator; separate SHA-256 avoids
         # treating collision-prone SHA-1 as the only content checksum.
