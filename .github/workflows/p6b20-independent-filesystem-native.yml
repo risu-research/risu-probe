@@ -1,0 +1,183 @@
+name: RISU P6-B20 new external non-Git original MCP file-effect holdout
+on:
+  push:
+    branches: ['qualification/p6b20-*']
+    paths:
+      - 'benchmarks/p6b20/FROZEN_GENERIC_EFFECT_EVALUATION.json'
+      - 'benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json'
+      - 'benchmarks/p6b20/capture_unseen_filesystem_original.py'
+      - '.github/workflows/p6b20-independent-filesystem-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-real-original-other-publisher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze B20 product and heldout effect/normal truth tables before executing upstream source
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          f=json.loads(Path('benchmarks/p6b20/FROZEN_GENERIC_EFFECT_EVALUATION.json').read_text())
+          p=json.loads(Path('benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json').read_text())
+          assert f['product']['git_blob_sha1']=='ab8191a3ca153ac079fcd07d128ddfcd7a06e99f'
+          assert f['independent']['git_commit']=='1aff1e094ed317ec2c5de06591978781d660c48a'
+          assert f['independent']['source_blob_sha1']=='f886fcbc6e61f3be8e6fd76b6e5f3ad1f8cbb7b6'
+          assert f['independent']['version']=='1.0.2'
+          assert p['tool']=='write_file'
+          assert p['classification']=='HELDOUT_NORMAL_CONTROL'
+          assert len(p['sensors'])==3 and len(p['cells'])==4
+          print('B20_HELDOUT_PLAN_FIXED_BEFORE_ORIGINAL_EXTERNAL_EXECUTION')
+          PY
+      - name: Obtain exact original public PyPI filesystem-mcp distribution and lock published wheel bytes
+        run: |
+          set -euo pipefail
+          python -m pip download --disable-pip-version-check --no-deps \
+            --only-binary=:all: -d .b20-package 'filesystem-mcp==1.0.2'
+          test "$(find .b20-package -maxdepth 1 -name 'filesystem_mcp-1.0.2-*.whl' | wc -l)" = 1
+          python - <<'PY'
+          import json,hashlib,zipfile
+          from pathlib import Path
+          wheels=list(Path('.b20-package').glob('*.whl'))
+          assert len(wheels)==1
+          raw=wheels[0].read_bytes()
+          with zipfile.ZipFile(wheels[0]) as z:
+            server=z.read('filesystem_mcp/server.py')
+          rec={'schema':'risu-b20-public-thirdparty-pypi-artifact-v1',
+               'package':'filesystem-mcp','version':'1.0.2',
+               'wheel_filename':wheels[0].name,
+               'wheel_sha256':hashlib.sha256(raw).hexdigest(),
+               'server_module_sha256':hashlib.sha256(server).hexdigest(),
+               'claim':'Original public PyPI distribution; publisher signing not asserted'}
+          Path('.b20-package/original_distribution.json').write_text(
+              json.dumps(rec,sort_keys=True,indent=2)+'\n')
+          print('B20_UNSEEN_PYPI_ORIGINAL_DISTRIBUTION_ACQUIRED',rec)
+          PY
+      - name: Independently compare original PyPI module byte-for-byte to frozen upstream Git object
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,base64,hashlib,os,urllib.request,zipfile
+          from pathlib import Path
+          commit='1aff1e094ed317ec2c5de06591978781d660c48a'
+          path='src/filesystem_mcp/server.py'
+          sha='f886fcbc6e61f3be8e6fd76b6e5f3ad1f8cbb7b6'
+          url='https://api.github.com/repos/kujirahand/mcp_server-filesystem/contents/'+path+'?ref='+commit
+          req=urllib.request.Request(url,headers={
+              'Authorization':'Bearer '+os.environ['GH_TOKEN'],
+              'Accept':'application/vnd.github+json',
+              'User-Agent':'risu-b20-unseen-origin-check'})
+          with urllib.request.urlopen(req,timeout=20) as f:doc=json.load(f)
+          assert doc['sha']==sha
+          original=base64.b64decode(doc['content'])
+          assert hashlib.sha1(b'blob '+str(len(original)).encode()+bytes([0])+original).hexdigest()==sha
+          wheel=next(Path('.b20-package').glob('*.whl'))
+          with zipfile.ZipFile(wheel) as z:published=z.read('filesystem_mcp/server.py')
+          assert original==published,'PyPI module and frozen upstream Git commit disagree'
+          rec={'schema':'risu-b20-fs-external-original-code-source-v1',
+              'publisher':'kujirahand/mcp_server-filesystem',
+              'pinned_commit':commit,'original_git_blob':sha,
+              'pypi_wheel_sha256':hashlib.sha256(wheel.read_bytes()).hexdigest(),
+              'source_code_sha256':hashlib.sha256(original).hexdigest(),
+              'publisher_origin_bytes_match_wheel':True,
+              'limitation':'PyPI SHA and source Git tree are corroborated; no GitHub publisher-signed release attestation is claimed.'}
+          Path('.b20-package/independent_upstream_source.json').write_text(
+              json.dumps(rec,sort_keys=True,indent=2)+'\n')
+          print('B20_HELDOUT_ORIGINAL_PUBLISHER_GIT_AND_PYPI_MODULE_BYTE_MATCH',sha)
+          PY
+      - name: Install untouched original package into isolated runtime and audit installed module
+        run: |
+          set -euo pipefail
+          python -m venv .b20-fs-venv
+          .b20-fs-venv/bin/python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+          .b20-fs-venv/bin/python -m pip install --disable-pip-version-check --no-deps .b20-package/*.whl
+          .b20-fs-venv/bin/python -m pip check
+          .b20-fs-venv/bin/python -I - <<'PY'
+          import pathlib,hashlib
+          import filesystem_mcp.server as s
+          from importlib import metadata
+          assert metadata.version('filesystem-mcp')=='1.0.2'
+          print('B20_ORIGINAL_INSTALLED_MODULE_SHA256',hashlib.sha256(pathlib.Path(s.__file__).read_bytes()).hexdigest())
+          PY
+          python - <<'PY'
+          import subprocess,json,hashlib
+          import pathlib
+          p=subprocess.run(['.b20-fs-venv/bin/python','-I','-c',
+              'import pathlib,filesystem_mcp.server as s; print(s.__file__)'],
+              stdout=subprocess.PIPE,check=True,text=True)
+          v=pathlib.Path(p.stdout.strip())
+          s=json.load(open('.b20-package/independent_upstream_source.json'))
+          assert v.resolve().is_relative_to(pathlib.Path('.b20-fs-venv').resolve())
+          assert hashlib.sha256(v.read_bytes()).hexdigest()==s['source_code_sha256']
+          print('B20_REAL_INSTALLED_ORIGINAL_SERVER_SHA_MATCH',s['source_code_sha256'])
+          PY
+      - name: Execute FOUR source-unmodified native MCP calls with independent typed file-state observers
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b20/capture_unseen_filesystem_original.py \
+            --python .b20-fs-venv/bin/python \
+            --freeze benchmarks/p6b20/FROZEN_GENERIC_EFFECT_EVALUATION.json \
+            --plan benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json \
+            --out .b20-fs-original
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          for case in ('before_trigger','before_control','after_trigger','after_control'):
+              r=json.load(open(Path('.b20-fs-original')/case/'original_native_process.json'))
+              assert r['status']=='CAPTURED_ORIGINAL_NATIVE',r
+              assert r['tool_success'] is True
+              assert r['expected_after_content_matches'] is True
+          print('B20_UNSEEN_PUBLISHER_FOUR_ORIGINAL_NATIVE_WRITES_COMPLETED')
+          PY
+      - name: Evaluate frozen generic engine unchanged on other organization's real original MCP source
+        run: |
+          set -euo pipefail
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          python -m pip install --disable-pip-version-check .
+          python -m risu_p5d_cli verify-mcp-effects \
+            --plan benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json \
+            --evidence-root .b20-fs-original \
+            --format json --out .b20-fs-original/GENERIC_EXTERNAL_FIRSTPASS.json \
+            --fail-on-mismatch
+          python - <<'PY'
+          import json
+          r=json.load(open('.b20-fs-original/GENERIC_EXTERNAL_FIRSTPASS.json'))
+          assert r['status']=='EFFECT_PATTERNS_OBSERVED',r
+          assert r['cohort_classification']=='HELDOUT_NORMAL_CONTROL'
+          assert r['summary']['independently_source_bound_sensors']==3
+          assert r['summary']['matched_predeclared_effect_patterns']==3
+          assert r['summary']['all_predeclared_patterns_met'] is True
+          assert r['summary']['tool_response_only_observability_gap'] is False
+          assert r['summary']['new_upstream_defects_claimed']==0
+          print('B20_HELDOUT_NON_GIT_THREE_SENSOR_REAL_MCP_PASS',r['summary'])
+          PY
+      - name: Upload all unchanged original external stdout, source, independent effects, heldout verdict
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b20-original-unseen-filesystem-source-typed-effect-firstpass
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b20-package/
+            .b20-fs-original/
+            benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json
+            benchmarks/p6b20/FROZEN_GENERIC_EFFECT_EVALUATION.json
