@@ -102,3 +102,27 @@ the source server's original tool description, and was correctly
 separated from confirmed upstream bugs. The B14 original replay detects
 two existing development-set discrepancies. See the
 [B15 reproduction, independent audit and evidence boundaries](docs/P6B15_FROZEN_OBSERVATION_AND_EXTERNAL_AUDIT.md).
+
+## P6-B16 · Catalog-bound authority qualification
+
+`qualify-mcp-observations` is a separate, optional offline authority gate
+for the B15 `check-mcp-observations` records. It ties exact calls to a **complete,
+contemporaneous, in-band `tools/list` catalog**, respects list-change
+notifications and paginated catalogs, and distinguishes structured-output
+obligations from untrusted behavioral hints.
+
+```sh
+risu-probe qualify-mcp-observations local-mcp.jsonl \\
+  --contract observation_contract.json \\
+  --witness state_witness.json \\
+  --format json --out qualified-report.json
+```
+
+A captured `outputSchema` can qualify a narrow `structuredContent` field
+assertion; `readOnlyHint` is **advisory only**. A mismatching caller contract
+with no applicable authoritative catalog declaration is **quarantined** and
+not claimed as a product or upstream defect. Original evidence and source
+identity remain user-supplied and unauthenticated. The new-source tests used
+2 independent public publishers (7 real stdio calls), plus three separately
+labeled synthetic error injections. See the
+[B16 source-audited research record](docs/P6B16_CATALOG_BOUND_AUTHORITY_RESEARCH.md).
