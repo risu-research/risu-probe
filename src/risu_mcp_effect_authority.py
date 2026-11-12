@@ -129,6 +129,7 @@ def check_roots(path,expected_sha):
 
 
 def verify(plan, evidence, manifest, roots_file, expected_root_hash):
+    evidence=Path(evidence).resolve(strict=True)
     prior=judge(evidence,plan)
     demand(prior["summary"]["all_predeclared_patterns_met"],
            "UNDERLYING_GENERIC_EFFECT_PATTERN_NOT_QUALIFIED")
