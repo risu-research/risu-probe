@@ -1,0 +1,72 @@
+name: RISU P6-B13 audit original native evidence and postfreeze parser recheck
+on:
+  push:
+    branches: ['qualification/p6b13-*']
+    paths:
+      - '.github/workflows/p6b13-postfreeze-audit.yml'
+      - 'benchmarks/p6b13/audit_postfreeze.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-exact-original-firstpass:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Retrieve original untouched filesystem server evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43276733731
+          github-token: ${{ github.token }}
+          name: risu-b13-frozen-original-FS2
+          path: .b13-evidence/FS2
+      - name: Retrieve original untouched Go SQLite server evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43276733731
+          github-token: ${{ github.token }}
+          name: risu-b13-frozen-original-SQL2
+          path: .b13-evidence/SQL2
+      - name: Verify read-only auditor, original frozen analyzer and first-pass scores
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+          python benchmarks/p6b13/audit_postfreeze.py \
+            --record FS2=.b13-evidence/FS2 \
+            --record SQL2=.b13-evidence/SQL2 \
+            --out .b13-audit/verified_originals.json
+          python - <<'PY'
+          import json
+          x=json.load(open('.b13-audit/verified_originals.json'))['summary']
+          assert x['independent_publishers']==2
+          assert x['preselected_tool_calls']==13
+          assert x['firstpass_pass']==10 and x['firstpass_unverified']==1
+          assert x['postfreeze_pass']==11 and x['postfreeze_unverified']==0
+          assert x['candidate_mismatches']==0
+          assert x['confirmed_newly_discovered_bugs']==0
+          print('B13_FROZEN_ORIGINAL_NATIVE_EVIDENCE_INDEPENDENT_AUDIT_COMPLETE')
+          PY
+      - name: Preserve separate postfreeze audit without replacing original artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b13-separate-postfreeze-cross-evidence-audit
+          if-no-files-found: warn
+          retention-days: 21
+          path: .b13-audit/verified_originals.json
