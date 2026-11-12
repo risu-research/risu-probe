@@ -1,0 +1,59 @@
+name: RISU P6-B16 complete installed-wheel regression across Linux Windows macOS
+on:
+  push:
+    branches: ['qualification/p6b16-*']
+    paths:
+      - 'src/risu_mcp_authority.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b16_catalog_authority.py'
+      - '.github/workflows/p6b16-full-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  complete-previous-product-and-new-tests:
+    name: B16 full preserved source regression ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check original B15 product and B16 source frozen hashes
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_authority.py)" = be24472b0fea8d8e7a252a7a36158cf8873128de
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+      - name: Rebuild native wheel and execute all historical and B16 tests
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b16-wheel-output
+          python -m pip wheel --no-deps -w .b16-wheel-output .
+          python -m venv .b16-verification
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b16-verification/Scripts/python.exe
+            CLI=.b16-verification/Scripts/risu-probe.exe
+          else
+            PY=.b16-verification/bin/python
+            CLI=.b16-verification/bin/risu-probe
+          fi
+          "$PY" -m pip install .b16-wheel-output/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli qualify-mcp-observations --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B16_FULL_PRIOR_AND_AUTHORITY_TESTS_PASS
