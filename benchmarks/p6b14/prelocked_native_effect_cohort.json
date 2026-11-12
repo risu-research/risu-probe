@@ -1,0 +1,160 @@
+{
+  "schema": "risu-p6b14-preregistered-native-effect-20261112-v1",
+  "cohort_selection": "Two separate project owners, distinct from B13. Selected after reading public documentation and some upstream implementation; this is a source-informed prospective test, not an untouched blind test.",
+  "selection_date": "2026-11-12",
+  "parent_commit": "fcec520cffc35606d64cf7ed8a07d1d2ec6722ad",
+  "frozen_analyzer_blobs": {
+    "src/risu_mcp_trace.py": "9f017ca0344d94cf54bd0229ddb14d4f586101c8",
+    "src/risu_display_fidelity.py": "6785b2ed912d3e9a41dda956da537dc2e5f4f8e3"
+  },
+  "claim_standard": "An unexpected or documented-read-only mutation is a candidate only until actual DB state verifies it, a same-session positive mutation control passes, and upstream intent and issues are checked. MCP readOnlyHint alone is not an enforceable guarantee. An explicit user-supplied contract is needed for a RISU effect verdict.",
+  "execution": "Native original stdio executables; only locally generated synthetic SQLite fixture. No network after dependency installation, no production databases or writes beyond disposable CI workspace.",
+  "cohort": [
+    {
+      "id": "SP",
+      "repo": "spences10/mcp-sqlite-tools",
+      "sha": "a6a6f196b315b11e17929aeeb274821f5a0e6ed0",
+      "owner": "spences10",
+      "runtime": "Node.js 24.12+, pnpm 12.18.0",
+      "launch": "node dist/index.js",
+      "source_aware": true,
+      "probe": [
+        {
+          "id": "sp_open",
+          "name": "open_database",
+          "args": {
+            "path": "${DB}",
+            "create": false
+          }
+        },
+        {
+          "id": "sp_page0",
+          "name": "execute_read_query",
+          "args": {
+            "query": "SELECT id,label FROM records ORDER BY id",
+            "limit": 2,
+            "offset": 0,
+            "verbosity": "detailed"
+          }
+        },
+        {
+          "id": "sp_page2",
+          "name": "execute_read_query",
+          "args": {
+            "query": "SELECT id,label FROM records ORDER BY id",
+            "limit": 2,
+            "offset": 2,
+            "verbosity": "detailed"
+          }
+        },
+        {
+          "id": "sp_bound",
+          "name": "execute_read_query",
+          "args": {
+            "query": "SELECT id,label FROM records WHERE label = :label",
+            "params": {
+              "label": "RISU_B14_Ω"
+            },
+            "limit": 2,
+            "offset": 0,
+            "verbosity": "detailed"
+          }
+        },
+        {
+          "id": "sp_guard",
+          "name": "execute_read_query",
+          "args": {
+            "query": "DELETE FROM records WHERE id=1 RETURNING id",
+            "limit": 2,
+            "offset": 0,
+            "verbosity": "detailed"
+          }
+        },
+        {
+          "id": "sp_after",
+          "name": "execute_read_query",
+          "args": {
+            "query": "SELECT id,label FROM records WHERE id=1",
+            "limit": 2,
+            "offset": 0,
+            "verbosity": "detailed"
+          }
+        }
+      ],
+      "oracles": [
+        "read_tool_protects_db",
+        "sql_limit_and_offset_match_native_sqlite",
+        "unicode_bound_parameter_roundtrips",
+        "independent_snapshot_after_guard"
+      ]
+    },
+    {
+      "id": "ME",
+      "repo": "mekanixms/sqlite-mcp-server",
+      "sha": "05191e95d1ca74f7c26312ae071f5fab42c19601",
+      "owner": "mekanixms",
+      "runtime": "Python 3.11 MCP SDK 2.3.0 and pandas",
+      "launch": "python server.py with DB_PATH synthetic env",
+      "source_aware": true,
+      "probe": [
+        {
+          "id": "me_before",
+          "name": "query",
+          "args": {
+            "sql": "SELECT id,label FROM records WHERE id=1"
+          }
+        },
+        {
+          "id": "me_guard",
+          "name": "query",
+          "args": {
+            "sql": "UPDATE records SET label='RISU_B14_WRONG_PATH' WHERE id=1"
+          }
+        },
+        {
+          "id": "me_after",
+          "name": "query",
+          "args": {
+            "sql": "SELECT id,label FROM records WHERE id=1"
+          }
+        },
+        {
+          "id": "me_positive",
+          "name": "update_data",
+          "args": {
+            "table": "records",
+            "sql": "UPDATE records SET label='RISU_B14_POSITIVE' WHERE id=2"
+          }
+        },
+        {
+          "id": "me_confirmation",
+          "name": "query",
+          "args": {
+            "sql": "SELECT id,label FROM records WHERE id=2"
+          }
+        },
+        {
+          "id": "me_analysis",
+          "name": "analyze_table",
+          "args": {
+            "table": "records",
+            "analysis_type": "basic"
+          }
+        }
+      ],
+      "oracles": [
+        "documented_read_only_tool_does_not_mutate",
+        "write_control_changes_separate_row",
+        "persisted_sqlite_state_independent_of_mcp_text",
+        "valid_query_works_after_anomaly"
+      ]
+    }
+  ],
+  "denominator": {
+    "selected_native_upstreams": 2,
+    "distinct_owners": 2,
+    "predeclared_calls": 12,
+    "source_inspected_before_tests": 2
+  },
+  "precommit_decision": "Freeze the selected commits, cases and assertions before running. Do not remove failing cases. Preserve original stdio and first-pass scores separately from postfreeze root-cause investigation."
+}
