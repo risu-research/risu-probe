@@ -1,0 +1,41 @@
+name: Archived ConditionEffect v0.7 Reproduction
+on:
+  push:
+    branches: [research/conditioneffect-v07-archive]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  offline-archive-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify and restore exact frozen archive
+        run: |
+          cd research/experimental/conditioneffect-v07
+          python3 restore_archive.py
+      - name: Reproduce bounded AST, independent check and mutation tests
+        run: |
+          cd research/experimental/conditioneffect-v07/restored/PLDI_2027_ConditionEffect_v07
+          bash run_all.sh
+      - name: Confirm archived research status
+        run: |
+          cd research/experimental/conditioneffect-v07/restored/PLDI_2027_ConditionEffect_v07
+          python3 - <<'PY'
+          import json
+          d=json.load(open("results/summary.json"))
+          assert d["novelty_assessed"]=="INSUFFICIENT_FOR_PLDI_CORE_CONTRIBUTION"
+          assert d["mutations"]["count"]==20
+          assert d["mutations"]["overconfident_positive"]==0
+          print("ARCHIVE_REPLAY_CONFIRMED",d["schema"])
+          PY
