@@ -1,0 +1,77 @@
+name: RISU P6-B14 independent postfreeze native analysis controls
+on:
+  push:
+    branches: ['qualification/p6b14-*']
+    paths:
+      - 'benchmarks/p6b14/postfreeze_analyze_table_controls.py'
+      - '.github/workflows/p6b14-postfreeze-analysis-controls.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-real-server-reproduction:
+    name: B14 analysis native Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12']
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Verify source pin and select predeclared original bug candidate
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python - <<'PY'
+          import json
+          m=json.load(open('benchmarks/p6b14/prelocked_native_effect_cohort.json'))
+          assert m['cohort'][1]['sha']=='05191e95d1ca74f7c26312ae071f5fab42c19601'
+          assert m['cohort'][1]['repo']=='mekanixms/sqlite-mcp-server'
+          PY
+          git init -q .b14-analysis-source
+          git -C .b14-analysis-source -c core.hooksPath=/dev/null remote add origin https://github.com/mekanixms/sqlite-mcp-server.git
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b14-analysis-source -c core.hooksPath=/dev/null fetch -q --depth=1 --no-tags origin 05191e95d1ca74f7c26312ae071f5fab42c19601
+          git -C .b14-analysis-source -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b14-analysis-source rev-parse HEAD)" = 05191e95d1ca74f7c26312ae071f5fab42c19601
+      - name: Install pinned original MCP v1 runtime and statistics dependency
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'mcp==1.30.0' 'pandas==2.2.3' 'python-dotenv==1.0.1'
+          python -m pip check
+      - name: Reproduce genuine upstream analyze_table on controlled text, integer and real fixtures
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b14/postfreeze_analyze_table_controls.py             --executable "$(command -v python)" --source .b14-analysis-source             --out .b14-analysis-results
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          folder=Path('.b14-analysis-results')
+          v=json.loads((folder/'analysis_controls.json').read_text())
+          raw=(folder/'original_stdio.jsonl').read_bytes()
+          assert hashlib.sha256(raw).hexdigest()==v['original_stdio_sha256']
+          assert v['runtime_confirmed'],v['checks']
+          assert v['native_original_stdio'] and not v['novel_upstream_issue_claimed']
+          print('B14_ORIGINAL_MCP_ANALYZE_TABLE_INDEPENDENT_CONTROLLED_REPRODUCTION_PASS')
+          PY
+      - name: Preserve native stdout, all controls and failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b14-analysis-controls-python-${{ matrix.python }}
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b14-analysis-results/original_stdio.jsonl
+            .b14-analysis-results/analysis_controls.json
+            benchmarks/p6b14/postfreeze_analyze_table_controls.py
