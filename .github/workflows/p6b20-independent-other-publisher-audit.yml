@@ -1,0 +1,170 @@
+name: RISU P6-B20 independent other-publisher original MCP rerun and bytes-first effect audit
+on:
+  push:
+    branches: ['qualification/p6b20-*']
+    paths:
+      - 'benchmarks/p6b20/independent_non_git_effect_audit.py'
+      - '.github/workflows/p6b20-independent-other-publisher-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reread-sources-and-reexecute-original:
+    name: B20 independent non-Git auditor and second source-native four-call evaluation
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Acquire first original independent PyPI and native process raw evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43322280437
+          github-token: ${{ github.token }}
+          name: risu-b20-original-unseen-filesystem-source-typed-effect-firstpass
+          path: .b20-original
+      - name: Verify frozen B20 product, source Git object, and publish artifact again without modifying target
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          mkdir -p .b20-audit
+          python - <<'PY'
+          import json,hashlib,zipfile,urllib.request,base64,os
+          from pathlib import Path
+          pkg=Path('.b20-original/.b20-package')
+          info=json.loads((pkg/'original_distribution.json').read_text())
+          source=json.loads((pkg/'independent_upstream_source.json').read_text())
+          assert info['wheel_sha256']=='94610f0b73df1d3ada4ef0353353eb93695645c7b82f71ca80ed13dc1022c235'
+          assert source['pinned_commit']=='1aff1e094ed317ec2c5de06591978781d660c48a'
+          wheel=pkg/info['wheel_filename']
+          assert hashlib.sha256(wheel.read_bytes()).hexdigest()==info['wheel_sha256']
+          url='https://api.github.com/repos/kujirahand/mcp_server-filesystem/contents/src/filesystem_mcp/server.py?ref='+source['pinned_commit']
+          req=urllib.request.Request(url,headers={'User-Agent':'RISU-B20-independent-upstream-check',
+              'Authorization':'Bearer '+os.environ['GH_TOKEN']})
+          with urllib.request.urlopen(req,timeout=25) as r:original=json.load(r)
+          raw=base64.b64decode(original['content'])
+          assert original['sha']==source['original_git_blob']
+          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+bytes([0])+raw).hexdigest()==original['sha']
+          with zipfile.ZipFile(wheel) as z:published=z.read('filesystem_mcp/server.py')
+          assert raw==published
+          print('B20_INDEPENDENT_PYPI_AND_GITHUB_ORIGINAL_BYTES_REVERIFIED',original['sha'])
+          PY
+      - name: Independently audit real original native calls and physical file bytes without product imports
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b20/independent_non_git_effect_audit.py \
+            --evidence .b20-original/.b20-fs-original \
+            --package .b20-original/.b20-package \
+            --out .b20-audit/FIRST_ORIGINAL_INDEPENDENT_AUDIT.json
+          python - <<'PY'
+          import json
+          r=json.load(open('.b20-audit/FIRST_ORIGINAL_INDEPENDENT_AUDIT.json'))
+          assert r['actual_native_mcp_calls_independently_audited']==4
+          assert r['original_independent_file_snapshots_audited']==8
+          assert r['new_upstream_defects_confirmed']==0
+          for pattern in r['three_effect_sensor_transition_patterns'].values():
+              assert pattern==[True,False,True,False],pattern
+          print('B20_FIRST_EXTERNAL_NON_GIT_RAW_PAYLOAD_BYTES_VERIFIED')
+          PY
+      - name: Independently reinstall same original upstream package and reproduce four real original native calls
+        run: |
+          set -euo pipefail
+          python -m venv .b20-retest-venv
+          .b20-retest-venv/bin/python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+          .b20-retest-venv/bin/python -m pip install --disable-pip-version-check --no-deps \
+            .b20-original/.b20-package/*.whl
+          .b20-retest-venv/bin/python -m pip check
+          python -m pip install --disable-pip-version-check .
+          python benchmarks/p6b20/capture_unseen_filesystem_original.py \
+            --python .b20-retest-venv/bin/python \
+            --freeze benchmarks/p6b20/FROZEN_GENERIC_EFFECT_EVALUATION.json \
+            --plan benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json \
+            --out .b20-second-original
+          python benchmarks/p6b20/independent_non_git_effect_audit.py \
+            --evidence .b20-second-original \
+            --package .b20-original/.b20-package \
+            --out .b20-audit/SECOND_ORIGINAL_INDEPENDENT_AUDIT.json
+      - name: Reapply untouched frozen generic product, compare both external original executions
+        run: |
+          set -euo pipefail
+          python -m risu_p5d_cli verify-mcp-effects \
+            --plan benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json \
+            --evidence-root .b20-second-original \
+            --format json --out .b20-audit/SECOND_GENERIC_FROZEN_PRODUCT.json \
+            --fail-on-mismatch
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          first=json.loads(Path('.b20-original/.b20-fs-original/GENERIC_EXTERNAL_FIRSTPASS.json').read_text())
+          second=json.loads(Path('.b20-audit/SECOND_GENERIC_FROZEN_PRODUCT.json').read_text())
+          a=json.loads(Path('.b20-audit/FIRST_ORIGINAL_INDEPENDENT_AUDIT.json').read_text())
+          b=json.loads(Path('.b20-audit/SECOND_ORIGINAL_INDEPENDENT_AUDIT.json').read_text())
+          assert first['summary']['matched_predeclared_effect_patterns']==3
+          assert second['summary']['matched_predeclared_effect_patterns']==3
+          assert first['summary']['all_predeclared_patterns_met'] is True
+          assert second['summary']['all_predeclared_patterns_met'] is True
+          assert first['summary']['new_upstream_defects_claimed']==0
+          assert second['summary']['new_upstream_defects_claimed']==0
+          assert a['three_effect_sensor_transition_patterns']==b['three_effect_sensor_transition_patterns']
+          print('B20_TWO_INDEPENDENT_REAL_OTHER_PUBLISHER_FILE_EFFECT_RUNS_PASSED')
+          PY
+      - name: Independently reject counterfeit actual file payload and source witness evidence
+        run: |
+          set -euo pipefail
+          cp -r .b20-original/.b20-fs-original .b20-synthetic-tamper
+          printf 'synthetic-mutant' >> .b20-synthetic-tamper/before_trigger/observed_after_payload.bin
+          if python benchmarks/p6b20/independent_non_git_effect_audit.py \
+            --evidence .b20-synthetic-tamper \
+            --package .b20-original/.b20-package \
+            --out .b20-audit/MUST_NOT_EXIST.json; then
+            echo 'Original file-byte tampering incorrectly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b20-audit/MUST_NOT_EXIST.json
+          rm -rf .b20-synthetic-tamper
+          cp -r .b20-original/.b20-fs-original .b20-synthetic-tamper
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('.b20-synthetic-tamper/before_trigger/original_file_observer.json')
+          x=json.loads(p.read_text())
+          x['after_exists']=False
+          p.write_text(json.dumps(x))
+          PY
+          if python benchmarks/p6b20/independent_non_git_effect_audit.py \
+            --evidence .b20-synthetic-tamper \
+            --package .b20-original/.b20-package \
+            --out .b20-audit/MUST_NOT_EXIST2.json; then
+            echo 'Original observer mutation incorrectly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b20-audit/MUST_NOT_EXIST2.json
+          echo B20_INDEPENDENT_ORIGINAL_PAYLOAD_AND_WITNESS_TAMPER_FAIL_CLOSED
+      - name: Preserve real second external native source, product output and independent audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b20-independent-other-publisher-real-original-reexecution
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b20-audit/
+            .b20-second-original/
+            benchmarks/p6b20/independent_non_git_effect_audit.py
