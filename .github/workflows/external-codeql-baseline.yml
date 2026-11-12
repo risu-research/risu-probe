@@ -1,0 +1,50 @@
+name: External Code Analysis Baseline
+on:
+  push:
+    branches: [ci/external-codeql-baseline-v1]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  codeql-go-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout frozen public upstream fixture
+        uses: actions/checkout@v4
+        with:
+          repository: github/github-mcp-server
+          ref: v2.1.0
+          persist-credentials: false
+      - name: Initialize standard CodeQL baseline
+        uses: github/codeql-action/init@v4
+        with:
+          languages: go
+          build-mode: none
+          queries: security-extended
+      - name: Run static analysis without publishing alerts
+        uses: github/codeql-action/analyze@v4
+        with:
+          upload: false
+          output: codeql-results
+      - name: Count baseline findings
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json,glob
+          for f in glob.glob('codeql-results/**/*.sarif',recursive=True):
+              j=json.load(open(f))
+              print('SARIF:', f)
+              for run in j.get('runs',[]):
+                  results=run.get('results',[])
+                  print('all_alerts=',len(results))
+                  print('file_update_related_alerts=',sum('repos_contents.go' in json.dumps(t) or 'repositories.go' in json.dumps(t) for t in results))
+                  print('ruleids=',sorted({r.get('ruleId','') for r in results})[:100])
+          PY
+      - name: Upload reviewable baseline
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-codeql-standard-baseline
+          path: codeql-results
+          if-no-files-found: warn
