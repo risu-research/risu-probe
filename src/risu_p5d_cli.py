@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='verify-mcp-effect-authority':
+        from risu_mcp_effect_authority import cli
+        return cli(args[1:])
     if args and args[0]=='verify-mcp-effects':
         from risu_mcp_effects import cli
         return cli(args[1:])
