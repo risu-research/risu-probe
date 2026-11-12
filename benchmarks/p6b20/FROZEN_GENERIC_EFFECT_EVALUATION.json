@@ -1,0 +1,78 @@
+{
+  "schema": "risu-b20-general-effect-evaluation-freeze-v1",
+  "date": "2026-11-12",
+  "product": {
+    "git_blob_sha1": "ab8191a3ca153ac079fcd07d128ddfcd7a06e99f",
+    "path": "src/risu_mcp_effects.py",
+    "normalization": "generic JSON signal extraction, no Git-specific operators",
+    "algorithm": "2x2 pair each cell one contemporaneous native tools/list + one successful tools/call; bind call response to original effect witness by raw SHA and typed original-record JSON pointers; determine state-change boolean independently of kind; compare locked effect pattern and control, result hash equivalence as separate observational property"
+  },
+  "dev": {
+    "origin": "B19 official modelcontextprotocol PyPI publisher signed wheel",
+    "source_run": 43316866530,
+    "independent_original_replay": 43317961883,
+    "advisor": "GHSA-6hqx-gqrx-c5r2",
+    "exact_input": "locked B19 4 original raw stdio traces and marker external witness",
+    "classification": "DEVELOPMENT_POSITIVE_CONTROL",
+    "counted_as_new_defect": false,
+    "rule": "suppressed-in-after-with-controls-stable, kind boolean"
+  },
+  "independent": {
+    "cohort_id": "FS-INDEPENDENT-OWNER-WRITE-CONTENT-20261112",
+    "repo": "kujirahand/mcp_server-filesystem",
+    "git_commit": "1aff1e094ed317ec2c5de06591978781d660c48a",
+    "source_file": "src/filesystem_mcp/server.py",
+    "source_blob_sha1": "f886fcbc6e61f3be8e6fd76b6e5f3ad1f8cbb7b6",
+    "package": "filesystem-mcp",
+    "version": "1.0.2",
+    "runtime": "Python 3.11 mcp==2.3.0, original PyPI distribution CLI python -I -m filesystem_mcp, temporary local allowed directory only",
+    "tool": "write_file",
+    "classification": "HELDOUT_NORMAL_CONTROL",
+    "cohort_selection": "source-informed selection of unrelated real publisher and new tool semantics, not blind defect discovery",
+    "design": {
+      "labels": "before / after are INDEPENDENT REPEATS OF THE SAME 1.0.2 DISTRIBUTION, not a historical bug-fix pair",
+      "cells": {
+        "before_trigger": {
+          "file_preexists": false,
+          "write_content": "RISU B20 safe synthetic write\\n",
+          "expect_changed": true
+        },
+        "before_control": {
+          "file_preexists": true,
+          "write_content": "RISU B20 safe synthetic write\\n",
+          "expect_changed": false
+        },
+        "after_trigger": {
+          "file_preexists": false,
+          "write_content": "RISU B20 safe synthetic write\\n",
+          "expect_changed": true
+        },
+        "after_control": {
+          "file_preexists": true,
+          "write_content": "RISU B20 safe synthetic write\\n",
+          "expect_changed": false
+        }
+      },
+      "evidence_types": [
+        "boolean file exists",
+        "digest sha256 file contents",
+        "counter byte count"
+      ],
+      "expected_pattern": "preserved-in-both-trigger-cases",
+      "original_native_calls": 4,
+      "expected_outcome": "exact 2x2 content-change truth table with normal tool responses; no hidden security defect claim; MCP result comparison not required"
+    }
+  },
+  "risk_controls": [
+    "All paths relative to a newly created ephemeral root; server allowed directory is fixture only",
+    "No access to user files, secrets, accounts, private servers or network operations by the tool",
+    "Install original version separately; compare module to upstream Git blob before first tool call",
+    "No Git source in the generic verifier and no source or target changes",
+    "Missing independent observer, run mismatch, changed actual trace, tool errors are not a passing effect verdict",
+    "Historical B19 positive cannot be counted as independent defect discovery",
+    "Execution status and effect obligations separate: not all changed effects are unauthorized",
+    "No hardcoded Git key or file path in frozen product core",
+    "No regression to product in response to held-out result; audit harness separately"
+  ],
+  "boundary": "One new external source with normal file write invariants tests transfer of evidence architecture and sensor types. It does not estimate unknown bug detection recall or establish a new upstream security defect."
+}
