@@ -1,0 +1,302 @@
+name: RISU P6-B18 source-to-attested-binary-to-executed-MCP-process
+on:
+  push:
+    branches: ['qualification/p6b18-*']
+    paths:
+      - 'src/risu_mcp_runtime_origin.py'
+      - 'benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json'
+      - 'benchmarks/p6b18/SOURCE_GIT_OBJECT_MANIFEST.json'
+      - 'benchmarks/p6b18/capture_actual_go_process.py'
+      - '.github/workflows/p6b18-source-build-runtime.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independently-build:
+    name: Build source-original Go SDK with isolated runner ${{ matrix.builder }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        builder: [A, B]
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.0'
+          check-latest: false
+          cache: false
+      - name: Lock RISU frozen product and source-denominator integrity
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+          python - <<'PY'
+          import json
+          x=json.load(open('benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json'))
+          assert x['schema']=='risu-p6b18-executed-binary-predeclared-v1'
+          assert x['source']['revision']=='328036ea2090c83f28c41a42ee4c9e5ec7393a4f'
+          assert x['build']['toolchain']=='go1.25.0'
+          assert x['runtime']['selected_count']==4
+          print('B18_FIXED_SOURCE_AND_FOUR_ORIGINAL_TOOL_CALLS')
+          PY
+      - name: Checkout exactly original external upstream Go SDK commit
+        run: |
+          set -euo pipefail
+          git init -q .b18-upstream
+          git -C .b18-upstream -c core.hooksPath=/dev/null remote add origin https://github.com/modelcontextprotocol/go-sdk.git
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b18-upstream -c core.hooksPath=/dev/null fetch -q --depth=1 --no-tags origin 328036ea2090c83f28c41a42ee4c9e5ec7393a4f
+          git -C .b18-upstream -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b18-upstream rev-parse HEAD)" = 328036ea2090c83f28c41a42ee4c9e5ec7393a4f
+          test "$(git -C .b18-upstream rev-parse HEAD:examples/server/toolschemas/main.go)" = 0a2cfbd214798cd094fbe63162e78e7cc5bcab33
+          test "$(git -C .b18-upstream rev-parse HEAD:go.mod)" = 3287a95780c8160bdbb4554fb2f509ca369197a4
+          test "$(git -C .b18-upstream rev-parse HEAD:go.sum)" = c13454aad50d66edfca523be20fd9c230ff100c7
+      - name: Build byte-reproducible original standalone Go MCP binary without patches
+        env:
+          GOTOOLCHAIN: local
+          CGO_ENABLED: '0'
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          set -euo pipefail
+          mkdir -p .b18-build
+          test "$(go version)" = "go version go1.25.0 linux/amd64"
+          cd .b18-upstream
+          go build -trimpath -buildvcs=false -mod=readonly '-ldflags=-buildid=' \
+            -o ../.b18-build/mcp-toolschemas ./examples/server/toolschemas
+          cd ..
+          test -s .b18-build/mcp-toolschemas
+          go version -m .b18-build/mcp-toolschemas | tee .b18-build/go-build-info.txt
+          python - <<'PY'
+          import json,hashlib,os,subprocess
+          from pathlib import Path
+          frozen=json.load(open('benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json'))
+          path=Path('.b18-build/mcp-toolschemas')
+          binary=path.read_bytes()
+          source=frozen['source']; build=frozen['build']
+          record={
+            'schema':'risu-b18-builder-evidence-v1',
+            'builder':os.environ['BUILDER_ID'],
+            'github_run_id':int(os.environ['GITHUB_RUN_ID']),
+            'github_job':os.environ['GITHUB_JOB']+'-'+os.environ['BUILDER_ID'],
+            'source_revision':source['revision'],
+            'source_repository':source['repository'],
+            'source_blobs':{v['path']:v['blob'] for v in source['files']},
+            'go_version':subprocess.check_output(['go','version'],text=True).strip(),
+            'goos':build['goos'],'goarch':build['goarch'],
+            'cgo_enabled':build['cgo_enabled'],
+            'target':build['target'],'flags':build['flags'],
+            'binary_sha256':hashlib.sha256(binary).hexdigest(),
+            'binary_bytes':len(binary),
+            'go_build_info_sha256':hashlib.sha256(Path('.b18-build/go-build-info.txt').read_bytes()).hexdigest(),
+            'original_upstream_executed_at_build':False,
+            'attestation_request':os.environ['BUILDER_ID']=='A'
+          }
+          Path('.b18-build/builder.json').write_text(json.dumps(record,sort_keys=True,indent=2)+chr(10))
+          print('B18_INDEPENDENT_ORIGINAL_BINARY_BUILD',record['builder'],record['binary_sha256'])
+          PY
+        env:
+          BUILDER_ID: ${{ matrix.builder }}
+      - name: Generate Sigstore-backed GitHub Actions builder provenance for actual binary
+        if: matrix.builder == 'A'
+        uses: actions/attest@v4
+        with:
+          subject-path: .b18-build/mcp-toolschemas
+      - name: Archive original build and independent source-to-artifact digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b18-original-independent-builder-${{ matrix.builder }}
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b18-build/
+
+  execute-and-independently-verify:
+    name: Independently compare two builders, verify attestation and measure live /proc/PID/exe
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: independently-build
+    permissions:
+      contents: read
+      attestations: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download original independent builder A
+        uses: actions/download-artifact@v4
+        with:
+          name: risu-b18-original-independent-builder-A
+          path: .b18-a
+      - name: Download original independent builder B
+        uses: actions/download-artifact@v4
+        with:
+          name: risu-b18-original-independent-builder-B
+          path: .b18-b
+      - name: Reacquire exact upstream source independently of both builders
+        run: |
+          set -euo pipefail
+          git init -q .b18-upstream
+          git -C .b18-upstream -c core.hooksPath=/dev/null remote add origin https://github.com/modelcontextprotocol/go-sdk.git
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b18-upstream -c core.hooksPath=/dev/null fetch -q --depth=1 --no-tags origin 328036ea2090c83f28c41a42ee4c9e5ec7393a4f
+          git -C .b18-upstream -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b18-upstream rev-parse HEAD)" = 328036ea2090c83f28c41a42ee4c9e5ec7393a4f
+      - name: Independently compare two build artifact bytes and exact source identity
+        run: |
+          set -euo pipefail
+          mkdir -p .b18-evidence
+          cmp .b18-a/mcp-toolschemas .b18-b/mcp-toolschemas
+          sha256sum .b18-a/mcp-toolschemas .b18-b/mcp-toolschemas
+          chmod +x .b18-a/mcp-toolschemas
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          a=json.load(open('.b18-a/builder.json'))
+          b=json.load(open('.b18-b/builder.json'))
+          raw=Path('.b18-a/mcp-toolschemas').read_bytes()
+          digest=hashlib.sha256(raw).hexdigest()
+          assert a['builder']=='A' and b['builder']=='B'
+          assert a['binary_sha256']==b['binary_sha256']==digest
+          assert a['github_job']!=b['github_job']
+          assert a['go_version']==b['go_version']=='go version go1.25.0 linux/amd64'
+          print('B18_TWO_INDEPENDENT_BYTE_IDENTICAL_BUILDS',digest)
+          PY
+      - name: Verify actual GitHub Sigstore attestation subject and workflow signer externally
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify .b18-a/mcp-toolschemas \
+            --repo risu-research/risu-probe \
+            --signer-workflow risu-research/risu-probe/.github/workflows/p6b18-source-build-runtime.yml \
+            --format json > .b18-evidence/raw_gh_attestation_verify.json
+          python - <<'PY'
+          import json,hashlib,os
+          from pathlib import Path
+          raw=Path('.b18-evidence/raw_gh_attestation_verify.json').read_bytes()
+          result=json.loads(raw)
+          assert type(result) is list and len(result)>=1, type(result)
+          digest=hashlib.sha256(Path('.b18-a/mcp-toolschemas').read_bytes()).hexdigest()
+          record={
+            'schema':'risu-b18-gh-attestation-cli-result-v1',
+            'verified':True,
+            'subject_sha256':digest,
+            'attestation_repository':'risu-research/risu-probe',
+            'signer_workflow':'.github/workflows/p6b18-source-build-runtime.yml',
+            'verification_run_id':int(os.environ['GITHUB_RUN_ID']),
+            'gh_cli_verification_output_sha256':hashlib.sha256(raw).hexdigest(),
+            'verification_scope':'GitHub Actions RISU-hosted qualification builder, NOT upstream publisher-signed release'}
+          Path('.b18-evidence/attestation_verified.json').write_text(json.dumps(record,sort_keys=True,indent=2)+chr(10))
+          print('B18_GH_ATTESTATION_SUBJECT_AND_WORKFLOW_SIGNER_VERIFIED',digest)
+          PY
+      - name: Execute verified original ELF binary and witness actual live process identity
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b18/capture_actual_go_process.py \
+            --binary .b18-a/mcp-toolschemas \
+            --frozen benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json \
+            --attestation .b18-evidence/attestation_verified.json \
+            --out .b18-live
+          test -s .b18-live/runtime_witness.json
+          test -s .b18-live/original_stdio.jsonl
+      - name: Independently inspect original GitHub remote tree and reproduce pinned source objects
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,urllib.request,json,subprocess,hashlib
+          from pathlib import Path
+          frozen=json.load(open('benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json'))
+          s=frozen['source']
+          url='https://api.github.com/repos/'+s['repository']+'/git/trees/'+s['revision']+'?recursive=1'
+          req=urllib.request.Request(url,headers={'Accept':'application/vnd.github+json',
+            'User-Agent':'risu-b18-independent-upstream-provider-tree',
+            'Authorization':'Bearer '+os.environ['GH_TOKEN']})
+          with urllib.request.urlopen(req,timeout=25) as f:response=f.read(3000000)
+          root=json.loads(response)
+          assert root['truncated'] is False
+          data=[]
+          for item in s['files']:
+              path=item['path'];blob=item['blob']
+              sources=[x for x in root['tree'] if x.get('path')==path and x.get('type')=='blob']
+              assert len(sources)==1 and sources[0]['sha']==blob
+              local=subprocess.check_output(['git','-C','.b18-upstream','rev-parse',
+                  s['revision']+':'+path],text=True).strip()
+              assert local==blob
+              raw=subprocess.check_output(['git','-C','.b18-upstream','cat-file','blob',blob])
+              data.append({'path':path,'remote_git_blob':blob,
+                  'file_sha256':hashlib.sha256(raw).hexdigest()})
+          out={'schema':'risu-b18-independent-public-upstream-tree-v1',
+               'repository':s['repository'],'full_revision':s['revision'],
+               'verified_against_publisher_remote_tree':True,
+               'source_blobs':data,
+               'limitation':'GitHub published source identity, not upstream authorized release or deployment'}
+          Path('.b18-evidence/provider_tree.json').write_text(json.dumps(out,indent=2,sort_keys=True)+chr(10))
+          print('B18_REMOTE_PUBLISHER_SOURCE_TREE_VERIFIED',len(data))
+          PY
+      - name: Apply product to original wire, binary, signed build and live process witness
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          python -m pip install --disable-pip-version-check .
+          python -m risu_p5d_cli verify-mcp-runtime \
+            .b18-live/original_stdio.jsonl \
+            --frozen-cohort benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json \
+            --source-manifest benchmarks/p6b18/SOURCE_GIT_OBJECT_MANIFEST.json \
+            --source-checkout .b18-upstream \
+            --binary .b18-a/mcp-toolschemas \
+            --builder-a .b18-a/builder.json \
+            --builder-b .b18-b/builder.json \
+            --runtime-witness .b18-live/runtime_witness.json \
+            --attestation-result .b18-evidence/attestation_verified.json \
+            --format json --out .b18-evidence/runtime_firstpass.json
+          python - <<'PY'
+          import json
+          r=json.load(open('.b18-evidence/runtime_firstpass.json'))
+          w=json.load(open('.b18-live/runtime_witness.json'))
+          assert w['status']=='CAPTURED_ORIGINAL_GO_BINARY',w
+          assert r['summary']['identical_reproducible_binary']
+          assert r['summary']['live_proc_executable_matches_attested_artifact']
+          assert r['summary']['matched_original_native_calls']==4
+          print('B18_FIRSTPASS_REAL_EXECUTED_SOURCE_BUILD_ATTESTED_BINARY',r['summary'])
+          PY
+      - name: Retain unmodified source-build-runtime chain even on unsuccessful firstpass
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b18-original-source-signed-build-live-process
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b18-a/builder.json
+            .b18-b/builder.json
+            .b18-evidence/raw_gh_attestation_verify.json
+            .b18-evidence/attestation_verified.json
+            .b18-evidence/provider_tree.json
+            .b18-evidence/runtime_firstpass.json
+            .b18-live/runtime_witness.json
+            .b18-live/original_stdio.jsonl
+            .b18-live/per_call_original.json
+            benchmarks/p6b18/FROZEN_SOURCE_BUILD_RUNTIME.json
+            benchmarks/p6b18/SOURCE_GIT_OBJECT_MANIFEST.json
