@@ -1,0 +1,12 @@
+{
+  "schema": "risu-mcp-upstream-source-manifest-v1",
+  "repository": "GoogleCloudPlatform/mcp-python-sdk-grpc-poc",
+  "revision": "cedc20fdc8fdf22fc8b411a3947ae03c71cbc926",
+  "sources": [
+    {
+      "tool": "get_weather",
+      "path": "examples/servers/structured_output_lowlevel.py",
+      "git_blob_sha1": "7f102ff8b5e09b6df64b6b9c0fd913ac25f709f5"
+    }
+  ]
+}
