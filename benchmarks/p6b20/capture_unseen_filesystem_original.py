@@ -92,6 +92,8 @@ async def case_run(py:Path,cell:str,out:Path):
                 t.get("name")=="write_file" for t in tools):
                 raise RuntimeError("Source-original filesystem write_file not advertised")
             before=snap(target)
+            if target.is_file():
+                (root/"observed_before_payload.bin").write_bytes(target.read_bytes())
             # Only harmless text content in a path under the explicitly allowed
             # synthetic temp fixture, never any outside workspace.
             request={"jsonrpc":"2.0","id":20,"method":"tools/call",
@@ -99,6 +101,8 @@ async def case_run(py:Path,cell:str,out:Path):
                   "arguments":{"path":str(target),"content":TEXT,"append":False}}}
             response=await exchange(request)
             after=snap(target)
+            if target.is_file():
+                (root/"observed_after_payload.bin").write_bytes(target.read_bytes())
             origin["tool_success"]=type(response.get("result")) is dict and (
                 response["result"].get("isError") is not True and
                 "error" not in response)
@@ -213,5 +217,5 @@ def main():
     p.add_argument("--plan",required=True,type=Path)
     p.add_argument("--out",required=True,type=Path)
     a=p.parse_args()
-    asyncio.run(all_cases(a.python.resolve(),a.freeze,a.plan,a.out))
+    asyncio.run(all_cases(a.python.absolute(),a.freeze,a.plan,a.out))
 if __name__=="__main__":main()
