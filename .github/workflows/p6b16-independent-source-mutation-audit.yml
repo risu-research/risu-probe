@@ -102,6 +102,7 @@ jobs:
             src/risu_mcp_authority.py
             src/risu_mcp_observations.py
             src/risu_mcp_trace.py
+            src/risu_display_fidelity.py
             src/risu_p5d_cli.py
             pyproject.toml
             tests/test_p6b16_catalog_authority.py
