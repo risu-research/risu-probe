@@ -164,8 +164,12 @@ def run(args):
               "--server-python",str(original_py),
               "--out",str(output)]
         before=state(target)
+        if target.is_file():
+            (args.out/(label+"_BEFORE_ORIGINAL_TARGET.bin")).write_bytes(target.read_bytes())
         p=execute(*tool,expect=0 if authorized else 3,timeout=100)
         after=state(target)
+        if target.is_file():
+            (args.out/(label+"_AFTER_ORIGINAL_TARGET.bin")).write_bytes(target.read_bytes())
         obj=json.loads(output.read_text())
         trace=syscall.read_text(errors="replace")
         # Actual OS syscall tracing verifies the original upstream Python
