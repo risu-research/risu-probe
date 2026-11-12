@@ -143,8 +143,11 @@ jobs:
           f=pathlib.Path("internal/tools/files/files.go")
           s=f.read_text()
           exact="opts.LastCommitID = new(input.LastCommitID)"
-          assert s.count(exact)==1
-          f.write_text(s.replace(exact,'// injected dropped optimistic-lock guard',1))
+          section_start=s.index("func Update(ctx context.Context,")
+          section_end=s.index("func enrichFileInfoOutput", section_start)
+          prefix,section,suffix=s[:section_start],s[section_start:section_end],s[section_end:]
+          assert section.count(exact)==1, "update function did not contain exactly one guard forwarding"
+          f.write_text(prefix+section.replace(exact,'// injected dropped optimistic-lock guard',1)+suffix)
           PY
           set +e
           go test ./internal/tools/files -run '^TestUpdate_WithAllOptionalFields$' -count=1 -timeout=6m -v > ../../audit/gitlab_mutation.log 2>&1
