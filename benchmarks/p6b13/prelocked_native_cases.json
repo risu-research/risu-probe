@@ -1,0 +1,49 @@
+{
+  "schema": "risu-p6b13-public-native-cross-publisher-metamorphic-v1",
+  "selection_time": "2026-11-12",
+  "claim_boundary": "Documentation-informed preselection, before native execution; neither selected repository has been used as an independent B7-B12 case. Findings are candidates pending source-independent reproduction, upstream issue search, and corrective commit.",
+  "frozen_product_git_blobs": {
+    "src/risu_mcp_trace.py": "9f017ca0344d94cf54bd0229ddb14d4f586101c8",
+    "src/risu_display_fidelity.py": "6785b2ed912d3e9a41dda956da537dc2e5f4f8e3"
+  },
+  "restrictions": "Only disposable local files and databases and public pinned source. No credentials, real data, network calls after dependency setup, privileged operations or edits to external repositories.",
+  "cohort": [
+    {
+      "id": "FS2",
+      "repo": "j0hanz/filesystem-mcp",
+      "sha": "ff783caf6191eb41f5a3de0e5f924dcc18f770ce",
+      "owner": "j0hanz",
+      "language": "TypeScript",
+      "start": "node dist/index.js --read-only ${ROOT}",
+      "tool_calls": [
+        {"name":"read","args":{"path":"${FILE}"}},
+        {"name":"read","args":{"path":"${FILE}","head":2}},
+        {"name":"stat","args":{"path":"${FILE}"}},
+        {"name":"search_text","args":{"path":"${FILE}","searchPattern":"RISU_B13_FIRST","caseSensitive":true}},
+        {"name":"search_text","args":{"path":"${FILE}","searchPattern":"RISU_B13_ABSENT","caseSensitive":true}},
+        {"name":"list","args":{"path":"${ROOT}","maxDepth":1}}
+      ],
+      "oracles": ["read_full_exact_markers", "head_subset_excludes_tail", "stat_file_size", "literal_search_hit_and_miss", "directory_contains_file"]
+    },
+    {
+      "id": "SQL2",
+      "repo": "rusq/mcp-sqlite",
+      "sha": "455a196ac2b2783f7a4250ba4ad6d736ddc6437b",
+      "owner": "rusq",
+      "language": "Go",
+      "start": "mcp-sqlite (no startup database)",
+      "tool_calls": [
+        {"name":"open_database","args":{"path":"${DB}"}},
+        {"name":"get_schema","args":{"mask":"records"}},
+        {"name":"query","args":{"sql":"SELECT id,label FROM records WHERE id=2"}},
+        {"name":"query","args":{"sql":"SELECT id,label FROM records WHERE id=?","params":[2]}},
+        {"name":"query","args":{"sql":"SELECT id,label FROM records WHERE label=?","params":["RISU_B13_Ω"]}},
+        {"name":"execute","args":{"sql":"UPDATE records SET label='RISU_B13_MUTATED' WHERE id=1"}},
+        {"name":"query","args":{"sql":"SELECT id,label FROM records WHERE id=1"}}
+      ],
+      "oracles": ["schema_contains_fixture", "parameterized_literal_equivalence", "unicode_argument_roundtrip", "write_persists_independent_db"]
+    }
+  ],
+  "score_policy": "Every selected server remains in denominator even if unexecutable. Product findings, external oracle mismatches, and adjudicated novel bugs are separate outcomes. No detector changes, replacements, or exclusions after seeing results.",
+  "denominator": {"original_native_servers":2,"independent_owners":2,"documented_tool_calls":13}
+}

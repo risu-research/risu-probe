@@ -1,0 +1,117 @@
+name: RISU P6-B13 locked native cross-publisher metamorphic discovery
+on:
+  push:
+    branches: ['qualification/p6b13-*']
+    paths:
+      - 'benchmarks/p6b13/**'
+      - '.github/workflows/p6b13-independent-native-metamorphic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pinned-original-native:
+    name: B13 native frozen ${{ matrix.case }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [FS2, SQL2]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        if: matrix.case == 'FS2'
+        with:
+          node-version: '24'
+      - uses: actions/setup-go@v5
+        if: matrix.case == 'SQL2'
+        with:
+          go-version: '1.26.0'
+      - name: Freeze product and download only pinned public source
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+          python -m pip install --disable-pip-version-check .
+          CASE="${{ matrix.case }}"
+          if [[ "$CASE" == FS2 ]]; then REPO=j0hanz/filesystem-mcp; SHA=ff783caf6191eb41f5a3de0e5f924dcc18f770ce;
+          else REPO=rusq/mcp-sqlite; SHA=455a196ac2b2783f7a4250ba4ad6d736ddc6437b; fi
+          python - "$CASE" "$REPO" "$SHA" <<'PY'
+          import json,sys
+          name,repo,sha=sys.argv[1:]
+          d=json.load(open('benchmarks/p6b13/prelocked_native_cases.json'))
+          assert len(d['cohort'])==2 and d['denominator']['documented_tool_calls']==13
+          item=next(x for x in d['cohort'] if x['id']==name)
+          assert (item['repo'],item['sha'])==(repo,sha)
+          print('B13_COHORT_AND_SOURCE_PRELOCKED',name,repo,sha)
+          PY
+          mkdir .b13-source
+          git -C .b13-source init -q
+          git -C .b13-source -c core.hooksPath=/dev/null remote add origin "https://github.com/$REPO.git"
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b13-source -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$SHA"
+          git -C .b13-source -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b13-source rev-parse HEAD)" = "$SHA"
+      - name: Compile original product without test wrapper
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.case }}" == FS2 ]]; then
+            (cd .b13-source && npm ci --ignore-scripts --no-audit --no-fund && npm run build)
+            test -s .b13-source/dist/index.js
+          else
+            (cd .b13-source && go build -o "$GITHUB_WORKSPACE/b13-go-sqlite" ./cmd/mcp-sqlite)
+            test -s b13-go-sqlite
+          fi
+      - name: Run original server stdin and capture untouched stdout
+        run: |
+          set -euo pipefail
+          CASE="${{ matrix.case }}"
+          if [[ "$CASE" == FS2 ]]; then
+            python benchmarks/p6b13/native_metamorphic_probe.py --case FS2 \
+              --executable "$(command -v node)" --source .b13-source --out .b13-capture
+          else
+            python benchmarks/p6b13/native_metamorphic_probe.py --case SQL2 \
+              --executable b13-go-sqlite --out .b13-capture
+          fi
+          python - <<'PY'
+          import json
+          x=json.load(open('.b13-capture/origin.json'))
+          assert x['native_upstream_process'] and x['source_stdout_unmodified']
+          PY
+      - name: Analyze unchanged original trace with frozen RISU and independent oracles
+        run: |
+          set -euo pipefail
+          CASE="${{ matrix.case }}"
+          VERSION="$(python - <<'PY'
+          import json
+          print(json.load(open('.b13-capture/origin.json'))['protocol'])
+          PY
+          )"
+          risu-probe verify-mcp-trace .b13-capture/original_stdio.jsonl --protocol-version "$VERSION" --format json > .b13-risu.json
+          python benchmarks/p6b13/score_metamorphic.py --case "$CASE" \
+            --capture .b13-capture --scanner .b13-risu.json --out .b13-firstpass.json
+          echo B13_EXECUTED_WITHOUT_DETECTOR_TUNING
+      - name: Preserve selected protocol and outcomes including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b13-frozen-original-${{ matrix.case }}
+          retention-days: 14
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b13/prelocked_native_cases.json
+            .b13-capture/origin.json
+            .b13-capture/original_stdio.jsonl
+            .b13-capture/unmodified_calls.json
+            .b13-risu.json
+            .b13-firstpass.json
