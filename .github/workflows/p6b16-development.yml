@@ -1,0 +1,57 @@
+name: RISU P6-B16 catalog authority development and cross-platform installed wheel
+on:
+  push:
+    branches: ['qualification/p6b16-*']
+    paths:
+      - 'src/risu_mcp_authority.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b16_catalog_authority.py'
+      - '.github/workflows/p6b16-development.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installed-wheel:
+    name: B16 catalog authority installed wheel ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve historical source and public-only policy
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+      - name: Install preview wheel in clean isolated venv and run authority tests
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b16-wheels
+          python -m pip wheel --no-deps -w .b16-wheels .
+          python -m venv .b16-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b16-installed/Scripts/python.exe
+          else
+            PY=.b16-installed/bin/python
+          fi
+          "$PY" -m pip install .b16-wheels/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli qualify-mcp-observations --help
+          "$PY" -m unittest discover -s tests -p test_p6b16_catalog_authority.py -v
+          "$PY" -m unittest discover -s tests -p test_p6b15_observation_contract.py -v
+          echo B16_FROZEN_CATALOG_AUTHORITY_CROSS_PLATFORM_TESTS_PASS
