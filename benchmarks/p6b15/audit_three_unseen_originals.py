@@ -35,7 +35,7 @@ def audit(manifest:Path,files:dict[str,Path]):
             and cohort['denominator']['locked_tool_calls']==14,'Preselected cohort changed')
     selected=[]
     all_wire=[]
-    source_errors=[]
+    error_status_controls=[]
     for case in ('PA','ZM','FM'):
         root=files[case]/'.b15-original'
         origin=read(root/'origin.json')
@@ -120,22 +120,20 @@ def audit(manifest:Path,files:dict[str,Path]):
             require('readonly database' in words.lower()
                     and calls[2]['before']==calls[2]['after'],
                     'Original read-only refusal / independent DB preservation missing')
-            require(result.get('isError') is not True,
-                    'Original native error-flag omission was changed')
-            source_errors.append({'case':case,'probe':'sql_documented_writer',
-                'kind':'MCP_TOOL_ERROR_FLAG_ABSENT_ON_ORIGINAL_READONLY_REFUSAL',
-                'normative_strength':'SHOULD in MCP specification, not MUST',
-                'separate_from_frozen_product_findings':True})
+            require(result.get('isError') is True,
+                    'Original readonly refusal must signal tool execution error')
+            error_status_controls.append({'case':case,'probe':'sql_documented_writer',
+                'kind':'CORRECT_MCP_TOOL_ERROR_FLAG_ON_READONLY_REFUSAL',
+                'observed_isError':True,'separate_from_frozen_product_findings':True})
         if case=='ZM':
             words=' '.join(x.get('text','') for x in calls[2]['response']['result'].get('content',[])
                            if x.get('type')=='text')
             require('Only SELECT queries' in words and
-                    calls[2]['response']['result'].get('isError') is not True,
-                    'Original read_query DDL rejection missing')
-            source_errors.append({'case':case,'probe':'declared_read_only_ddl_guard',
-                'kind':'MCP_TOOL_ERROR_FLAG_ABSENT_ON_READONLY_VALIDATION_REFUSAL',
-                'normative_strength':'SHOULD in MCP specification, not MUST',
-                'separate_from_frozen_product_findings':True})
+                    calls[2]['response']['result'].get('isError') is True,
+                    'Original read_query DDL rejection and error flag missing')
+            error_status_controls.append({'case':case,'probe':'declared_read_only_ddl_guard',
+                'kind':'CORRECT_MCP_TOOL_ERROR_FLAG_ON_DDL_REFUSAL',
+                'observed_isError':True,'separate_from_frozen_product_findings':True})
         selected.append({'case':case,'repo':repo,'commit':commit,
                          'original_stdout_sha256':digest(wire),
                          'calls':source_classifications,
@@ -161,17 +159,17 @@ def audit(manifest:Path,files:dict[str,Path]):
             'defensible_obligations_checked':13,
             'defensible_obligations_passed':13,
             'defensible_obligations_mismatched':0,
-            'flagged_tool_error_semantics_candidates':len(source_errors),
+            'correct_mcp_tool_error_status_controls':len(error_status_controls),
             'unverified_missing_native_original_runs':0,
             'population_recall':'NOT_ESTIMABLE_NO_POSITIVE_BUG_IN_UNSEEN_COHORT',
-            'false_positive_denominator_note':'14 original calls; one wrong predeclared contract (not an upstream defect). Do not report 1 upstream bug. Two separate status-flag candidates were outside the frozen product rule.'
+            'false_positive_denominator_note':'14 original calls; one wrong predeclared contract (not an upstream defect). Do not report 1 upstream bug. Two correctly flagged MCP execution errors serve as native normal controls.'
         },
-        'protocol_status_flag_candidates':source_errors,
+        'protocol_status_flag_normal_controls':error_status_controls,
         'claims_limits':[
             'All original tools executed with synthetic local fixtures and original native stdio; source originality is supported by frozen git commits and CI, not remotely attested by RISU',
             'Contract obligations are supplied by callers and may conflict with server advertised behavior; this is a real evaluation weakness',
             'No generic Error-word heuristic was used by the frozen product',
-            'The source tool-error flag candidate is a protocol SHOULD guidance difference, not a MUST-level conformance failure',
+            'Two rejected writes correctly reported isError true; no success-status defect is alleged',
             'Three nonrandom sources and no independently confirmed new upstream behavior bug; no general precision or recall claim'
         ]
     }
