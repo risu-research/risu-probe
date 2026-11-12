@@ -131,6 +131,7 @@ jobs:
       - name: Execute FOUR source-unmodified native MCP calls with independent typed file-state observers
         run: |
           set -euo pipefail
+          python -m pip install --disable-pip-version-check .
           python benchmarks/p6b20/capture_unseen_filesystem_original.py \
             --python .b20-fs-venv/bin/python \
             --freeze benchmarks/p6b20/FROZEN_GENERIC_EFFECT_EVALUATION.json \
