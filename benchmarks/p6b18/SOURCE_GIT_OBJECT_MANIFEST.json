@@ -1,0 +1,22 @@
+{
+  "schema": "risu-mcp-upstream-source-manifest-v1",
+  "repository": "modelcontextprotocol/go-sdk",
+  "revision": "328036ea2090c83f28c41a42ee4c9e5ec7393a4f",
+  "sources": [
+    {
+      "tool": "go-sdk-toolschemas-entrypoint",
+      "path": "examples/server/toolschemas/main.go",
+      "git_blob_sha1": "0a2cfbd214798cd094fbe63162e78e7cc5bcab33"
+    },
+    {
+      "tool": "go-sdk-module-manifest",
+      "path": "go.mod",
+      "git_blob_sha1": "3287a95780c8160bdbb4554fb2f509ca369197a4"
+    },
+    {
+      "tool": "go-sdk-checksum-lock",
+      "path": "go.sum",
+      "git_blob_sha1": "c13454aad50d66edfca523be20fd9c230ff100c7"
+    }
+  ]
+}
