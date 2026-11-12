@@ -1,0 +1,122 @@
+name: RISU P6-B15 locked three-unseen-original-server witness evaluation
+on:
+  push:
+    branches: ['qualification/p6b15-*']
+    paths:
+      - 'benchmarks/p6b15/FROZEN_UNSEEN_ORIGINAL_SERVERS.json'
+      - 'benchmarks/p6b15/capture_unseen_native.py'
+      - '.github/workflows/p6b15-three-unseen-original.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  locked-native-source:
+    name: B15 frozen heldout original ${{ matrix.case }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: PA
+            python: '3.12'
+            repo: panasenco/mcp-sqlite
+            sha: c5f46391520d9c8c5283249e5513788d4de698f7
+          - case: ZM
+            python: '3.11'
+            repo: zongmin-yu/sqlite-literature-management-fastmcp-mcp-server
+            sha: a3ceee63a34ff99de3bcfd80e0c72bf439017f4e
+          - case: FM
+            python: '3.11'
+            repo: fellowgeek/mcp-memory
+            sha: a50a87708628d0822af439015503de47c35d7acc
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Assert byte-identical frozen B15 checker, compare pre-locked source
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          python - <<'PY'
+          import json,os
+          m=json.load(open('benchmarks/p6b15/FROZEN_UNSEEN_ORIGINAL_SERVERS.json'))
+          case=os.environ['CASE']
+          item=next(v for v in m['cases'] if v['id']==case)
+          assert (item['repository'],item['commit'])==(os.environ['REPO'],os.environ['REV'])
+          assert sum(len(v['calls']) for v in m['cases'])==14
+          assert len(m['cases'])==3
+          print('B15_HELDOUT_SOURCE_AND_PROBES_PRELOCKED',case)
+          PY
+        env:
+          CASE: ${{ matrix.case }}
+          REPO: ${{ matrix.repo }}
+          REV: ${{ matrix.sha }}
+      - name: Checkout untouched third-party original immutable Git SHA
+        run: |
+          set -euo pipefail
+          git init -q .b15-source
+          git -C .b15-source -c core.hooksPath=/dev/null remote add origin "https://github.com/${{ matrix.repo }}.git"
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b15-source -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "${{ matrix.sha }}"
+          git -C .b15-source -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b15-source rev-parse HEAD)" = "${{ matrix.sha }}"
+      - name: Install frozen B15 product and source-compatible dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          case "${{ matrix.case }}" in
+            PA) python -m pip install --disable-pip-version-check 'mcp==1.30.0' 'aiosqlite==0.21.0' 'pydantic>=2.11.5,<3' 'pyyaml==6.0.2' ;;
+            ZM) python -m pip install --disable-pip-version-check 'fastmcp==4.1.6' ;;
+            FM) python -m pip install --disable-pip-version-check 'mcp==1.30.0' 'pyyaml==6.0.2' ;;
+          esac
+          python -m pip check
+      - name: Launch actual native upstream and capture only locked synthetic calls
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b15/capture_unseen_native.py             --case "${{ matrix.case }}" --source .b15-source             --executable "$(command -v python)" --out .b15-original
+          test -s .b15-original/origin.json
+          test -s .b15-original/per_call_state.json
+      - name: Apply byte-frozen B15 checker without tuning and archive all abstentions
+        run: |
+          set -euo pipefail
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+          if [[ -s .b15-original/contract.json && -s .b15-original/witness.json ]]; then
+            python -m risu_p5d_cli check-mcp-observations               .b15-original/original_stdio.jsonl               --contract .b15-original/contract.json               --witness .b15-original/witness.json               --format json --out .b15-original/product_firstpass.json || true
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          o=json.load(open('.b15-original/origin.json'))
+          path=Path('.b15-original/product_firstpass.json')
+          if path.is_file():
+            r=json.loads(path.read_text())
+            assert r['trace_sha256']==o['trace_sha256']
+            print('B15_HELDOUT_FROZEN_PRODUCT',o['case'],r['summary'])
+          else:
+            print('B15_HELDOUT_UNVERIFIED_NO_PRODUCT_REPORT',o['case'],o['status'])
+          PY
+      - name: Preserve every original server and every incomplete selected case
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b15-original-external-${{ matrix.case }}
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b15/FROZEN_UNSEEN_ORIGINAL_SERVERS.json
+            .b15-original/original_stdio.jsonl
+            .b15-original/origin.json
+            .b15-original/per_call_state.json
+            .b15-original/contract.json
+            .b15-original/witness.json
+            .b15-original/product_firstpass.json
