@@ -1,0 +1,178 @@
+name: RISU P6-B19 complete verified upstream signed real-repair handoff
+on:
+  push:
+    branches: ['qualification/p6b19-*']
+    paths:
+      - 'docs/P6B19_PUBLISHER_SIGNED_HIDDEN_EFFECT_REPAIR.md'
+      - 'benchmarks/p6b19/HANDOFF_KO.md'
+      - '.github/workflows/p6b19-verified-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independently-verify-and-bundle:
+    name: Reverify upstream signed original release evidence and independently audited repair
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Recover untouched original publisher-signed wheels and native firstpass
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43316866530
+          github-token: ${{ github.token }}
+          name: risu-b19-real-publisher-signed-git-security-repair-firstpass
+          path: .b19-bundle/firstpass
+      - name: Recover separate independent publisher signature verification and second original execution
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43317961883
+          github-token: ${{ github.token }}
+          name: risu-b19-independent-upstream-signed-real-repair-reexecution
+          path: .b19-bundle/independent
+      - name: Preserve frozen product source identity and audit original first and second executions
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_signed_repair.py)" = 41bb9439174c37a53481db3e025cb9601ae6040f
+          test "$(git hash-object src/risu_mcp_runtime_origin.py)" = eba052165106bd85cb935ed505544ea33819054b
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path('.b19-bundle')
+          first=root/'firstpass'
+          second=root/'independent'
+          def read(p):return json.loads(p.read_text('utf-8'))
+          frozen=read(first/'benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json')
+          result=read(first/'.b19-final/REAL_BEFORE_AFTER_FIRSTPASS.json')
+          a=read(second/'.b19-review/INDEPENDENT_FIRSTPASS_AUDIT.json')
+          b=read(second/'.b19-review/INDEPENDENT_SECOND_PROCESS_AUDIT.json')
+          assert frozen['issue']['id']=='GHSA-6hqx-gqrx-c5r2'
+          assert frozen['runtime']['total_original_native_calls']==4
+          summary=result['summary']
+          assert summary['known_security_repair_reproduced'] is True
+          assert summary['both_normal_controls_preserved'] is True
+          assert summary['actual_native_mcp_calls_correlated']==4
+          assert summary['publisher_signed_wheels_checked']==2
+          expected='427e379e413fcb703d516e1458ab2e6acc851e561027fba4ab21cf100717b60b'
+          for d in (a,b):
+              assert d['identical_canonical_mcp_result_sha256']==expected
+              assert d['all_four_original_tool_result_bodies_identical'] is True
+              assert d['original_native_mcp_calls']==4
+              assert d['known_real_security_repair_verified'] is True
+              assert d['previously_unknown_upstream_defects_found']==0
+          comparison=[(x['version'],x['case'],x['synthetic_marker_triggered'])
+                      for x in a['evidence']]
+          assert comparison==[
+              ('VULNERABLE','CONFIGURED',True),
+              ('VULNERABLE','NORMAL',False),
+              ('FIXED','CONFIGURED',False),
+              ('FIXED','NORMAL',False)]
+          assert [(x['version'],x['case'],x['synthetic_marker_triggered'])
+                      for x in b['evidence']]==comparison
+          for v in frozen['versions']:
+              wheel=first/'.b19-official'/v['id']/v['wheel']
+              assert hashlib.sha256(wheel.read_bytes()).hexdigest()==v['wheel_sha256']
+          print('B19_FINAL_FIRSTPASS_AND_SECOND_INDEPENDENT_REAL_ORIGINALS_CROSSCHECK_PASS')
+          PY
+      - name: Install independent auditor and reverify both signed publisher wheels with official client
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'pypi-attestations==0.0.31'
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path('.b19-bundle')
+          f=root/'firstpass/.b19-official'
+          signed={}
+          for case in ('VULNERABLE','FIXED'):
+              folder=f/case
+              metadata=json.loads((folder/'original_pypi_metadata.json').read_text('utf-8'))
+              wheel=folder/metadata['filename']
+              digest=hashlib.sha256(wheel.read_bytes()).hexdigest()
+              assert digest==metadata['wheel_sha256']
+              cmd=['pypi-attestations','verify','pypi','--repository',
+                   'https://github.com/modelcontextprotocol/servers',metadata['download_url']]
+              result=subprocess.run(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                                    timeout=180,check=False)
+              assert result.returncode==0,(case,result.stderr.decode(errors='replace')[:300])
+              signed[case]={'cryptographic_verification_success':True,
+                           'wheel_sha256':digest,
+                           'verifier':'pypi-attestations==0.0.31',
+                           'repository':'https://github.com/modelcontextprotocol/servers',
+                           'stdout_sha256':hashlib.sha256(result.stdout).hexdigest()}
+              print('B19_FINAL_UPSTREAM_PYPI_CRYPTOGRAPHIC_PUBLISHER_SIGNATURE_PASS',case,digest)
+          (root/'THIRD_INDEPENDENT_PUBLISHER_SIGNATURES.json').write_text(
+              json.dumps(signed,sort_keys=True,indent=2)+chr(10))
+          PY
+      - name: Independently reparse original signed certificates, source blobs, raw MCP responses and side effects
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b19/independent_publisher_hidden_effect_audit.py \
+            --original .b19-bundle/firstpass \
+            --independent-signatures .b19-bundle/THIRD_INDEPENDENT_PUBLISHER_SIGNATURES.json \
+            --out .b19-bundle/FINAL_INDEPENDENT_PUBLISHER_AND_HIDDEN_EFFECT_AUDIT.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path('.b19-bundle/FINAL_INDEPENDENT_PUBLISHER_AND_HIDDEN_EFFECT_AUDIT.json').read_text())
+          assert result['known_real_security_repair_verified'] is True
+          assert result['all_four_original_tool_result_bodies_identical'] is True
+          assert result['publisher_signed_source_commits_verified_by_x509']==2
+          assert result['original_native_mcp_calls']==4
+          assert result['previously_unknown_upstream_defects_found']==0
+          print('B19_FINAL_PUBLISHER_X509_SOURCE_REAL_REPAIR_INDEPENDENT_AUDIT_PASS')
+          PY
+      - name: Archive entire B19 source tree and compute file-by-file SHA-256 manifest
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output=.b19-bundle/COMPLETE_B19_RESEARCH_SOURCE.zip HEAD
+          cp benchmarks/p6b19/HANDOFF_KO.md .b19-bundle/README_KO.md
+          cp docs/P6B19_PUBLISHER_SIGNED_HIDDEN_EFFECT_REPAIR.md .b19-bundle/TECHNICAL_AUDIT.md
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path('.b19-bundle')
+          files=sorted(x for x in root.rglob('*') if x.is_file() and not x.is_symlink())
+          ledger=[{'path':p.relative_to(root).as_posix(),
+                   'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+                   'bytes':p.stat().st_size} for p in files]
+          manifest={'schema':'risu-b19-publisher-signed-real-repair-complete-handoff-v1',
+             'final_branch_head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+             'initial_firstpass_run':43316866530,
+             'independent_second_original_execution_run':43317961883,
+             'whole_previous_product_regression_run':43315902509,
+             'frozen_product_blob':'41bb9439174c37a53481db3e025cb9601ae6040f',
+             'public_advisory':'GHSA-6hqx-gqrx-c5r2',
+             'evidence_claim':'known public upstream security repair, not newly discovered bug',
+             'actual_original_native_calls_across_two_independent_runs':8,
+             'published_wheels_original_upstream_cryptographically_verified':2,
+             'tool_result_bodies_identical_with_asymmetric_external_effect':True,
+             'files':ledger}
+          (root/'B19_SHA256_MANIFEST.json').write_text(
+              json.dumps(manifest,sort_keys=True,indent=2)+chr(10))
+          print('B19_FINAL_VERIFIED_HANDOFF_FILES',len(ledger))
+          PY
+      - name: Upload signed upstream wheel original bytes, both real runs, independent audit and full source
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b19-verified-upstream-publisher-real-repair-handoff
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b19-bundle/
