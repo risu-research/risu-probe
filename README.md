@@ -126,3 +126,31 @@ identity remain user-supplied and unauthenticated. The new-source tests used
 2 independent public publishers (7 real stdio calls), plus three separately
 labeled synthetic error injections. See the
 [B16 source-audited research record](docs/P6B16_CATALOG_BOUND_AUTHORITY_RESEARCH.md).
+
+## P6-B17 · Independently corroborated source contracts
+
+The new opt-in `verify-mcp-origin` command checks whether a captured,
+session-specific MCP tool `outputSchema` is consistent with the literal schema
+in an independently pinned publisher Git source file.
+
+```sh
+risu-probe verify-mcp-origin original_stdio.jsonl \
+  --contract output_contract.json \
+  --source-checkout ./pinned-publisher-source \
+  --source-manifest origin_manifest.json \
+  --format json --out origin_report.json
+```
+
+It uses Git commit/tree/blob object inspection and non-executing Python AST
+extraction. Only narrow, literal structured-result declarations are eligible
+for `SOURCE_CORROBORATED_*` findings. Schema conflicts are quarantined;
+incomplete catalog epochs or advisory read-only hints cannot be promoted.
+A local checkout alone cannot authenticate a publisher's identity, so the
+external CI also cross-checked GitHub's remote Git tree against the pinned
+checkout and independently verified the published source commit.
+
+The new GoogleCloudPlatform original MCP server passed 2/2 real native calls
+against its source-pinned `outputSchema`; separate source/catalog and
+synthetic-result mutations were correctly classified. No external new bug is
+claimed. Full experimental evidence and provenance limits:
+[B17 independent contract-origin audit](docs/P6B17_INDEPENDENT_CONTRACT_ORIGIN_AUDIT.md).
