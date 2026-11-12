@@ -14,6 +14,22 @@ endpoint=os.environ.get("S3_TEST_ENDPOINT","http://127.0.0.1:4566")
 client=boto3.client("s3",region_name="us-east-1",endpoint_url=endpoint,
  aws_access_key_id="test",aws_secret_access_key="test",
  config=Config(s3={"addressing_style":"path"},retries={"max_attempts":0}))
+# Capture the signed, fully serialized SDK request immediately before dispatch.
+# Exclude Authorization and credentials: only resource and guard metadata matter.
+copy_wire=[]
+def record_copy_request(request, **kwargs):
+ raw={str(k).lower(): (v.decode("utf-8","replace") if isinstance(v,bytes) else str(v))
+      for k,v in request.headers.items()}
+ observed={
+   "method":request.method,
+   "path":request.url.split("?",1)[0].split("4566",1)[-1],
+   "if_none_match":raw.get("if-none-match"),
+   "if_match":raw.get("if-match"),
+   "copy_source":raw.get("x-amz-copy-source"),
+ }
+ copy_wire.append(observed)
+ print("RISU_SIGNED_COPY",json.dumps(observed,sort_keys=True),flush=True)
+client.meta.events.register("before-send.s3.CopyObject",record_copy_request)
 bucket="risu-condition-2026"
 rows=[]
 def invoke(name,method,expect_status=None,**kw):
@@ -92,7 +108,7 @@ race["pass"]=race["wins"]==1 and race["rejects"]==11 and not race["other_statuse
 rows.append(race)
 print("RISU_CONTROL_RACE",json.dumps(race,sort_keys=True))
 result={"backend":"floci","version":"2.0.1","endpoint":"127.0.0.1:4566",
-        "cases":rows,"all_pass":all(x.get("pass") is True for x in rows),
+        "cases":rows,"copy_wire":copy_wire,"all_pass":all(x.get("pass") is True for x in rows),
         "boto3_version":boto3.__version__}
 out=os.environ.get("S3_CONTROL_OUTPUT","control-results.json")
 with open(out,"w") as f:json.dump(result,f,indent=2)
