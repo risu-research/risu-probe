@@ -1,0 +1,141 @@
+name: Cross Adapter Guard Binding Qualification
+on:
+  push:
+    branches: [ci/external-codeql-baseline-v1]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  localagi-sdk-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: mudler/LocalAGI
+          ref: 7aa0c8fea076722b277ca521038ae9f132d3f4d1
+          path: external/localagi
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: google/go-github
+          ref: 0b11dbfbf17f29fb589087727789c6978d500f8d
+          path: external/sdk
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jmrplens/gitlab-mcp-server
+          ref: 96126637cecea17d74fbc6bfc8a4265c974e7d3c
+          path: external/gitlab-control
+          persist-credentials: false
+      - name: Freeze source checks and produce disposable candidate repairs
+        shell: bash
+        run: |
+          mkdir -p audit
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path("external")
+          a=root/"localagi/services/actions/githubrepositorycreateupdatecontent.go"
+          sdk=root/"sdk/github/repos_contents.go"
+          ctrl=root/"gitlab-control/internal/tools/files/files.go"
+          mod=root/"localagi/go.mod"
+          source=a.read_text();s=sdk.read_text();c=ctrl.read_text();m=mod.read_text()
+          assert "github.com/google/go-github/v69 v69.2.0" in m
+          assert 'GetContents(ctx, result.Owner, result.Repository, result.Path, nil)' in source
+          assert 'CreateFile(ctx, result.Owner, result.Repository, result.Path,' in source
+          assert "sha = c.SHA" in source and "Branch:  &result.Branch" in source and "SHA:     sha" in source
+          assert "escapedPath := (&url.URL{Path: strings.TrimSuffix(path, \"/\")}).String()" in s
+          mark="func (s *RepositoriesService) CreateFile("
+          start=s.index(mark);end=s.index("\n}",start)+2;body=s[start:end]
+          original='u := fmt.Sprintf("repos/%s/%s/contents/%s", owner, repo, path)'
+          assert body.count(original)==1
+          repaired=body.replace(original, 'escapedPath := (&url.URL{Path: strings.TrimSuffix(path, "/")}).String()\n\tu := fmt.Sprintf("repos/%s/%s/contents/%s", owner, repo, escapedPath)')
+          pathlib.Path("audit/sdk_patched.go").write_text(s[:start]+repaired+s[end:])
+          pa=source.replace('GetContents(ctx, result.Owner, result.Repository, result.Path, nil)',
+            'GetContents(ctx, result.Owner, result.Repository, result.Path, &github.RepositoryContentGetOptions{Ref: result.Branch})',1)
+          assert pa!=source
+          pathlib.Path("audit/localagi_patched.go").write_text(pa)
+          assert "if input.LastCommitID != \"\" {" in c and "opts.LastCommitID = new(input.LastCommitID)" in c
+          assert "RepositoryFiles.UpdateFile(string(input.ProjectID), input.FilePath, opts" in c
+          dig=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+          evidence={"external":"LocalAGI","status":"SOURCE_SHAPES_MATCH","sdk":"go-github/v69.2.0",
+            "sha256":{"adapter":dig(a),"sdk":dig(sdk),"gitlab_normal_control":dig(ctrl)},
+            "candidates":["default_ref_vs_explicit_write_branch","SDK_read_write_route_asymmetry"],
+            "control":"jmrplens GitLab forwards caller last_commit_id; not a full preflight-equivalence proof"}
+          pathlib.Path("audit/frozen_source_check.json").write_text(json.dumps(evidence,indent=2)+"\n")
+          print("EXTERNAL_SOURCE_SHAPES_PASS",json.dumps(evidence))
+          PY
+      - name: Syntax verify both candidate repairs
+        run: |
+          gofmt -e audit/sdk_patched.go audit/localagi_patched.go >/dev/null
+          echo SOURCE_PATCH_PARSE_PASS
+      - name: Install actual SDK HTTP client comparison tests
+        shell: bash
+        run: |
+          cat > external/sdk/github/risu_cross_adapter_test.go <<'GO'
+          package github
+          import ("context";"encoding/json";"fmt";"net/http";"os";"strings";"testing")
+          func TestRISUCrossAdapterEffectiveTarget(t *testing.T){
+            fixedRef:=os.Getenv("RISU_FIX_REF")=="1"
+            fixedPath:=os.Getenv("RISU_FIX_PATH")=="1"
+            cases:=[]struct{name,path,branch string}{
+              {"healthy","docs/a.md","main"},
+              {"branch","docs/a.md","feature"},
+              {"path","docs/C#/intro.md","main"},
+              {"both","docs/C#/intro.md","feature"},
+              {"query","notes/what?.md","main"},
+            }
+            for _,v:=range cases{t.Run(v.name,func(t *testing.T){
+              client,mux,_:=setup(t)
+              getBranch,getPath,putBranch,putPath,putSHA:="","","","",""
+              mux.HandleFunc("/repos/owner/repo/contents/",func(w http.ResponseWriter,r *http.Request){
+                path:=strings.TrimPrefix(r.URL.Path,"/repos/owner/repo/contents/")
+                if r.Method=="GET"{
+                  getPath=path;getBranch=r.URL.Query().Get("ref");if getBranch==""{getBranch="main"}
+                  fmt.Fprint(w,`{"sha":"identical-blob","type":"file","name":"x"}`)
+                }else if r.Method=="PUT"{
+                  putPath=path
+                  var fields map[string]any
+                  if e:=json.NewDecoder(r.Body).Decode(&fields);e!=nil{t.Fatal(e)}
+                  putBranch,_=fields["branch"].(string);putSHA,_=fields["sha"].(string)
+                  fmt.Fprint(w,`{"content":{"sha":"updated"},"commit":{"sha":"commit"}}`)
+                }else{t.Fatalf("unexpected request %s",r.Method)}
+              })
+              var getOpts *RepositoryContentGetOptions
+              if fixedRef{getOpts=&RepositoryContentGetOptions{Ref:v.branch}}
+              data,_,_,e:=client.Repositories.GetContents(context.Background(),"owner","repo",v.path,getOpts)
+              if e!=nil||data==nil{t.Fatalf("get failed: %v",e)}
+              msg:="edit"
+              opts:=&RepositoryContentFileOptions{Message:&msg,Content:[]byte("updated"),Branch:&v.branch,SHA:data.SHA}
+              if _,_,e=client.Repositories.CreateFile(context.Background(),"owner","repo",v.path,opts);e!=nil{t.Fatalf("put failed: %v",e)}
+              if putSHA!="identical-blob"{t.Fatalf("SHA not preserved: %q",putSHA)}
+              actual:=getBranch==putBranch&&getPath==putPath
+              expectRef:=fixedRef||v.branch=="main"
+              expectPath:=fixedPath||(!strings.Contains(v.path,"#")&&!strings.Contains(v.path,"?"))
+              expected:=expectRef&&expectPath
+              t.Logf("CROSS_ADAPTER refFix=%v pathFix=%v case=%s get=%s:%q put=%s:%q same=%v",fixedRef,fixedPath,v.name,getBranch,getPath,putBranch,putPath,actual)
+              if actual!=expected{t.Fatalf("expected %v actual %v",expected,actual)}
+            })}
+          }
+          GO
+      - name: Baseline and branch-only actual SDK controls
+        shell: bash
+        run: |
+          cd external/sdk
+          RISU_FIX_REF=0 RISU_FIX_PATH=0 go test ./github -run TestRISUCrossAdapterEffectiveTarget -count=1 -timeout=6m -v | tee ../../audit/sdk_original_wire.log
+          RISU_FIX_REF=1 RISU_FIX_PATH=0 go test ./github -run TestRISUCrossAdapterEffectiveTarget -count=1 -timeout=6m -v | tee ../../audit/sdk_ref_only_wire.log
+      - name: Patched SDK and combined controls
+        shell: bash
+        run: |
+          cp audit/sdk_patched.go external/sdk/github/repos_contents.go
+          cd external/sdk
+          RISU_FIX_REF=0 RISU_FIX_PATH=1 go test ./github -run TestRISUCrossAdapterEffectiveTarget -count=1 -timeout=6m -v | tee ../../audit/sdk_path_only_wire.log
+          RISU_FIX_REF=1 RISU_FIX_PATH=1 go test ./github -run TestRISUCrossAdapterEffectiveTarget -count=1 -timeout=6m -v | tee ../../audit/sdk_both_wire.log
+          go test ./github -run 'TestRepositoriesService_(GetContents|CreateFile)' -count=1 -timeout=6m -v | tee ../../audit/sdk_original_unit_tests.log
+      - name: Upload read-only experiment evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cross-adapter-pinned-evidence
+          path: audit/
+          if-no-files-found: warn
