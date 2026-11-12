@@ -92,6 +92,8 @@ def verify_signature(body,signature,pub):
 def check_roots(path,expected_sha):
     demand(type(expected_sha) is str and HEX.fullmatch(expected_sha),
            "ROOT_HASH_MUST_BE_PROVIDED_OUT_OF_BAND")
+    demand(not path.is_symlink() and path.is_file() and path.stat().st_size<=131072,
+           "UNSAFE_OWNER_TRUST_ROOT_FILE")
     demand(sha(path.read_bytes())==expected_sha,
            "OUT_OF_BAND_TRUST_ROOT_HASH_MISMATCH")
     roots=load_json(path)
@@ -117,8 +119,7 @@ def check_roots(path,expected_sha):
         resources=row["resource_ids"]
         demand(type(resources) is list and 1<=len(resources)<=256 and
                all(type(x) is str and 1<=len(x)<=200 and
-                   x.startswith("fixture://") or
-                   (type(x) is str and x.startswith("urn:risu-owner:"))
+                   (x.startswith("fixture://") or x.startswith("urn:risu-owner:"))
                    for x in resources) and len(set(resources))==len(resources),
                "INVALID_TRUSTED_RESOURCE_IDENTITIES")
         trusted[issuer]=row
@@ -130,12 +131,19 @@ def verify(plan, evidence, manifest, roots_file, expected_root_hash):
     demand(prior["summary"]["all_predeclared_patterns_met"],
            "UNDERLYING_GENERIC_EFFECT_PATTERN_NOT_QUALIFIED")
     demand(type(manifest) is dict and manifest.get("schema")==MANIFEST and
-           set(manifest)=={"schema","plan_sha256","cases","declared_dataset_role"},
+           set(manifest)=={"schema","plan_sha256","cases","declared_dataset_role",
+                           "original_software_file","original_software_sha256"},
            "INVALID_DIRECTION_AUTHORITY_MANIFEST")
     demand(manifest["plan_sha256"]==sha(canonical(plan)),
            "SIGNED_AUTHORITY_NOT_BOUND_TO_FROZEN_EFFECT_PLAN")
     demand(manifest["declared_dataset_role"]==plan["classification"],
            "EVALUATION_ROLE_CONFLICT")
+    software=relative(evidence,manifest["original_software_file"])
+    software_digest=sha(software.read_bytes())
+    demand(type(manifest["original_software_sha256"]) is str and
+           bool(HEX.fullmatch(manifest["original_software_sha256"])) and
+           software_digest==manifest["original_software_sha256"],
+           "ORIGINAL_EXECUTED_SOFTWARE_ARTIFACT_NOT_BOUND")
     cases=manifest["cases"]
     demand(type(cases) is dict and set(cases)==set(CELLS),
            "INCOMPLETE_OWNER_PRECALL_AUTHORITY_MATRIX")
@@ -187,7 +195,8 @@ def verify(plan, evidence, manifest, roots_file, expected_root_hash):
                "DUPLICATE_OR_INVALID_OWNER_SESSION_NONCE")
         used_nonce.add(policy["run_nonce"])
         demand(type(policy["wheel_sha256"]) is str and
-               bool(HEX.fullmatch(policy["wheel_sha256"])),
+               bool(HEX.fullmatch(policy["wheel_sha256"])) and
+               policy["wheel_sha256"]==software_digest,
                "ORIGINAL_SOFTWARE_RELEASE_NOT_BOUND_TO_POLICY")
         issued=parse_time(policy["issued_at"])
         expires=parse_time(policy["expires_at"])
@@ -279,6 +288,7 @@ def verify(plan, evidence, manifest, roots_file, expected_root_hash):
       "authority_root_file_sha256":expected_root_hash,
       "trusted_root_mode":scope,
       "dataset_role":plan["classification"],
+      "original_software_artifact_sha256":software_digest,
       "status":"DIRECTIONAL_OBSERVATION_WITH_SIGNED_SCOPE_VERIFIED",
       "summary":{
           "source_bound_original_mcp_calls":4,
