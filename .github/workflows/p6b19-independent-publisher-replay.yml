@@ -1,0 +1,182 @@
+name: RISU P6-B19 independent official publisher signed-wheel rerun and hidden-effect audit
+on:
+  push:
+    branches: ['qualification/p6b19-*']
+    paths:
+      - 'benchmarks/p6b19/independent_publisher_hidden_effect_audit.py'
+      - '.github/workflows/p6b19-independent-publisher-replay.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independently-repeat-real-fixed-security-defect:
+    name: Fresh native MCP process per upstream signed release + independent audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download true original firstpass signed packages and four native MCP transcripts
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43316866530
+          github-token: ${{ github.token }}
+          name: risu-b19-real-publisher-signed-git-security-repair-firstpass
+          path: .b19-original
+      - name: Independently reverify cryptographic official PyPI Trusted Publishing signatures
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'pypi-attestations==0.0.31'
+          mkdir -p .b19-review
+          python - <<'PY'
+          import json,subprocess,hashlib
+          from pathlib import Path
+          base=Path('.b19-original/.b19-official')
+          result={}
+          for name in ('VULNERABLE','FIXED'):
+              folder=base/name
+              m=json.loads((folder/'original_pypi_metadata.json').read_text())
+              wheel=folder/m['filename']
+              digest=hashlib.sha256(wheel.read_bytes()).hexdigest()
+              assert digest==m['wheel_sha256']
+              cmd=['pypi-attestations','verify','pypi','--repository',
+                  'https://github.com/modelcontextprotocol/servers',m['download_url']]
+              checked=subprocess.run(cmd,stdout=subprocess.PIPE,
+                  stderr=subprocess.PIPE,check=False,timeout=180)
+              assert checked.returncode==0,(name,checked.stderr.decode(errors='replace')[:500])
+              result[name]={
+                  'cryptographic_verification_success':True,
+                  'wheel_sha256':digest,
+                  'verification_client':'pypi-attestations==0.0.31',
+                  'verified_repository':'https://github.com/modelcontextprotocol/servers',
+                  'cli_stdout_sha256':hashlib.sha256(checked.stdout).hexdigest(),
+                  'original_verification_method':'download PyPI integrity API and verify Fulcio/Rekor certificate for official publisher and wheel bytes'}
+              print('B19_INDEPENDENT_VENDOR_SIGNATURE_REVERIFIED',name,digest)
+          Path('.b19-review/independent_signatures.json').write_text(
+              json.dumps(result,indent=2,sort_keys=True)+chr(10))
+          PY
+      - name: Independent auditor without importing any RISU detector rechecks original source and four native tools
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b19/independent_publisher_hidden_effect_audit.py \
+            --original .b19-original \
+            --independent-signatures .b19-review/independent_signatures.json \
+            --out .b19-review/INDEPENDENT_FIRSTPASS_AUDIT.json
+          python - <<'PY'
+          import json
+          x=json.load(open('.b19-review/INDEPENDENT_FIRSTPASS_AUDIT.json'))
+          assert x['all_four_original_tool_result_bodies_identical'] is True
+          assert x['known_real_security_repair_verified'] is True
+          assert x['publisher_signed_source_commits_verified_by_x509']==2
+          assert x['original_native_mcp_calls']==4
+          print('B19_SAME_RESPONSES_BUT_TRUE_EXTERNAL_SIDE_EFFECT_DIFFERENCE_INDEPENDENTLY_VERIFIED')
+          PY
+      - name: Fresh isolated installer of exact same official signed source wheels in new independent runner
+        run: |
+          set -euo pipefail
+          mkdir -p .b19-replay/.b19-official .b19-replay-venvs .b19-replay/benchmarks/p6b19
+          cp -r .b19-original/.b19-official/VULNERABLE .b19-replay/.b19-official/
+          cp -r .b19-original/.b19-official/FIXED .b19-replay/.b19-official/
+          cp .b19-original/benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+            .b19-replay/benchmarks/p6b19/
+          for VERSION in VULNERABLE FIXED; do
+            python -m venv ".b19-replay-venvs/$VERSION"
+            PY=".b19-replay-venvs/$VERSION/bin/python"
+            "$PY" -m pip install --disable-pip-version-check \
+              'mcp==2.3.0' 'GitPython==3.1.60' 'click==8.3.0' 'pydantic==2.12.5'
+            WHEEL=(.b19-replay/.b19-official/"$VERSION"/mcp_server_git-*.whl)
+            test "${#WHEEL[@]}" -eq 1
+            "$PY" -m pip install --disable-pip-version-check --no-deps "${WHEEL[0]}"
+            "$PY" -m pip check
+            "$PY" -m pip freeze | LC_ALL=C sort > ".b19-review/$VERSION.second_installed_dependencies.txt"
+          done
+          python benchmarks/p6b19/verify_upstream_pypi_release.py installed \
+            --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+            --root .b19-replay/.b19-official --venvs .b19-replay-venvs
+      - name: Execute the original upstream wheel processes again under four fresh PIDs
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b19/capture_official_signed_git_versions.py \
+            --freeze benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json \
+            --wheel-root .b19-replay/.b19-official --venvs .b19-replay-venvs \
+            --out .b19-replay/.b19-native-firstpass
+          python benchmarks/p6b19/independent_publisher_hidden_effect_audit.py \
+            --original .b19-replay \
+            --independent-signatures .b19-review/independent_signatures.json \
+            --out .b19-review/INDEPENDENT_SECOND_PROCESS_AUDIT.json
+      - name: Compare publisher response equivalence and fixed security effect across separate original executions
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          def read(p):return json.load(open(p))
+          first=read('.b19-review/INDEPENDENT_FIRSTPASS_AUDIT.json')
+          second=read('.b19-review/INDEPENDENT_SECOND_PROCESS_AUDIT.json')
+          assert first['identical_canonical_mcp_result_sha256']==second['identical_canonical_mcp_result_sha256']
+          assert first['all_four_original_tool_result_bodies_identical']
+          assert second['all_four_original_tool_result_bodies_identical']
+          assert first['known_real_security_repair_verified']
+          assert second['known_real_security_repair_verified']
+          a=[(x['version'],x['case'],x['synthetic_marker_triggered']) for x in first['evidence']]
+          b=[(x['version'],x['case'],x['synthetic_marker_triggered']) for x in second['evidence']]
+          assert a==b
+          assert len(a)==4
+          print('B19_TWO_INDEPENDENT_EXECUTIONS_IDENTICAL_TOOL_OUTPUTS_REAL_REPAIR_REPRODUCED',a)
+          PY
+      - name: Inject evidence contamination; independent auditor must fail closed
+        run: |
+          set -euo pipefail
+          cp -r .b19-original .b19-tampered
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('.b19-tampered/.b19-native-firstpass/VULNERABLE/CONFIGURED/original_effect_witness.json')
+          x=json.loads(p.read_text())
+          x['marker_after']=False
+          p.write_text(json.dumps(x))
+          PY
+          if python benchmarks/p6b19/independent_publisher_hidden_effect_audit.py \
+            --original .b19-tampered \
+            --independent-signatures .b19-review/independent_signatures.json \
+            --out .b19-review/MUST_NOT_EXIST.json; then
+            echo 'Tampered first-pass marker evidence incorrectly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b19-review/MUST_NOT_EXIST.json
+          rm -rf .b19-tampered
+          cp -r .b19-original .b19-tampered
+          printf '!' >> .b19-tampered/.b19-official/FIXED/mcp_server_git-2026.11.11-py3-none-any.whl
+          if python benchmarks/p6b19/independent_publisher_hidden_effect_audit.py \
+            --original .b19-tampered \
+            --independent-signatures .b19-review/independent_signatures.json \
+            --out .b19-review/MUST_NOT_EXIST2.json; then
+            echo 'Tampered publisher-signed wheel incorrectly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b19-review/MUST_NOT_EXIST2.json
+          echo B19_INDEPENDENT_AUDITOR_REJECTED_SIDE_EFFECT_AND_WHEEL_TAMPER
+      - name: Preserve both independently verified official release runs and raw signed evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b19-independent-upstream-signed-real-repair-reexecution
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b19-review/independent_signatures.json
+            .b19-review/INDEPENDENT_FIRSTPASS_AUDIT.json
+            .b19-review/INDEPENDENT_SECOND_PROCESS_AUDIT.json
+            .b19-review/VULNERABLE.second_installed_dependencies.txt
+            .b19-review/FIXED.second_installed_dependencies.txt
+            .b19-replay/.b19-native-firstpass/
+            benchmarks/p6b19/independent_publisher_hidden_effect_audit.py
