@@ -142,6 +142,14 @@ async def run(case: str, executable: Path, source: Path,
                 except asyncio.TimeoutError:
                     proc.kill()
                     await proc.wait()
+            if proc and proc.stderr:
+                # Bounded diagnostic from synthetic no-secret isolated process.
+                # stdout is independently preserved byte-for-byte above.
+                try:
+                    diagnostic=(await asyncio.wait_for(proc.stderr.read(4096),3)).decode("utf-8","replace")
+                    origin["stderr_tail_for_setup_diagnosis"]=diagnostic[-1600:]
+                except (asyncio.TimeoutError, OSError):
+                    origin["stderr_read_status"]="UNAVAILABLE"
     bytes_ = b"".join(original)
     origin["stdout_sha256"]=hashlib.sha256(bytes_).hexdigest()
     origin["original_message_lines"]=len(original)
