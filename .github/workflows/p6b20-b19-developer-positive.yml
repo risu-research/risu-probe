@@ -1,0 +1,77 @@
+name: RISU P6-B20 preserve original B19 signed real repair as development-only positive control
+on:
+  push:
+    branches: ['qualification/p6b20-*']
+    paths:
+      - 'benchmarks/p6b20/adapter_b19_development.py'
+      - '.github/workflows/p6b20-b19-developer-positive.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  copy-original-source-positive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lock general checker before source-positive and keep B19 original
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          test "$(git hash-object src/risu_mcp_signed_repair.py)" = 41bb9439174c37a53481db3e025cb9601ae6040f
+      - name: Reacquire only the original signed B19 frozen positive, not any synthetic mutated wire
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43316866530
+          github-token: ${{ github.token }}
+          name: risu-b19-real-publisher-signed-git-security-repair-firstpass
+          path: .b20-source-positive
+      - name: Adapt original source observer bytes without editing them
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python benchmarks/p6b20/adapter_b19_development.py \
+            --source .b20-source-positive \
+            --out .b20-dev-positive
+          python -m risu_p5d_cli verify-mcp-effects \
+            --plan .b20-dev-positive/PLAN_DEVELOPMENT_B19.json \
+            --evidence-root .b20-dev-positive \
+            --format json --out .b20-dev-positive/GENERIC_B19_POSITIVE_REPORT.json \
+            --fail-on-mismatch
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('.b20-dev-positive/GENERIC_B19_POSITIVE_REPORT.json')
+          r=json.loads(p.read_text())
+          assert r['cohort_classification']=='DEVELOPMENT_POSITIVE_CONTROL'
+          assert r['summary']['matched_predeclared_effect_patterns']==1
+          assert r['summary']['tool_response_only_observability_gap'] is True
+          assert r['summary']['all_four_original_mcp_result_bodies_identical'] is True
+          assert r['summary']['new_upstream_defects_claimed']==0
+          assert r['decisions'][0]['declared_pattern']=='suppressed-in-after-with-controls-stable'
+          print('B20_GENERIC_DEV_B19_SIGNED_REAL_BUG_POSITIVE_MATCHED',r['summary'])
+          PY
+      - name: Preserve only original developer positive witness and generic test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b20-dev-positive-b19-original-signed-real-repair
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: .b20-dev-positive/
