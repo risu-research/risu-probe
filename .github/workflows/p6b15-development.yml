@@ -1,0 +1,120 @@
+name: RISU P6-B15 observation contracts development and B14 frozen replay
+on:
+  push:
+    branches: ['qualification/p6b15-*']
+    paths:
+      - 'src/risu_mcp_observations.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b15_observation_contract.py'
+      - 'benchmarks/p6b15/prepare_b14_development.py'
+      - '.github/workflows/p6b15-development.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  installed-wheel:
+    name: B15 installed product and regression ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Package genuine preview wheel and test installed CLI
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b15-wheels
+          python -m pip wheel --no-deps -w .b15-wheels .
+          python -m venv .b15-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b15-installed/Scripts/python.exe
+          else
+            PY=.b15-installed/bin/python
+          fi
+          "$PY" -m pip install .b15-wheels/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli check-mcp-observations --help
+          "$PY" -m unittest discover -s tests -p test_p6b15_observation_contract.py -v
+          echo B15_OBSERVATION_CONTRACT_WHEEL_ALL_UNIT_CONTROLS_PASS
+  frozen-b14-development-replay:
+    name: B15 opt-in product against original B14 development evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch original B14 SP native evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43283214546
+          github-token: ${{ github.token }}
+          name: risu-b14-original-SP
+          path: .b15-b14-original/SP
+      - name: Fetch original B14 ME native evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43283214546
+          github-token: ${{ github.token }}
+          name: risu-b14-original-ME
+          path: .b15-b14-original/ME
+      - name: Build development-only contracts with original SQLite witnesses
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          python -m pip install .
+          for CASE in SP ME; do
+            python benchmarks/p6b15/prepare_b14_development.py               --case "$CASE" --source ".b15-b14-original/$CASE"               --out ".b15-dev/$CASE"
+            python -m risu_p5d_cli check-mcp-observations               ".b15-dev/$CASE/original_stdio.jsonl"               --contract ".b15-dev/$CASE/observation_contract.json"               --witness ".b15-dev/$CASE/state_witness.json"               --format json --out ".b15-dev/$CASE/report.json"
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          sp=json.loads(Path('.b15-dev/SP/report.json').read_text())
+          me=json.loads(Path('.b15-dev/ME/report.json').read_text())
+          assert sp['summary']['checked']==2 and sp['summary']['passed']==2,sp['summary']
+          assert sp['summary']['observed_mismatches']==0 and sp['summary']['unverified']==0
+          assert me['summary']['checked']==3 and me['summary']['passed']==1,me['summary']
+          assert me['summary']['observed_mismatches']==2 and me['summary']['unverified']==0
+          assert [f['rule_id'] for f in me['findings']]==['RME610','RME620'],me['findings']
+          print('B15_ORIGINAL_B14_DEVELOPMENT_REPLAY',sp['summary'],me['summary'])
+          PY
+      - name: Preserve unaltered original B14 trace bound to new product findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b15-development-original-b14-evidence
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b15-dev
+            benchmarks/p6b15/prepare_b14_development.py
