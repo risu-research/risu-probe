@@ -1,0 +1,59 @@
+name: RISU P6-B17 pinned source provenance installed-wheel regression
+on:
+  push:
+    branches: ['qualification/p6b17-*']
+    paths:
+      - 'src/risu_mcp_origin.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b17_source_origin.py'
+      - '.github/workflows/p6b17-source-development.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-origin-adversarial:
+    name: B17 pinned Git origin installed-wheel ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify B16 classifier and original parser unchanged
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_authority.py)" = be24472b0fea8d8e7a252a7a36158cf8873128de
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+      - name: Install actual wheel in clean venv, run source identity and all historical tests
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b17-dist
+          python -m pip wheel --no-deps -w .b17-dist .
+          python -m venv .b17-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b17-installed/Scripts/python.exe
+            CLI=.b17-installed/Scripts/risu-probe.exe
+          else
+            PY=.b17-installed/bin/python
+            CLI=.b17-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b17-dist/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli verify-mcp-origin --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B17_SOURCE_ORIGIN_ALL_PRIOR_REGRESSIONS_PASS
