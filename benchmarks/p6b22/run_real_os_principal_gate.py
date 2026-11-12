@@ -23,7 +23,8 @@ LONG="RISU B22 old harmless synthetic contents plus longer text used only in syn
 
 def sha(b):return hashlib.sha256(b).hexdigest()
 def execute(*args,timeout=90,expect=0):
-    run=subprocess.run([str(x) for x in args],capture_output=True,text=True,timeout=timeout)
+    run=subprocess.run([str(x) for x in args],capture_output=True,text=True,timeout=timeout,
+        cwd="/tmp" if args and str(args[0])=="sudo" else None)
     if expect is not None and run.returncode!=expect:
         raise RuntimeError("External integration subprocess failed: "+
           " ".join(str(x) for x in args[:3])+" rc="+str(run.returncode)+
@@ -83,9 +84,23 @@ def run(args):
     private=Path("/home")/usernames["owner"]/"b22-private-owner-ed25519.pem"
     root=published/"owner-pretrusted-public.json"
     rev_empty=published/"revocations_epoch0.json"
-    issuer_script=Path(args.issuer_script).resolve()
+    # GitHub runner home is deliberately private; never loosen its
+    # permissions just to let another OS user traverse a checkout.
+    source_issuer=Path(args.issuer_script).resolve()
+    issuer_script=base/"PUBLIC_OWNER_ISSUER_CODE.py"
+    shutil.copyfile(source_issuer,issuer_script)
+    issuer_script.chmod(0o644)
+    source_venv=Path(args.original_python).absolute().parent.parent
+    server_venv=base/"PINNED_UPSTREAM_VENV"
+    shutil.copytree(source_venv,server_venv,symlinks=True)
+    original_py=server_venv/"bin/python"
+    source_wheel=original_wheel
+    external_wheel=base/source_wheel.name
+    shutil.copyfile(source_wheel,external_wheel)
+    external_wheel.chmod(0o644)
+    assert sha(external_wheel.read_bytes())==sha(source_wheel.read_bytes())
+    original_wheel=external_wheel
     gateway_py=Path(sys.executable).resolve()
-    original_py=Path(args.original_python).absolute()
     signer=[
         "sudo","-u",usernames["owner"],"-H",str(gateway_py),str(issuer_script)
     ]
