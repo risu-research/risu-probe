@@ -1,0 +1,146 @@
+name: RISU P6-B17 independent upstream publisher tree vs native MCP catalog
+on:
+  push:
+    branches: ['qualification/p6b17-*']
+    paths:
+      - 'benchmarks/p6b17/FROZEN_UPSTREAM_ORIGIN_COHORT.json'
+      - 'benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json'
+      - 'benchmarks/p6b17/capture_gcp_native.py'
+      - '.github/workflows/p6b17-gcp-pinned-source-native.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gcp-independent-origin:
+    name: B17 pinned GoogleCloudPlatform publisher + original MCP stdio
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify frozen B17 product and precommitted new vendor source pin
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+          test "$(git hash-object src/risu_mcp_authority.py)" = be24472b0fea8d8e7a252a7a36158cf8873128de
+          python - <<'PY'
+          import json
+          s=json.load(open('benchmarks/p6b17/FROZEN_UPSTREAM_ORIGIN_COHORT.json'))
+          m=json.load(open('benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json'))
+          assert s['frozen_product_blob']=='75180de2dbd78165d2e970ee15e99df14804e7f1'
+          assert s['heldout']['repository']=='GoogleCloudPlatform/mcp-python-sdk-grpc-poc'
+          assert s['heldout']['revision']=='cedc20fdc8fdf22fc8b411a3947ae03c71cbc926'
+          assert len(s['heldout']['original_calls'])==2
+          assert m['sources'][0]['git_blob_sha1']=='7f102ff8b5e09b6df64b6b9c0fd913ac25f709f5'
+          print('B17_NEW_EXTERNAL_SOURCE_FROZEN_BEFORE_EXECUTION')
+          PY
+      - name: Checkout exact untouched GoogleCloudPlatform upstream code
+        run: |
+          set -euo pipefail
+          git init -q .b17-upstream
+          git -C .b17-upstream -c core.hooksPath=/dev/null remote add origin https://github.com/GoogleCloudPlatform/mcp-python-sdk-grpc-poc.git
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b17-upstream -c core.hooksPath=/dev/null fetch -q --depth=1 --no-tags origin cedc20fdc8fdf22fc8b411a3947ae03c71cbc926
+          git -C .b17-upstream -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b17-upstream rev-parse HEAD)" = cedc20fdc8fdf22fc8b411a3947ae03c71cbc926
+      - name: Independently verify original GitHub commit tree and source blob against Git checkout
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .b17-evidence
+          python - <<'PY'
+          import json,hashlib,os,subprocess,urllib.request
+          from pathlib import Path
+          m=json.load(open('benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json'))
+          url='https://api.github.com/repos/'+m['repository']+'/git/trees/'+m['revision']+'?recursive=1'
+          req=urllib.request.Request(url,headers={'User-Agent':'risu-b17-source-qualification',
+               'Accept':'application/vnd.github+json',
+               'Authorization':'Bearer '+os.environ['GITHUB_TOKEN']})
+          with urllib.request.urlopen(req,timeout=25) as reply:
+              response=reply.read(2_000_000)
+          tree=json.loads(response)
+          assert tree['truncated'] is False
+          record=m['sources'][0]
+          matches=[x for x in tree['tree'] if x.get('path')==record['path']]
+          assert len(matches)==1 and matches[0]['type']=='blob'
+          assert matches[0]['sha']==record['git_blob_sha1']
+          sha=subprocess.check_output(['git','-C','.b17-upstream','rev-parse',
+              m['revision']+':'+record['path']],text=True).strip()
+          assert sha==matches[0]['sha']
+          raw=subprocess.check_output(['git','-C','.b17-upstream','cat-file','blob',sha])
+          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+bytes([0])+raw).hexdigest()==sha
+          d={'schema':'risu-b17-independent-provider-tree-check-v1',
+             'github_remote_repository':m['repository'],'revision':m['revision'],
+             'remote_git_tree_blob_sha1':matches[0]['sha'],
+             'local_git_tree_blob_sha1':sha,
+             'original_source_file_sha256':hashlib.sha256(raw).hexdigest(),
+             'provider_api_body_sha256':hashlib.sha256(response).hexdigest(),
+             'remote_api_tree_matches_git_checkout':True,
+             'limitations':'GitHub remote and local Git corroborate publisher source content, but not a signature proving the MCP process executed that revision.'}
+          Path('.b17-evidence/provider_tree_check.json').write_text(json.dumps(d,indent=2,sort_keys=True)+'\n')
+          print('B17_INDEPENDENT_PROVIDER_TREE_CHECK',d['remote_api_tree_matches_git_checkout'])
+          PY
+      - name: Install pinned SDK and source-locked B17 verifier
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m pip install --disable-pip-version-check 'mcp==1.30.0'
+          python -m pip check
+      - name: Execute original native server with only predeclared synthetic calls
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b17/capture_gcp_native.py \
+            --source .b17-upstream --executable "$(command -v python)" \
+            --out .b17-original
+          test -s .b17-original/origin.json
+          test -s .b17-original/original_stdio.jsonl
+      - name: Compare actual original catalog and pinned source using frozen B17 product
+        run: |
+          set -euo pipefail
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+          python -m risu_p5d_cli verify-mcp-origin \
+            .b17-original/original_stdio.jsonl \
+            --contract .b17-original/contract.json \
+            --source-checkout .b17-upstream \
+            --source-manifest benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json \
+            --format json --out .b17-original/origin_firstpass.json
+          python - <<'PY'
+          import json
+          o=json.load(open('.b17-original/origin.json'))
+          r=json.load(open('.b17-original/origin_firstpass.json'))
+          p=json.load(open('.b17-evidence/provider_tree_check.json'))
+          assert o['status']=='CAPTURED_ORIGINAL',o
+          assert o['calls_captured']==2,o
+          assert r['trace_sha256']==o['trace_sha256']
+          assert r['claimed_full_commit']==p['revision']
+          assert r['sources_verified_against_local_git_objects']==1
+          assert r['summary']['matched_obligations']==2,r['summary']
+          assert r['summary']['QUARANTINED_SOURCE_CONFLICT']==0,r['summary']
+          print('B17_FIRSTPASS_EXTERNAL_SOURCE_ORIGIN',r['summary'])
+          PY
+      - name: Preserve all first-pass outputs including negative and incomplete observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b17-gcp-native-origin-source-firstpass
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b17-evidence/provider_tree_check.json
+            .b17-original/original_stdio.jsonl
+            .b17-original/origin.json
+            .b17-original/call_log.json
+            .b17-original/contract.json
+            .b17-original/origin_firstpass.json
+            benchmarks/p6b17/FROZEN_UPSTREAM_ORIGIN_COHORT.json
+            benchmarks/p6b17/GCP_PINNED_SOURCE_MANIFEST.json
