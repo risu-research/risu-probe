@@ -1,0 +1,140 @@
+{
+  "schema": "risu-p6b16-independent-original-owners-cohort-v1",
+  "date": "2026-11-12",
+  "frozen_authority_blob": "be24472b0fea8d8e7a252a7a36158cf8873128de",
+  "source_informed": true,
+  "selection": "Two external upstream owners not in B14 or B15, selected after inspecting limited implementation sources. This is source-informed external generalization, not blind discovery.",
+  "denominator": {
+    "owners": 2,
+    "pinned_original_source_deployments": 2,
+    "tools_calls": 7,
+    "source_catalog_refreshes": 1,
+    "source_notifications_expected": 1
+  },
+  "trusted_data": "Only synthetic test strings and temp directories; never call network-dependent tools, credentials, personal or production data.",
+  "no_adaptive_rule_changes": "Freeze original tool source Git refs, selected tool arguments and product SHA before running. Any harness correction records old outcome and does not change product source. Original capture evidence retained.",
+  "cases": [
+    {
+      "id": "AISH",
+      "repo": "AI-Shell-Team/aish",
+      "sha": "c9ad99acac291dd3a7b38162b6159bf5b01a1ed9",
+      "entry": "scripts/mcp-servers/python/features_server.py",
+      "runtime": "python 3.11 mcp 1.30.0 stdio",
+      "steps": [
+        {
+          "id": "a0",
+          "method": "tools/call",
+          "name": "structured",
+          "arguments": {},
+          "expect": "schema-supported normal structured result"
+        },
+        {
+          "id": "a1",
+          "method": "tools/call",
+          "name": "echo",
+          "arguments": {
+            "text": "RISU_B16_HOLDOUT_🧭"
+          },
+          "expect": "readOnlyHint advisory plus stable local state"
+        },
+        {
+          "id": "a2",
+          "method": "tools/call",
+          "name": "list_added",
+          "arguments": {},
+          "expect": "tool catalog changes and notification"
+        },
+        {
+          "id": "a3",
+          "method": "tools/call",
+          "name": "structured",
+          "arguments": {},
+          "expect": "stale catalog snapshot must not qualify after list change"
+        },
+        {
+          "id": "a4",
+          "method": "tools/list",
+          "name": null,
+          "arguments": {},
+          "expect": "refresh complete authoritative catalog"
+        },
+        {
+          "id": "a5",
+          "method": "tools/call",
+          "name": "structured",
+          "arguments": {},
+          "expect": "refreshed catalog restores schema-backed qualification"
+        }
+      ],
+      "contracts": [
+        {
+          "id": "aish_structured_schema",
+          "tool": "structured",
+          "kind": "json-object",
+          "when": {},
+          "carrier": "structured-content",
+          "required": {
+            "/ok": "boolean",
+            "/count": "integer"
+          }
+        },
+        {
+          "id": "aish_echo_readonly_hint",
+          "tool": "echo",
+          "kind": "state-unchanged",
+          "when": {
+            "text": "RISU_B16_HOLDOUT_🧭"
+          }
+        }
+      ]
+    },
+    {
+      "id": "MM",
+      "repo": "MarvinRomson/master-mcp",
+      "sha": "75dc67c58e6468cdd81a6e5c3cb0a2f1521af93d",
+      "entry": "search_mcp_server.py",
+      "runtime": "python 3.11 mcp 1.30.0 stdio",
+      "steps": [
+        {
+          "id": "m0",
+          "method": "tools/call",
+          "name": "search_regex_tools",
+          "arguments": {
+            "pattern": "search",
+            "top_k": 2
+          },
+          "expect": "read-only state with unspecified hints"
+        },
+        {
+          "id": "m1",
+          "method": "tools/call",
+          "name": "search_bm25_tools",
+          "arguments": {
+            "query": "schema",
+            "top_k": 2
+          },
+          "expect": "read-only state with unspecified hints"
+        }
+      ],
+      "contracts": [
+        {
+          "id": "mm_regex_read",
+          "tool": "search_regex_tools",
+          "kind": "state-unchanged",
+          "when": {
+            "pattern": "search"
+          }
+        },
+        {
+          "id": "mm_bm25_read",
+          "tool": "search_bm25_tools",
+          "kind": "state-unchanged",
+          "when": {
+            "query": "schema"
+          }
+        }
+      ]
+    }
+  ],
+  "claims": "Normative output schema successes on true external original MCP server and withheld authority after list change. No upstream new bug claim; source-informed native interoperability controls, not sample of ecosystem."
+}
