@@ -1,0 +1,174 @@
+name: RISU P6-B21 independent resource owner and direction cross-run audit
+on:
+  push:
+    branches: ['qualification/p6b21-*']
+    paths:
+      - 'benchmarks/p6b21/independent_signed_owner_real_effect_audit.py'
+      - '.github/workflows/p6b21-independent-owner-real-rerun.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-new-owner-key-and-new-original-source-execution:
+    name: Distinct owner key and native external MCP fresh execution and independent byte/signature auditor
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch first real external original signed-fixture run with raw policy and bytes
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43327020115
+          github-token: ${{ github.token }}
+          name: risu-b21-original-native-owner-signed-directional-firstpass
+          path: .b21-firstpass
+      - name: Independently authenticate original publisher Git object and PyPI release bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          python - <<'PY'
+          import hashlib,json,base64,os,urllib.request,zipfile
+          from pathlib import Path
+          root=Path('.b21-firstpass/.b21-original')
+          wheel=root/'original_unmodified_pypi_wheel.whl'
+          expect='94610f0b73df1d3ada4ef0353353eb93695645c7b82f71ca80ed13dc1022c235'
+          assert hashlib.sha256(wheel.read_bytes()).hexdigest()==expect
+          url='https://api.github.com/repos/kujirahand/mcp_server-filesystem/contents/src/filesystem_mcp/server.py?ref=1aff1e094ed317ec2c5de06591978781d660c48a'
+          req=urllib.request.Request(url,headers={'Accept':'application/vnd.github+json',
+              'Authorization':'Bearer '+os.environ['GH_TOKEN'],
+              'User-Agent':'RISU-B21-independent-original-source-git'})
+          with urllib.request.urlopen(req,timeout=25) as r:obj=json.load(r)
+          assert obj['sha']=='f886fcbc6e61f3be8e6fd76b6e5f3ad1f8cbb7b6'
+          original=base64.b64decode(obj['content'])
+          assert hashlib.sha1(b'blob '+str(len(original)).encode()+bytes([0])+original).hexdigest()==obj['sha']
+          with zipfile.ZipFile(wheel) as z:packaged=z.read('filesystem_mcp/server.py')
+          assert original==packaged
+          print('B21_INDEPENDENT_ORIGINAL_UNMODIFIED_UPSTREAM_SOURCE_GIT_AND_WHEEL_VERIFIED')
+          PY
+      - name: Independently audit first original preissued signed grants, physical file bytes and actual native MCP responses
+        run: |
+          set -euo pipefail
+          mkdir -p .b21-audit
+          python benchmarks/p6b21/independent_signed_owner_real_effect_audit.py \
+            --evidence .b21-firstpass/.b21-original \
+            --product-report .b21-firstpass/.b21-original/REAL_DIRECTED_SIGNED_OWNER_FIRSTPASS.json \
+            --out .b21-audit/FIRST_INDEPENDENT_ORIGINAL_OWNER_AUDIT.json
+      - name: Reinstall untouched exact public upstream original package and create NEW independent owner
+        run: |
+          set -euo pipefail
+          python -m venv .b21-second-venv
+          .b21-second-venv/bin/python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+          .b21-second-venv/bin/python -m pip install --disable-pip-version-check --no-deps \
+            .b21-firstpass/.b21-package/filesystem_mcp-1.0.2-*.whl
+          .b21-second-venv/bin/python -m pip check
+          python -m pip install --disable-pip-version-check .
+          python benchmarks/p6b21/capture_signed_owner_real_fs.py \
+            --python .b21-second-venv/bin/python \
+            --wheel-dir .b21-firstpass/.b21-package \
+            --plan benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json \
+            --out .b21-second-original
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=(Path('.b21-firstpass/.b21-original/PREISSUED_OWNER_ROOT_SHA256.txt')).read_text().strip()
+          b=(Path('.b21-second-original/PREISSUED_OWNER_ROOT_SHA256.txt')).read_text().strip()
+          assert len(a)==len(b)==64 and a!=b
+          first=json.load(open('.b21-firstpass/.b21-original/pretrusted_synthetic_owner_root.json'))
+          second=json.load(open('.b21-second-original/pretrusted_synthetic_owner_root.json'))
+          assert first['principals'][0]['ed25519_public_key_b64']!=second['principals'][0]['ed25519_public_key_b64']
+          print('B21_NEW_INDEPENDENT_OWNER_PRIVATE_KEY_AND_NEW_ROOT_CONFIRMED',b)
+          PY
+      - name: Recheck frozen generic owner authority verifier and separately audit second real native process
+        run: |
+          set -euo pipefail
+          python -m risu_p5d_cli verify-mcp-effect-authority \
+            --plan benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json \
+            --evidence-root .b21-second-original \
+            --authority-manifest .b21-second-original/SIGNED_OWNER_AUTHORITY_MANIFEST.json \
+            --trust-root .b21-second-original/pretrusted_synthetic_owner_root.json \
+            --trusted-root-sha256 "$(cat .b21-second-original/PREISSUED_OWNER_ROOT_SHA256.txt)" \
+            --format json --out .b21-audit/SECOND_REAL_OWNER_VERIFIER.json
+          python benchmarks/p6b21/independent_signed_owner_real_effect_audit.py \
+            --evidence .b21-second-original \
+            --product-report .b21-audit/SECOND_REAL_OWNER_VERIFIER.json \
+            --out .b21-audit/SECOND_INDEPENDENT_ORIGINAL_OWNER_AUDIT.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          first=json.loads(Path('.b21-audit/FIRST_INDEPENDENT_ORIGINAL_OWNER_AUDIT.json').read_text())
+          second=json.loads(Path('.b21-audit/SECOND_INDEPENDENT_ORIGINAL_OWNER_AUDIT.json').read_text())
+          assert first['owner_public_root_sha256']!=second['owner_public_root_sha256']
+          for r in (first,second):
+              assert r['independently_verified_owner_signatures']==4
+              assert r['original_native_MCP_calls_independently_audited']==4
+              assert r['typed_directional_assessments']==12
+              assert r['within_signed_owner_fixture_scope']==9
+              assert r['outside_signed_fixture_scope']==3
+              assert r['real_upstream_vulnerabilities_discovered']==0
+          a=[(v['case'],v['direction_by_typed_sensor'],v['observed_outside_signed_scope'])
+             for v in first['original_per_case']]
+          b=[(v['case'],v['direction_by_typed_sensor'],v['observed_outside_signed_scope'])
+             for v in second['original_per_case']]
+          assert a==b
+          print('B21_TWO_DIFFERENT_OWNERS_TWO_REAL_EXTERNAL_MCP_RUNS_SAME_DIRECTIONS_AND_SCOPES')
+          PY
+      - name: Independent forged-grant and file bytes mismatch negatives are rejected
+        run: |
+          set -euo pipefail
+          cp -r .b21-second-original .b21-synthetic-negative
+          printf 'tampered' >> .b21-synthetic-negative/after_control/actual_after_payload.bin
+          if python benchmarks/p6b21/independent_signed_owner_real_effect_audit.py \
+            --evidence .b21-synthetic-negative \
+            --out .b21-audit/MUST_NOT_EXIST.json; then
+            echo 'Tampered original physical effect bytes wrongly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b21-audit/MUST_NOT_EXIST.json
+          rm -rf .b21-synthetic-negative
+          cp -r .b21-second-original .b21-synthetic-negative
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          f=Path('.b21-synthetic-negative/before_trigger/PREISSUED_SIGNED_OWNER_GRANT.json')
+          x=json.loads(f.read_text())
+          x['policy']['allowed_directions']['file-size']=['NO_CHANGE']
+          f.write_text(json.dumps(x,sort_keys=True,indent=2)+'\n')
+          PY
+          if python benchmarks/p6b21/independent_signed_owner_real_effect_audit.py \
+            --evidence .b21-synthetic-negative \
+            --out .b21-audit/MUST_NOT_EXIST2.json; then
+            echo 'Tampered owner-signed grant wrongly accepted' >&2
+            exit 3
+          fi
+          test ! -e .b21-audit/MUST_NOT_EXIST2.json
+          echo B21_INDEPENDENT_ORIGINAL_BYTES_AND_SIGNED_OWNER_NEGATIVE_TAMPERS_REJECTED
+      - name: Preserve original new owner key PUBLIC identity, source-native wire, policy and independent audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b21-second-independent-original-mcp-and-owner-signature-audit
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b21-audit/
+            .b21-second-original/
+            benchmarks/p6b21/independent_signed_owner_real_effect_audit.py
