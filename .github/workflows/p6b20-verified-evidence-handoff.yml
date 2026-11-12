@@ -1,0 +1,153 @@
+name: RISU P6-B20 final independent source-bound generic effect handoff
+on:
+  push:
+    branches: ['qualification/p6b20-*']
+    paths:
+      - 'docs/P6B20_GENERIC_NATIVE_EFFECT_EVIDENCE_RESEARCH.md'
+      - 'benchmarks/p6b20/HANDOFF_KO.md'
+      - '.github/workflows/p6b20-verified-evidence-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  reacquire-originals-verify-and-package:
+    name: B20 independent final revalidation of developer positive, other publisher and frozen engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Acquire preserved B19 native developer positive from GitHub evidence
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43321811071
+          github-token: ${{ github.token }}
+          name: risu-b20-dev-positive-b19-original-signed-real-repair
+          path: .b20-bundle/dev-B19
+      - name: Acquire original independent external filesystem firstpass unmodified PyPI source
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43322280437
+          github-token: ${{ github.token }}
+          name: risu-b20-original-unseen-filesystem-source-typed-effect-firstpass
+          path: .b20-bundle/original-filesystem
+      - name: Acquire second separate real filesystem execution and independent audit
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43322884796
+          github-token: ${{ github.token }}
+          name: risu-b20-independent-other-publisher-real-original-reexecution
+          path: .b20-bundle/second-filesystem
+      - name: Audit actual source Git blobs and original saved file content bytes without importing RISU effect checker
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          test "$(git hash-object src/risu_mcp_signed_repair.py)" = 41bb9439174c37a53481db3e025cb9601ae6040f
+          python benchmarks/p6b20/independent_non_git_effect_audit.py \
+            --evidence .b20-bundle/original-filesystem/.b20-fs-original \
+            --package .b20-bundle/original-filesystem/.b20-package \
+            --out .b20-bundle/FINAL_FIRST_EXTERNAL_BYTES_AUDIT.json
+          python benchmarks/p6b20/independent_non_git_effect_audit.py \
+            --evidence .b20-bundle/second-filesystem/.b20-second-original \
+            --package .b20-bundle/original-filesystem/.b20-package \
+            --out .b20-bundle/FINAL_SECOND_EXTERNAL_BYTES_AUDIT.json
+      - name: Re-evaluate original B19 developer positive and two external sets under same frozen tool-neutral checker
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m risu_p5d_cli verify-mcp-effects \
+            --plan .b20-bundle/dev-B19/PLAN_DEVELOPMENT_B19.json \
+            --evidence-root .b20-bundle/dev-B19 \
+            --format json --out .b20-bundle/FINAL_B19_DEVELOPMENT_POSITIVE.json \
+            --fail-on-mismatch
+          python -m risu_p5d_cli verify-mcp-effects \
+            --plan benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json \
+            --evidence-root .b20-bundle/original-filesystem/.b20-fs-original \
+            --format json --out .b20-bundle/FINAL_EXTERNAL_ORIGINAL_GENERIC.json \
+            --fail-on-mismatch
+          python -m risu_p5d_cli verify-mcp-effects \
+            --plan benchmarks/p6b20/FROZEN_FS_HELDOUT_PLAN.json \
+            --evidence-root .b20-bundle/second-filesystem/.b20-second-original \
+            --format json --out .b20-bundle/FINAL_EXTERNAL_REPEAT_GENERIC.json \
+            --fail-on-mismatch
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('.b20-bundle')
+          def obj(name):return json.loads((root/name).read_text())
+          dev=obj('FINAL_B19_DEVELOPMENT_POSITIVE.json')
+          first=obj('FINAL_EXTERNAL_ORIGINAL_GENERIC.json')
+          second=obj('FINAL_EXTERNAL_REPEAT_GENERIC.json')
+          a=obj('FINAL_FIRST_EXTERNAL_BYTES_AUDIT.json')
+          b=obj('FINAL_SECOND_EXTERNAL_BYTES_AUDIT.json')
+          assert dev['cohort_classification']=='DEVELOPMENT_POSITIVE_CONTROL'
+          assert dev['summary']['matched_predeclared_effect_patterns']==1
+          assert dev['summary']['tool_response_only_observability_gap'] is True
+          assert first['cohort_classification']==second['cohort_classification']=='HELDOUT_NORMAL_CONTROL'
+          for item in (first,second):
+              assert item['summary']['matched_predeclared_effect_patterns']==3
+              assert item['summary']['all_predeclared_patterns_met'] is True
+              assert item['summary']['tool_response_only_observability_gap'] is False
+              assert item['summary']['new_upstream_defects_claimed']==0
+          assert a['three_effect_sensor_transition_patterns']==b['three_effect_sensor_transition_patterns']
+          assert a['actual_native_mcp_calls_independently_audited']==4
+          assert b['actual_native_mcp_calls_independently_audited']==4
+          assert a['original_independent_file_snapshots_audited']==8
+          assert b['original_independent_file_snapshots_audited']==8
+          assert a['new_upstream_defects_confirmed']==b['new_upstream_defects_confirmed']==0
+          print('B20_FINAL_GENERIC_ONE_SIGNED_DEV_POSITIVE_TWO_INDEPENDENT_EXTERNAL_NORMAL_RUNS_VERIFIED')
+          PY
+      - name: Add entire source archive, Korean handoff, full technical report and SHA256 evidence ledger
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output=.b20-bundle/COMPLETE_B20_RESEARCH_SOURCE.zip HEAD
+          cp benchmarks/p6b20/HANDOFF_KO.md .b20-bundle/README_KO.md
+          cp docs/P6B20_GENERIC_NATIVE_EFFECT_EVIDENCE_RESEARCH.md .b20-bundle/TECHNICAL_REPORT.md
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path('.b20-bundle')
+          paths=sorted(p for p in root.rglob('*') if p.is_file() and not p.is_symlink())
+          records=[{'path':p.relative_to(root).as_posix(),
+                    'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+                    'bytes':p.stat().st_size} for p in paths]
+          data={'schema':'risu-b20-generic-original-mcp-effect-handoff-v1',
+                'branch_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+                'frozen_product_blob':'ab8191a3ca153ac079fcd07d128ddfcd7a06e99f',
+                'B19_development_positive_ci':43321811071,
+                'first_unseen_publisher_native_ci':43322280437,
+                'independent_other_publisher_reexecution_ci':43322884796,
+                'complete_previous_RISU_381_tests_three_OS_ci':43321190922,
+                'historical_dev_real_original_native_calls':4,
+                'independent_external_real_native_calls':8,
+                'new_unknown_upstream_defects_found':0,
+                'external_new_cohort_type':'normal write behavior same source version repeated',
+                'files':records}
+          (root/'B20_SHA256_EVIDENCE_LEDGER.json').write_text(
+             json.dumps(data,sort_keys=True,indent=2)+chr(10))
+          print('B20_FINAL_VERIFIED_EVIDENCE_ARCHIVE_FILES',len(records))
+          PY
+      - name: Upload archived byte-verifiable full B20 generic evidence chain
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b20-verified-generic-original-mcp-effect-handoff
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b20-bundle/
