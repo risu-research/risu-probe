@@ -107,7 +107,7 @@ race={"case":"concurrent-first-writer","wins":statuses.count(200),"rejects":stat
 race["pass"]=race["wins"]==1 and race["rejects"]==11 and not race["other_statuses"]
 rows.append(race)
 print("RISU_CONTROL_RACE",json.dumps(race,sort_keys=True))
-result={"backend":"floci","version":"2.0.1","endpoint":"127.0.0.1:4566",
+result={"backend":"floci","version":os.environ.get("S3_BACKEND_VERSION","2.0.1"),"endpoint":"127.0.0.1:4566",
         "cases":rows,"copy_wire":copy_wire,"all_pass":all(x.get("pass") is True for x in rows),
         "boto3_version":boto3.__version__}
 out=os.environ.get("S3_CONTROL_OUTPUT","control-results.json")
