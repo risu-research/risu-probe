@@ -1,0 +1,40 @@
+name: Independent S3 Backend Control
+on:
+  push:
+    branches: [ci/pldi-overcast-v06]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  floci-s3-control:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Start pinned independent S3 backend
+        shell: bash
+        run: |
+          docker pull floci/floci:2.0.1
+          docker run -d --name floci-s3-control -p 127.0.0.1:4566:4566 floci/floci:2.0.1
+          docker image inspect floci/floci:2.0.1 --format '{{json .RepoDigests}}'
+      - name: Install fixed AWS test client
+        shell: bash
+        run: |
+          python3 -m pip install -q boto3==1.40.67
+          python3 -c 'import boto3; print("BOTO3_VERSION",boto3.__version__)'
+      - name: Run backend protocol and concurrency control
+        shell: bash
+        run: |
+          mkdir -p results
+          S3_TEST_ENDPOINT=http://127.0.0.1:4566 S3_CONTROL_OUTPUT=results/floci-2.0.1.json \
+            python3 research/backend/floci_s3_control.py 2>&1 | tee results/control.log
+          docker logs floci-s3-control > results/backend.log 2>&1 || true
+      - name: Preserve control and backend runtime logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: floci-s3-2.0.1-control
+          path: results/
+          if-no-files-found: warn
