@@ -1,0 +1,114 @@
+name: RISU P6-B14 native MCP effect witness
+on:
+  push:
+    branches: ['qualification/p6b14-*']
+    paths:
+      - 'benchmarks/p6b14/**'
+      - '.github/workflows/p6b14-native-effect-witness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-native:
+    name: B14 native original ${{ matrix.case }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [SP, ME]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        if: matrix.case == 'SP'
+        with:
+          node-version: '24'
+      - name: Verify frozen RISU and pinned cohort, fetch original source
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          test "$(git hash-object src/risu_display_fidelity.py)" = 6785b2ed912d3e9a41dda956da537dc2e5f4f8e3
+          python -m pip install --disable-pip-version-check .
+          CASE="${{ matrix.case }}"
+          if [[ "$CASE" == SP ]]; then
+            REPO=spences10/mcp-sqlite-tools
+            REV=a6a6f196b315b11e17929aeeb274821f5a0e6ed0
+          else
+            REPO=mekanixms/sqlite-mcp-server
+            REV=05191e95d1ca74f7c26312ae071f5fab42c19601
+          fi
+          python - "$CASE" "$REPO" "$REV" <<'PY'
+          import json,sys
+          case,repo,rev=sys.argv[1:]
+          d=json.load(open('benchmarks/p6b14/prelocked_native_effect_cohort.json'))
+          assert d['denominator']['selected_native_upstreams']==2
+          assert d['denominator']['predeclared_calls']==12
+          item=next(x for x in d['cohort'] if x['id']==case)
+          assert (item['repo'],item['sha'])==(repo,rev)
+          print('B14_PRELOCKED',case,repo,rev)
+          PY
+          git init -q .b14-source
+          git -C .b14-source -c core.hooksPath=/dev/null remote add origin "https://github.com/$REPO.git"
+          GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 git -C .b14-source -c core.hooksPath=/dev/null fetch -q --no-tags --depth=1 origin "$REV"
+          git -C .b14-source -c core.hooksPath=/dev/null checkout -q --detach FETCH_HEAD
+          test "$(git -C .b14-source rev-parse HEAD)" = "$REV"
+      - name: Build genuine upstream process
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.case }}" == SP ]]; then
+            npm install -g pnpm@12.18.0
+            (cd .b14-source && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build)
+            test -s .b14-source/dist/index.js
+          else
+            python -m pip install --disable-pip-version-check 'mcp==2.3.0' 'pandas==2.2.3' 'python-dotenv==1.0.1'
+            test -s .b14-source/server.py
+          fi
+      - name: Capture native stdio and true SQLite logical state per tool call
+        run: |
+          set -euo pipefail
+          if [[ "${{ matrix.case }}" == SP ]]; then
+            python benchmarks/p6b14/capture_native_effect.py --case SP --executable "$(command -v node)" --source .b14-source --out .b14-evidence
+          else
+            python benchmarks/p6b14/capture_native_effect.py --case ME --executable "$(command -v python)" --source .b14-source --out .b14-evidence
+          fi
+          test -s .b14-evidence/origin.json
+          test -s .b14-evidence/unmodified_calls.json
+      - name: Run old RISU, separately score independent oracles
+        run: |
+          set -euo pipefail
+          if [[ -s .b14-evidence/original_stdio.jsonl ]]; then
+            PROTO="$(python - <<'PY'
+          import json
+          x=json.load(open('.b14-evidence/origin.json'))
+          print(x.get('protocol') or '2025-11-25')
+          PY
+          )"
+            risu-probe verify-mcp-trace .b14-evidence/original_stdio.jsonl --protocol-version "$PROTO" --format json > .b14-risu.json || true
+          fi
+          python benchmarks/p6b14/score_native_effect.py --case "${{ matrix.case }}" --capture .b14-evidence --scanner .b14-risu.json --out .b14-firstpass.json
+          echo B14_NATIVE_EFFECT_CAPTURE_AND_FIRSTPASS_COMPLETE
+      - name: Preserve all firstpass evidence and unverified cases
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b14-original-${{ matrix.case }}
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b14/prelocked_native_effect_cohort.json
+            .b14-evidence/origin.json
+            .b14-evidence/original_stdio.jsonl
+            .b14-evidence/unmodified_calls.json
+            .b14-risu.json
+            .b14-firstpass.json
