@@ -1,0 +1,127 @@
+name: RISU P6-B17 final independently audited handoff bundle
+on:
+  push:
+    branches: ['qualification/p6b17-*']
+    paths:
+      - 'docs/P6B17_INDEPENDENT_CONTRACT_ORIGIN_AUDIT.md'
+      - 'benchmarks/p6b17/HANDOFF_KO.md'
+      - '.github/workflows/p6b17-handoff-bundle.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  preserve-source-and-immutable-originals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download GCP independently authenticated original stdout
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43300343923
+          github-token: ${{ github.token }}
+          name: risu-b17-gcp-native-origin-source-firstpass
+          path: .b17-bundle/new-original
+      - name: Download signed-commit independent source and negative controls
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43300940842
+          github-token: ${{ github.token }}
+          name: risu-b17-independent-signed-origin-and-negatives
+          path: .b17-bundle/independent-audit
+      - name: Download previous publisher AISH original controls
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43301252255
+          github-token: ${{ github.token }}
+          name: risu-b17-prior-native-source-AISH
+          path: .b17-bundle/prior-AISH
+      - name: Download previous publisher MM original controls
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43301252255
+          github-token: ${{ github.token }}
+          name: risu-b17-prior-native-source-MM
+          path: .b17-bundle/prior-MM
+      - name: Check preserved original and independently audited source identity
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path('.b17-bundle')
+          original=root/'new-original/.b17-original'
+          provider=root/'new-original/.b17-evidence/provider_tree_check.json'
+          audit=root/'independent-audit/.b17-cross'
+          def obj(p):return json.loads(p.read_text('utf-8'))
+          o=obj(original/'origin.json')
+          r=obj(original/'origin_firstpass.json')
+          p=obj(provider)
+          a=obj(audit/'INDEPENDENT_ORIGINAL_SOURCE_REPORT.json')
+          s=obj(audit/'remote_signed_commit.json')
+          raw=(original/'original_stdio.jsonl').read_bytes()
+          digest=hashlib.sha256(raw).hexdigest()
+          assert digest==o['trace_sha256']==r['trace_sha256']==a['original_trace_sha256']
+          assert o['status']=='CAPTURED_ORIGINAL' and o['calls_captured']==2
+          assert r['summary']['SOURCE_CORROBORATED_PASS']==2
+          assert a['native_original_calls']==2 and a['first_pass_original_bugs_confirmed']==0
+          assert p['remote_api_tree_matches_git_checkout']
+          assert s['github_verified_signature'] is True and s['github_signature_reason']=='valid'
+          assert obj(root/'prior-AISH/.b17-results/source_origin.json')['summary']['SOURCE_CORROBORATED_PASS']==2
+          assert obj(root/'prior-MM/.b17-results/source_origin.json')['summary']['NOT_PROMOTED']==2
+          print('B17_FINAL_BUNDLE_ALL_FROZEN_ORIGINAL_AND_SIGNED_PUBLISHER_EVIDENCE_VERIFIED')
+          PY
+      - name: Build complete checkout-free source archive and all-evidence digest ledger
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output=.b17-bundle/COMPLETE_B17_SOURCE.zip HEAD
+          cp benchmarks/p6b17/HANDOFF_KO.md .b17-bundle/README_KO.md
+          cp docs/P6B17_INDEPENDENT_CONTRACT_ORIGIN_AUDIT.md .b17-bundle/TECHNICAL_RESEARCH_RECORD.md
+          python - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path('.b17-bundle')
+          paths=sorted(p for p in root.rglob('*') if p.is_file() and not p.is_symlink())
+          values=[]
+          for file in paths:
+              raw=file.read_bytes()
+              values.append({'path':file.relative_to(root).as_posix(),
+                             'sha256':hashlib.sha256(raw).hexdigest(),
+                             'bytes':len(raw)})
+          (root/'B17_SHA256_MANIFEST.json').write_text(
+              json.dumps({'schema':'risu-b17-handoff-manifest-v1',
+                  'firstpass_original_run':43300343923,
+                  'independent_audit_run':43300940842,
+                  'prior_publishers_run':43301252255,
+                  'regression_run':43299820956,
+                  'product_source_blob':'75180de2dbd78165d2e970ee15e99df14804e7f1',
+                  'files':values},indent=2,sort_keys=True)+chr(10))
+          print('B17_VERIFIED_HANDOFF_DIGEST_ENTRIES',len(values))
+          PY
+      - name: Upload complete verified B17 handoff, including raw original and independent audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b17-verified-handoff-full
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b17-bundle/
