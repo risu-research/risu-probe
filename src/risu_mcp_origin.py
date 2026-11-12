@@ -118,7 +118,7 @@ def pinned_sources(root,manifest):
             raise OriginError('WORKTREE_BYTES_DIVERGE_FROM_PINNED_GIT_BLOB')
         # Git blob SHA-1 is a VCS locator; separate SHA-256 avoids
         # treating collision-prone SHA-1 as the only content checksum.
-        envelope=b'blob '+str(len(raw)).encode()+b'\\x00'+raw
+        envelope=b'blob '+str(len(raw)).encode()+bytes([0])+raw
         if hashlib.sha1(envelope).hexdigest()!=blob:
             raise OriginError('GIT_BLOB_CONTENT_ID_MISMATCH')
         files[item['tool']]={'path':path,'git_blob_sha1':blob,
@@ -252,10 +252,10 @@ def cli(argv=None):
               _load(a.source_manifest,32768),a.source_checkout,
               _load(a.witness,MAX_WITNESS) if a.witness else None)
         s=res['summary']
-        out=json.dumps(res,indent=2,ensure_ascii=False,sort_keys=True)+'\\n' if a.format=='json' else (
+        out=json.dumps(res,indent=2,ensure_ascii=False,sort_keys=True)+chr(10) if a.format=='json' else (
             'RISU source provenance | matched='+str(s['matched_obligations'])+
             ' verified_mismatches='+str(s['SOURCE_CORROBORATED_MISMATCH'])+
-            ' source_conflicts='+str(s['QUARANTINED_SOURCE_CONFLICT'])+'\\n')
+            ' source_conflicts='+str(s['QUARANTINED_SOURCE_CONFLICT'])+chr(10))
         if a.out:
             with a.out.expanduser().absolute().open('x',encoding='utf-8') as f:f.write(out)
         else:print(out,end='')
