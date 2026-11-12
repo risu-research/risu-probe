@@ -1,0 +1,59 @@
+name: RISU P6-B20 complete old-product regression plus generic effect truth tables
+on:
+  push:
+    branches: ['qualification/p6b20-*']
+    paths:
+      - 'src/risu_mcp_effects.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b20_generic_effects.py'
+      - '.github/workflows/p6b20-generic-effect-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  new-and-existing:
+    name: B20 original RISU + generic effect engine ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Recheck B17 B18 B19 product frozen Git blobs and public source policy
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_signed_repair.py)" = 41bb9439174c37a53481db3e025cb9601ae6040f
+          test "$(git hash-object src/risu_mcp_runtime_origin.py)" = eba052165106bd85cb935ed505544ea33819054b
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+      - name: Install original RISU wheel and execute entire historical + B20 test suite
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b20-whl
+          python -m pip wheel --no-deps -w .b20-whl .
+          python -m venv .b20-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b20-installed/Scripts/python.exe
+            CLI=.b20-installed/Scripts/risu-probe.exe
+          else
+            PY=.b20-installed/bin/python
+            CLI=.b20-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b20-whl/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli verify-mcp-effects --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B20_FULL_TOOL_AGNOSTIC_EFFECT_ENGINE_REGRESSION_PASS
