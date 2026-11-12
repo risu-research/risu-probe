@@ -1,0 +1,80 @@
+name: External Target Binding Qualification
+on:
+  push:
+    branches: [ci/external-codeql-baseline-v1]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  external-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned MCP server
+        uses: actions/checkout@v4
+        with:
+          repository: github/github-mcp-server
+          ref: v2.1.0
+          path: external/server
+          persist-credentials: false
+      - name: Checkout exact SDK dependency
+        uses: actions/checkout@v4
+        with:
+          repository: google/go-github
+          ref: v92.0.0
+          path: external/sdk
+          persist-credentials: false
+      - name: Verify guard/write binding and generate disposable repair
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,pathlib
+          root=pathlib.Path('external');out=pathlib.Path('audit-out');out.mkdir(exist_ok=True)
+          server=(root/'server/pkg/github/repositories.go').read_text()
+          sdk=(root/'sdk/github/repos_contents.go').read_text()
+          mod=(root/'server/go.mod').read_text()
+          def section(src,marker):
+              pos=src.find(marker)
+              assert pos>=0, marker+' absent'
+              close=src.find('\n}',pos)
+              assert close>pos, marker+' unterminated'
+              return src[pos:close+2]
+          handler=section(server,'func CreateOrUpdateFile(')
+          get=section(sdk,'func (s *RepositoriesService) GetContents(')
+          put=section(sdk,'func (s *RepositoriesService) CreateFile(')
+          conditions={
+            'sdk_pin':'github.com/google/go-github/v92 v92.0.0' in mod,
+            'caller_sha':'sha := input.SHA' in handler,
+            'sha_into_write':'opts.SHA = new(sha)' in handler,
+            'caller_path':'path := input.Path' in handler,
+            'guard_calls':handler.count('client.Repositories.GetContents(ctx, owner, repo, path, getOpts)')==2,
+            'write_call':handler.count('client.Repositories.CreateFile(ctx, owner, repo, path, opts)')==1,
+            'guard_url_encoded':'escapedPath := (&url.URL{Path: strings.TrimSuffix(path, "/")}).String()' in get and 'owner, repo, escapedPath)' in get,
+            'write_url_raw':'owner, repo, path)' in put,
+            'get_verb':'s.client.NewRequest(ctx, "GET", u, nil)' in get,
+            'put_verb':'s.client.NewRequest(ctx, "PUT", u, body)' in put}
+          assert all(conditions.values()),json.dumps(conditions)
+          before='u := fmt.Sprintf("repos/%v/%v/contents/%v", owner, repo, path)'
+          after='escapedPath := (&url.URL{Path: strings.TrimSuffix(path, "/")}).String()\n\tu := fmt.Sprintf("repos/%v/%v/contents/%v", owner, repo, escapedPath)'
+          assert put.count(before)==1
+          patched=put.replace(before,after,1)
+          replacement=sdk.replace(put,patched,1)
+          (out/'repos_contents_repaired.go').write_text(replacement)
+          digest=lambda s:hashlib.sha256(s.encode()).hexdigest()
+          evidence={'schema':'risu.pinned-source-ci/v0.3','status':'PASS','conditions':conditions,
+            'server_source_sha256':digest(server),'sdk_source_sha256':digest(sdk),
+            'patched_sdk_sha256':digest(replacement)}
+          (out/'audit.json').write_text(json.dumps(evidence,indent=2)+'\n')
+          print('PINNED_EXTERNAL_SOURCE_AUDIT_PASS',json.dumps(conditions,sort_keys=True))
+          PY
+      - name: Syntax-check repaired full SDK
+        run: |
+          gofmt -e audit-out/repos_contents_repaired.go > /dev/null
+          echo PATCHED_FULL_SDK_SYNTAX_PASS
+      - name: Retain read-only audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: external-binding-audit
+          path: audit-out/
+          if-no-files-found: warn
