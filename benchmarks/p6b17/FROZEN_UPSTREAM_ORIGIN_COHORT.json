@@ -1,0 +1,93 @@
+{
+  "schema": "risu-p6b17-origin-and-unseen-source-cohort-v1",
+  "selected_date": "2026-11-12",
+  "frozen_product_blob": "75180de2dbd78165d2e970ee15e99df14804e7f1",
+  "frozen_catalog_authority_blob": "be24472b0fea8d8e7a252a7a36158cf8873128de",
+  "frozen_observation_blob": "4314e9bf92e2ec75c421bab25eae3b43f1424a08",
+  "target_source_selection": "Source-informed selection: exact native implementation and static outputSchema inspected before cases. No claim of untouched blind bug discovery.",
+  "source_owners_not_previously_in_b14_b15_b16": 1,
+  "source_owners_development_controls": 2,
+  "assessment_protocol": "Original GitHub-hosted Git full revision and blob SHA for selected files independently verified via GitHub commit tree API, then fetched in isolated CI. Recompare actual Git blob bytes and static Tool outputSchema with same-session MCP tools/list. Treat source-code contract match as source provenance corroboration, not process code attestation.",
+  "dev": [
+    {
+      "id": "AISH",
+      "repository": "AI-Shell-Team/aish",
+      "revision": "c9ad99acac291dd3a7b38162b6159bf5b01a1ed9",
+      "path": "scripts/mcp-servers/python/features_server.py",
+      "git_blob_sha1": "91d8470deee0df4ec58c4543f2c36d4e7ff470de",
+      "tool": "structured",
+      "origin_ci": 43295550845,
+      "expected_source_grade": "SOURCE_DECLARATION_CORROBORATED",
+      "source_informed": true
+    },
+    {
+      "id": "MM",
+      "repository": "MarvinRomson/master-mcp",
+      "revision": "75dc67c58e6468cdd81a6e5c3cb0a2f1521af93d",
+      "path": "search_mcp_server.py",
+      "git_blob_sha1": "b9e746df29655533102ed729d2de6bd3f7862d42",
+      "tools": [
+        "search_regex_tools",
+        "search_bm25_tools"
+      ],
+      "origin_ci": 43295550845,
+      "expected_source_grade": "NO_PROMOTION_EFFECT",
+      "source_informed": true
+    }
+  ],
+  "heldout": {
+    "id": "GCP",
+    "repository": "GoogleCloudPlatform/mcp-python-sdk-grpc-poc",
+    "revision": "cedc20fdc8fdf22fc8b411a3947ae03c71cbc926",
+    "path": "examples/servers/structured_output_lowlevel.py",
+    "git_blob_sha1": "7f102ff8b5e09b6df64b6b9c0fd913ac25f709f5",
+    "language": "Python",
+    "runtime": "python 3.11 mcp==1.30.0",
+    "executable": "python examples/servers/structured_output_lowlevel.py using original source",
+    "tool": "get_weather",
+    "original_calls": [
+      {
+        "id": "gcp_weather_first",
+        "arguments": {
+          "city": "RISU_B17_SYNTHETIC_ALPHA"
+        }
+      },
+      {
+        "id": "gcp_weather_second",
+        "arguments": {
+          "city": "RISU_B17_SYNTHETIC_BETA"
+        }
+      }
+    ],
+    "result_contract": {
+      "schema": "risu-mcp-observation-contract-v1",
+      "rules": [
+        {
+          "id": "gcp_weather_output",
+          "tool": "get_weather",
+          "kind": "json-object",
+          "when": {},
+          "carrier": "structured-content",
+          "required": {
+            "/temperature": "number",
+            "/conditions": "string",
+            "/humidity": "integer",
+            "/wind_speed": "number",
+            "/timestamp": "string"
+          }
+        }
+      ]
+    },
+    "oracle": "Original MCP stdio results and same-session advertised tools/list; pinned upstream static literal outputSchema; no external weather API or private data",
+    "failure_handling": "Any transport/library incompatibility remains UNVERIFIED with original stdout preserved. Product detector cannot be tuned on this selected output. Natural runtime defect only after independent reproduction and history check."
+  },
+  "controls": [
+    "Correct full revision and pinned source file, Git object and inband declared schema => source corroborated",
+    "Changed source or wrong worktree content => invalid",
+    "Changed source commit or Git blob => invalid",
+    "Changed inband schema with valid source => source-catalog conflict without promotion",
+    "Notification tools/list_changed before refresh => stale and not promoted",
+    "Only behavioral hint and source comment => never normative effect contract",
+    "Original source runtime claims not authenticated from transcript itself"
+  ]
+}
