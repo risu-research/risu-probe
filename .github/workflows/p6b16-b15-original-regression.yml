@@ -1,0 +1,102 @@
+name: RISU P6-B16 original B15 three-upstream authority regression
+on:
+  push:
+    branches: ['qualification/p6b16-*']
+    paths:
+      - 'src/risu_mcp_authority.py'
+      - 'benchmarks/p6b16/**'
+      - '.github/workflows/p6b16-b15-original-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  prior-native-source-original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch immutable B15 PA native source capture
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43290126061
+          github-token: ${{ github.token }}
+          name: risu-b15-original-external-PA
+          path: .b16-b15/PA
+      - name: Fetch immutable B15 ZM native source capture
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43290126061
+          github-token: ${{ github.token }}
+          name: risu-b15-original-external-ZM
+          path: .b16-b15/ZM
+      - name: Fetch immutable B15 FM native source capture
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43290126061
+          github-token: ${{ github.token }}
+          name: risu-b15-original-external-FM
+          path: .b16-b15/FM
+      - name: Run authority gate on original 14 native observations
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+          python -m pip install --disable-pip-version-check .
+          for CASE in PA ZM FM; do
+            DIR=".b16-b15/$CASE/.b15-original"
+            python -m risu_p5d_cli qualify-mcp-observations "$DIR/original_stdio.jsonl" \
+              --contract "$DIR/contract.json" --witness "$DIR/witness.json" \
+              --format json --out ".b16-b15/$CASE/catalog_authority.json"
+          done
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          total=0
+          for name,locked in [('PA',4),('ZM',5),('FM',5)]:
+              base=Path('.b16-b15')/name
+              ori=json.loads((base/'.b15-original/origin.json').read_text())
+              report=json.loads((base/'catalog_authority.json').read_text())
+              original=json.loads((base/'.b15-original/product_firstpass.json').read_text())
+              assert ori['status']=='CAPTURED_NATIVE'
+              assert report['trace_sha256']==ori['trace_sha256']==original['trace_sha256']
+              s=report['summary']
+              assert s['matched_obligations']==locked, (name,s)
+              total+=s['matched_obligations']
+              if name=='PA':
+                  assert s['observed_mismatches']==1, s
+                  assert s['qualified_mismatches']==0, s
+                  assert s['quarantined_mismatches']==1, s
+              else:
+                  assert s['observed_mismatches']==0, s
+              print('B16_SAME_WIRE_AUTHORITY_REPLAY',name,s)
+          assert total==14
+          print('B16_B15_ACTUAL_SOURCE_14_CALLS_1_WRONG_POLICY_QUARANTINED')
+          PY
+      - name: Preserve original-source authority report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b16-development-original-14-calls
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b16-b15/PA/catalog_authority.json
+            .b16-b15/ZM/catalog_authority.json
+            .b16-b15/FM/catalog_authority.json
