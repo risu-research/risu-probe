@@ -154,3 +154,30 @@ against its source-pinned `outputSchema`; separate source/catalog and
 synthetic-result mutations were correctly classified. No external new bug is
 claimed. Full experimental evidence and provenance limits:
 [B17 independent contract-origin audit](docs/P6B17_INDEPENDENT_CONTRACT_ORIGIN_AUDIT.md).
+
+## P6-B18 · Actual executed MCP binary provenance
+
+The opt-in offline command `verify-mcp-runtime` correlates a pinned
+original source commit with **two independent byte-identical compiled
+executables**, an independently verified GitHub Actions Sigstore build
+attestation, live `/proc/PID/exe` hashes, and original native MCP
+request/response transcripts.
+
+The public qualification rebuilt the original
+`modelcontextprotocol/go-sdk` toolschemas server from a frozen Git commit
+with Go 1.25.0, signed the original build output in RISU's GitHub Actions,
+verified the signer with `gh attestation verify`, and executed the
+same original binary in **two independent CI runs**. Both running process
+images matched the signed executable's SHA-256 at the start and end of
+each session, and all eight selected native MCP responses were consistent.
+Separate controls rejected 16 deliberately corrupted evidence variants.
+
+This is evidence about the **RISU-signed qualification build**, not
+an upstream publisher-signed official release. The verifier itself does
+not execute untrusted code or cryptographically validate signatures:
+those independent steps are carried out and recorded in CI. No new
+upstream behavioral defect was found in the original example server.
+
+Read the [B18 full source-to-executable research record](docs/P6B18_EXECUTED_ORIGINAL_GO_BINARY_PROVENANCE.md)
+for the complete reproducible run, signatures, Git blobs, original
+stdout, source/runner trust boundaries and controls.
