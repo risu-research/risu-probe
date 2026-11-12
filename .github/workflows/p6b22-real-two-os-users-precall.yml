@@ -1,0 +1,123 @@
+name: RISU P6-B22 two real Linux OS principals and pre-MCP-spawn enforced owner authorization
+on:
+  push:
+    branches: ['qualification/p6b22-*']
+    paths:
+      - 'benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION.json'
+      - 'benchmarks/p6b22/owner_account_issuer.py'
+      - 'benchmarks/p6b22/run_real_os_principal_gate.py'
+      - '.github/workflows/p6b22-real-two-os-users-precall.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-posix-owner-real-upstream-mcp:
+    name: Owner private key outside executor / 3 true native / 7 refused before execve
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Freeze existing products and preregister native source, owner and denial denominators
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_preflight.py)" = f875dab35499bf564d132bd01675e67b76e91a75
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          python - <<'PY'
+          import json
+          f=json.load(open('benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION.json'))
+          assert f['kernel']['git_blob']=='f875dab35499bf564d132bd01675e67b76e91a75'
+          assert f['original_calls']['original_source_native_expected']==3
+          assert f['original_calls']['denied_before_spawn_expected']==7
+          assert f['original_calls']['total_decisions']==10
+          assert f['ownership'].startswith('two distinct')
+          print('B22_TWO_OWNER_OS_PRINCIPAL_PRECALL_EVAL_FROZEN_BEFORE_EXTERNAL_NATIVE')
+          PY
+      - name: Install actual OS-level process exec tracer on disposable GitHub runner
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq strace
+          strace -V | head -n 1
+      - name: Acquire exact unchanged public PyPI original and compare pinned upstream Git source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python -m pip download --disable-pip-version-check --no-deps \
+            --only-binary=:all: -d .b22-package 'filesystem-mcp==1.0.2'
+          python - <<'PY'
+          import json,hashlib,zipfile,urllib.request,base64,os
+          from pathlib import Path
+          wheels=list(Path('.b22-package').glob('filesystem_mcp-1.0.2-*.whl'))
+          assert len(wheels)==1
+          wheel=wheels[0]
+          assert hashlib.sha256(wheel.read_bytes()).hexdigest()=='94610f0b73df1d3ada4ef0353353eb93695645c7b82f71ca80ed13dc1022c235'
+          with zipfile.ZipFile(wheel) as z:server=z.read('filesystem_mcp/server.py')
+          assert hashlib.sha256(server).hexdigest()=='c754a7720d52d92eb49324649b19f58b07b20703fcc2c2c1b02ce1f20152fcc8'
+          url='https://api.github.com/repos/kujirahand/mcp_server-filesystem/contents/src/filesystem_mcp/server.py?ref=1aff1e094ed317ec2c5de06591978781d660c48a'
+          req=urllib.request.Request(url,headers={
+            'Accept':'application/vnd.github+json','Authorization':'Bearer '+os.environ['GH_TOKEN'],
+            'User-Agent':'risu-b22-real-precall-owner-source'})
+          with urllib.request.urlopen(req,timeout=35) as r:record=json.load(r)
+          assert record['sha']=='f886fcbc6e61f3be8e6fd76b6e5f3ad1f8cbb7b6'
+          original=base64.b64decode(record['content'])
+          assert original==server
+          print('B22_ORIGINAL_EXTERNAL_DEVELOPER_GIT_MODULE_EQUALS_PUBLISHED_PYPI_WHEEL')
+          PY
+      - name: Install untouched upstream server into executor readable virtual environment
+        run: |
+          set -euo pipefail
+          python -m venv .b22-upstream-env
+          .b22-upstream-env/bin/python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+          .b22-upstream-env/bin/python -m pip install --disable-pip-version-check --no-deps \
+            .b22-package/filesystem_mcp-1.0.2-*.whl
+          .b22-upstream-env/bin/python -m pip check
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<49' .
+          python -m risu_p5d_cli enforce-mcp-preflight --help
+      - name: Create two actual non-root Linux owner/executor principals, sign independent grants and prove 7 denials before source execve
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b22/run_real_os_principal_gate.py \
+            --original-python .b22-upstream-env/bin/python \
+            --published-wheels .b22-package \
+            --issuer-script benchmarks/p6b22/owner_account_issuer.py \
+            --out .b22-firstpass
+          python - <<'PY'
+          import json
+          r=json.load(open('.b22-firstpass/FIRST_REAL_OS_PRINCIPAL_ENFORCEMENT_SUMMARY.json'))
+          assert r['distinct_real_posix_principals'] is True
+          assert r['OS_resource_owner_uid']!=r['OS_unprivileged_executor_uid']
+          assert r['owner_private_key_in_export'] is False
+          assert r['authorized_native_original_MCP_calls']==3
+          assert r['genuinely_denied_before_original_MCP_server_spawn']==7
+          assert r['total_preflight_decisions']==10
+          assert r['all_denied_target_files_unchanged'] is True
+          assert r['independent_human_user_authentication']=='NOT_PERFORMED'
+          for name,case in r['cases'].items():
+              assert case['expected_authorized']==case['actual_original_server_execve_seen']
+              assert case['original_tool_call_count']==int(case['expected_authorized'])
+          print('B22_TWO_ACTUAL_UNIX_PRINCIPALS_PRECALL_OS_EXECVE_AND_OWNER_AUTHORIZATION_PASS')
+          PY
+      - name: Preserve all signed public grants, OS execve syscall witness, original three native sessions and immutable gate decisions
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b22-firstpass-real-separate-os-owner-actual-precall
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b22-firstpass/
+            .b22-package/
+            benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION.json
