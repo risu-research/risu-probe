@@ -191,7 +191,7 @@ def run(args):
         def observed(stage):
             proof=published/("observation_"+label+"_"+stage+".json")
             execute(*signer,"observe","--private",private,"--root",root,
-                    "--target",target,"--case",label,"--phase",stage,
+                    "--target",target,"--case",label,"--stage",stage,
                     "--out",proof)
             signed=json.loads(proof.read_text())
             body=signed["observation"]
