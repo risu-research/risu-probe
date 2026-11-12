@@ -70,7 +70,7 @@ jobs:
             (cd .b14-source && pnpm install --frozen-lockfile --ignore-scripts && pnpm run build)
             test -s .b14-source/dist/index.js
           else
-            python -m pip install --disable-pip-version-check 'mcp==2.3.0' 'pandas==2.2.3' 'python-dotenv==1.0.1'
+            python -m pip install --disable-pip-version-check 'mcp==1.30.0' 'pandas==2.2.3' 'python-dotenv==1.0.1'
             test -s .b14-source/server.py
           fi
       - name: Capture native stdio and true SQLite logical state per tool call
