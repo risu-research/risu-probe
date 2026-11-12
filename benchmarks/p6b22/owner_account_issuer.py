@@ -170,7 +170,7 @@ def observe(a):
     body={
       "schema":OBS,"issuer":root["issuer"],"key_id":root["key_id"],
       "resource_id":root["resource_id"],"owner_uid":root["owner_uid"],
-      "target_path":str(target),"case_id":a.case,"phase":a.phase,
+      "target_path":str(target),"case_id":a.case,"phase":a.stage,
       "observed_at":time_utc(),
       "exists":raw is not None,
       "sha256":sha(raw) if raw is not None else None,
@@ -204,7 +204,7 @@ def main():
     revoke.add_argument("--sequence",type=int,required=True)
     revoke.add_argument("--nonces",default="")
     observer=sub.add_parser("observe")
-    for k in ("private","root","target","case","phase","out"):
+    for k in ("private","root","target","case","stage","out"):
         observer.add_argument("--"+k,required=True)
     a=p.parse_args()
     if a.phase=="bootstrap":bootstrap(a)
