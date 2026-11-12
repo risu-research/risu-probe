@@ -1,0 +1,59 @@
+name: RISU P6-B18 complete installed-wheel regression with adversarial runtime evidence
+on:
+  push:
+    branches: ['qualification/p6b18-*']
+    paths:
+      - 'src/risu_mcp_runtime_origin.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b18_runtime_origin.py'
+      - '.github/workflows/p6b18-full-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  complete-history-and-new-origin-tests:
+    name: B18 entire installed preview wheel ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Check source purity and unaltered B15-B17 product source
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_origin.py)" = 75180de2dbd78165d2e970ee15e99df14804e7f1
+          test "$(git hash-object src/risu_mcp_authority.py)" = be24472b0fea8d8e7a252a7a36158cf8873128de
+          test "$(git hash-object src/risu_mcp_observations.py)" = 4314e9bf92e2ec75c421bab25eae3b43f1424a08
+      - name: Build original RISU preview wheel and all historical + B18 tests
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b18-wheel
+          python -m pip wheel --no-deps -w .b18-wheel .
+          python -m venv .b18-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b18-installed/Scripts/python.exe
+            CLI=.b18-installed/Scripts/risu-probe.exe
+          else
+            PY=.b18-installed/bin/python
+            CLI=.b18-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b18-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli verify-mcp-runtime --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B18_FULL_PREVIOUS_AND_EXECUTION_PROVENANCE_TESTS_PASS
