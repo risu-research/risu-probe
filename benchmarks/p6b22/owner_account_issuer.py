@@ -23,6 +23,8 @@ from cryptography.hazmat.primitives import serialization
 ROOT="risu-b22-os-owner-root-v1"
 GRANT="risu-b22-precall-owner-grant-v1"
 REV="risu-b22-owner-revocation-v1"
+OBS="risu-b22-os-owner-physical-state-observation-v1"
+OBSPREFIX=b"RISU-B22-OWNER-PHYSICAL-OBSERVATION-V1\\x00"
 PREFIX=b"RISU-B22-OS-OWNER-PRECALL-V1\x00"
 REVPREFIX=b"RISU-B22-OS-OWNER-REVOCATION-V1\x00"
 
@@ -148,6 +150,41 @@ def revocation(a):
           sha(Path(a.out).read_bytes()))
 
 
+def observe(a):
+    key=signing_key(a.private)
+    root=load(a.root)
+    target=Path(a.target)
+    assert os.geteuid()==root["owner_uid"]
+    assert target.is_absolute() and target.parent==Path(root["resource_dir"])
+    assert target.name not in ("",".","..")
+    directory=Path(root["resource_dir"])
+    assert directory.stat().st_uid==os.geteuid()
+    try:
+        st=os.lstat(target)
+    except FileNotFoundError:
+        raw=None
+    else:
+        assert stat.S_ISREG(st.st_mode) and st.st_nlink==1 and st.st_size<=4096
+        raw=target.read_bytes()
+        assert len(raw)<=4096
+    body={
+      "schema":OBS,"issuer":root["issuer"],"key_id":root["key_id"],
+      "resource_id":root["resource_id"],"owner_uid":root["owner_uid"],
+      "target_path":str(target),"case_id":a.case,"phase":a.phase,
+      "observed_at":time_utc(),
+      "exists":raw is not None,
+      "sha256":sha(raw) if raw is not None else None,
+      "size":len(raw) if raw is not None else 0,
+      "content_b64":b64(raw) if raw is not None else None
+    }
+    doc={"schema":OBS,"observation":body,
+         "owner_ed25519_signature_b64":b64(
+             key.sign(OBSPREFIX+canon(body)))}
+    write(a.out,doc)
+    print("B22_REAL_DISTINCT_OWNER_SIGNED_PHYSICAL_OBSERVATION",
+          a.case,a.phase,body["exists"],body["sha256"])
+
+
 def main():
     p=argparse.ArgumentParser()
     sub=p.add_subparsers(dest="phase",required=True)
@@ -166,8 +203,12 @@ def main():
         revoke.add_argument("--"+k,required=True)
     revoke.add_argument("--sequence",type=int,required=True)
     revoke.add_argument("--nonces",default="")
+    observer=sub.add_parser("observe")
+    for k in ("private","root","target","case","phase","out"):
+        observer.add_argument("--"+k,required=True)
     a=p.parse_args()
     if a.phase=="bootstrap":bootstrap(a)
     if a.phase=="grant":issue(a)
     if a.phase=="revocation":revocation(a)
+    if a.phase=="observe":observe(a)
 if __name__=="__main__":main()
