@@ -1,0 +1,91 @@
+{
+  "schema": "risu-p6b19-signed-official-before-after-freeze-v1",
+  "date": "2026-11-12",
+  "origin": "External modelcontextprotocol maintainers; PyPI PEP 740 publisher attestations are signed by upstream GitHub Actions release workflow, not RISU.",
+  "issue": {
+    "id": "GHSA-6hqx-gqrx-c5r2",
+    "cwe": "CWE-94",
+    "published": "2026-11-11",
+    "kind": "repository-local core.fsmonitor configured program can run during nominally read-only MCP git_status",
+    "preexisting_public": true,
+    "new_discovery": false,
+    "source_url": "https://github.com/modelcontextprotocol/servers/security/advisories/GHSA-6hqx-gqrx-c5r2"
+  },
+  "publisher": {
+    "repository": "modelcontextprotocol/servers",
+    "release_workflow": ".github/workflows/release.yml",
+    "artifact_type": "PyPI signed wheel with PEP 740 Publish Attestation",
+    "trusted_publisher_type": "GitHub Actions",
+    "publishing_identity_source": "independently verify via pypi-attestations verify pypi --repository https://github.com/modelcontextprotocol/servers <wheel_url>",
+    "provenance_claim_limit": "PEP 740 publish attestation signs publication of the wheel, not necessarily a complete hermetic SLSA build. Exact artifact SHA and extracted code match pinned upstream source separately."
+  },
+  "versions": [
+    {
+      "id": "VULNERABLE",
+      "version": "2026.11.4",
+      "source_commit": "36380287ed3b15d115b55f546617d723072b1296",
+      "wheel": "mcp_server_git-2026.11.4-py3-none-any.whl",
+      "wheel_sha256": "0cdaa8f446554d020f8ffa0e44ef45b89df4ed4deaeb961b4305d8a2852b4e0e",
+      "server_git_blob_sha1": "ca69538746a24f70e3e1c8602d5fcd2d1bb933f0",
+      "pyproject_git_blob_sha1": "1d3d4fa43d42cd47349549e39c943fabeb794fbd",
+      "expected_source_effect": true
+    },
+    {
+      "id": "FIXED",
+      "version": "2026.11.11",
+      "source_commit": "e1dc4b18dbb948921da37f3d4224a628730b43b0",
+      "wheel": "mcp_server_git-2026.11.11-py3-none-any.whl",
+      "wheel_sha256": "2197a56393bba71f152c6dae55a4ad9107987b9fb9c596b87bbb85a4e0dacf90",
+      "server_git_blob_sha1": "cd1d874ece4e44ea95b23d9dd933a0a74176187f",
+      "pyproject_git_blob_sha1": "e33c52f070c3da1087bb5a339639be90f247a7a7",
+      "expected_source_effect": false
+    }
+  ],
+  "runtime": {
+    "python": "3.11",
+    "git_min": "2.31",
+    "mcp_protocol": "2025-11-25",
+    "original_package_exec": "python -I -m mcp_server_git --repository <synthetic_git_repo>",
+    "tool": "git_status",
+    "cases": [
+      {
+        "id": "CONFIGURED",
+        "repository_config": "core.fsmonitor points to benign local marker script",
+        "tool": "git_status",
+        "marker_expected_by_version": {
+          "2026.11.4": true,
+          "2026.11.11": false
+        },
+        "tool_return_expected": "non-error repository status"
+      },
+      {
+        "id": "NORMAL",
+        "repository_config": "no code-bearing repo-local Git setting",
+        "tool": "git_status",
+        "marker_expected_by_version": {
+          "2026.11.4": false,
+          "2026.11.11": false
+        },
+        "tool_return_expected": "non-error repository status"
+      }
+    ],
+    "original_native_calls_per_version": 2,
+    "total_original_native_calls": 4,
+    "safety": "Isolated GitHub-hosted runner, only synthetic tmp Git repos, benign script writes a fixed marker under the same temp root, sanitized subprocess env, no credentials, no network interactions via tool, no user data, never execute untrusted arbitrary shell commands."
+  },
+  "registered_measure": {
+    "independent_witness": "marker file existence plus SHA, before/after measurement, process PID, Python executable SHA, installed module code SHA and signed wheel SHA",
+    "failure_rule": "Only observed original marker difference with both original expected tool statuses and both publisher wheel attestations cryptographically verified may be called REPRODUCED_KNOWN_UPSTREAM_REPAIR.",
+    "model": "two versions x configured normal; no new upstream defect claim; no population precision/recall."
+  },
+  "controls": [
+    "wrong wheel digest fails",
+    "wrong publisher signed identity fails",
+    "wrong source revision / code blob fails",
+    "same expected marker in both versions yields no repair",
+    "normal control marker raises contamination",
+    "tool error cannot be counted as repaired safe behavior",
+    "tampered JSON-RPC or marker hashes fail"
+  ],
+  "research_classification": "HISTORICAL_PUBLICLY_DISCLOSED_SECURITY_REPAIR_WITH_INDEPENDENT_NATIVE_REPRODUCTION_AND_UPSTREAM_SIGNED_ARTIFACTS"
+}
