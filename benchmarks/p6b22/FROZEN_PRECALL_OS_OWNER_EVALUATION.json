@@ -1,0 +1,77 @@
+{
+  "schema": "risu-b22-precommitted-os-principal-preflight-v1",
+  "date": "2026-11-12",
+  "research_branch": "qualification/p6b22-os-owner-precall-enforcement-20261112",
+  "kernel": {
+    "path": "src/risu_mcp_preflight.py",
+    "git_blob": "f875dab35499bf564d132bd01675e67b76e91a75",
+    "b21_postaudit_blob": "2f33e0f919b00f4205d3533b13124581288a3832",
+    "b20_effect_blob": "ab8191a3ca153ac079fcd07d128ddfcd7a06e99f"
+  },
+  "ownership": "two distinct actual unprivileged POSIX UIDs in ephemeral independent GitHub Actions execution; owner controls resource directory and private Ed25519 signing key; executor controls ledger and original source-native MCP process; privileged GitHub runner creates UIDs and could sudo, NOT independent human participants",
+  "trust": "resource owner public key trusted by pinned digest supplied via workflow; signed revocation epoch pinned separately; OS DAC check and request/target/content hash; no OAuth claim",
+  "external": {
+    "repo": "kujirahand/mcp_server-filesystem",
+    "commit": "1aff1e094ed317ec2c5de06591978781d660c48a",
+    "server_py_blob": "f886fcbc6e61f3be8e6fd76b6e5f3ad1f8cbb7b6",
+    "package": "filesystem-mcp",
+    "version": "1.0.2",
+    "wheel_sha256": "94610f0b73df1d3ada4ef0353353eb93695645c7b82f71ca80ed13dc1022c235",
+    "server_py_sha256": "c754a7720d52d92eb49324649b19f58b07b20703fcc2c2c1b02ce1f20152fcc8",
+    "vendor_release_signed": false
+  },
+  "signed_grant": {
+    "algorithm": "Ed25519",
+    "domain": "RISU-B22-OS-OWNER-PRECALL-V1",
+    "signer_user": "distinct real POSIX resource owner",
+    "private_key_mode": "0600 inside owner home 0700",
+    "signed_fields": [
+      "owner UID",
+      "executor UID",
+      "exact resource",
+      "exact tool request SHA256",
+      "exact target path",
+      "original wheel SHA256",
+      "nonce",
+      "precondition SHA256",
+      "desired content SHA256",
+      "operation CREATE REPLACE NO_CHANGE",
+      "issue and expiry"
+    ],
+    "revocation": "separately signed freshness-bound revoked nonce list with separately pinned SHA256",
+    "replay": "per-executor-private O_EXCL atomic file ledger"
+  },
+  "original_calls": {
+    "approved_cases": [
+      "allowed_create",
+      "allowed_noop",
+      "allowed_replace"
+    ],
+    "denied_cases": [
+      "denied_replay",
+      "denied_no_grant",
+      "denied_signed_scope",
+      "denied_revoked",
+      "denied_os_dac",
+      "denied_stale_state",
+      "denied_tampered_request"
+    ],
+    "original_source_native_expected": 3,
+    "denied_before_spawn_expected": 7,
+    "total_decisions": 10,
+    "all_denied_targets_unchanged": true,
+    "independent_original_server_execve_witness": "Linux strace -f -e execve under executor UID"
+  },
+  "decision_limit": "This is a CI-local owner with distinct actual OS principal, not an independently consenting natural person. Actual user authorization cannot be asserted until an external owner independently approves and signs a real grant.",
+  "known_limits": [
+    "Privileged CI runner can impersonate OS users",
+    "Original server may have unobserved side effects beyond signed request",
+    "TOCTOU path swaps not eliminated with OS openat2 controls",
+    "No external OAuth authorization",
+    "Nonce ledger durable only for one executor-controlled directory",
+    "Revocation epoch freshness depends on external pinned hash",
+    "No new upstream vulnerability discovered",
+    "No production secrets or real-user resources accessed",
+    "Original upstream source code is verified against PyPI but release not publisher cryptographically signed"
+  ]
+}
