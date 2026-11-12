@@ -86,8 +86,8 @@ jobs:
           assert a['native_original_calls']==2 and a['first_pass_original_bugs_confirmed']==0
           assert p['remote_api_tree_matches_git_checkout']
           assert s['github_verified_signature'] is True and s['github_signature_reason']=='valid'
-          assert obj(root/'prior-AISH/.b17-results/source_origin.json')['summary']['SOURCE_CORROBORATED_PASS']==2
-          assert obj(root/'prior-MM/.b17-results/source_origin.json')['summary']['NOT_PROMOTED']==2
+          assert obj(root/'prior-AISH/source_origin.json')['summary']['SOURCE_CORROBORATED_PASS']==2
+          assert obj(root/'prior-MM/source_origin.json')['summary']['NOT_PROMOTED']==2
           print('B17_FINAL_BUNDLE_ALL_FROZEN_ORIGINAL_AND_SIGNED_PUBLISHER_EVIDENCE_VERIFIED')
           PY
       - name: Build complete checkout-free source archive and all-evidence digest ledger
