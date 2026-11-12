@@ -1,0 +1,99 @@
+name: RISU P6-B14 immutable native first-pass and postfreeze cross-audit
+on:
+  push:
+    branches: ['qualification/p6b14-*']
+    paths:
+      - 'benchmarks/p6b14/audit_cross_original.py'
+      - '.github/workflows/p6b14-cross-original-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit-fixed-original-runs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch unchanged first-pass SP native stdout
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43283214546
+          github-token: ${{ github.token }}
+          name: risu-b14-original-SP
+          path: .b14-audit/SP
+      - name: Fetch unchanged first-pass ME native stdout
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43283214546
+          github-token: ${{ github.token }}
+          name: risu-b14-original-ME
+          path: .b14-audit/ME
+      - name: Fetch independently rerun Python 3.11
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43283834458
+          github-token: ${{ github.token }}
+          name: risu-b14-analysis-controls-python-3.11
+          path: .b14-audit/py311
+      - name: Fetch independently rerun Python 3.12
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43283834458
+          github-token: ${{ github.token }}
+          name: risu-b14-analysis-controls-python-3.12
+          path: .b14-audit/py312
+      - name: Verify immutable source stdout and both independent oracles
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_trace.py)" = 9f017ca0344d94cf54bd0229ddb14d4f586101c8
+          python benchmarks/p6b14/audit_cross_original.py             --sp .b14-audit/SP --me .b14-audit/ME             --python311 .b14-audit/py311 --python312 .b14-audit/py312             --out .b14-audit/B14_CROSS_ORIGINAL_RESULT.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('.b14-audit/B14_CROSS_ORIGINAL_RESULT.json')
+          v=json.loads(p.read_text())
+          assert v['conclusions']['original_upstreams_executed']==2
+          assert v['conclusions']['ME_analyze_table_failure_mislabeled_success']
+          assert v['conclusions']['postfreeze_original_server_python_3_11_and_3_12_reproduction']
+          print('B14_ORIGINAL_12_CALLS_AND_TWO_RUNTIME_CROSS_AUDIT_PASS')
+          PY
+      - name: Tamper-control original stdout must be rejected
+        run: |
+          set -euo pipefail
+          cp -r .b14-audit/ME .b14-audit/ME_TAMPER
+          printf ' ' >> .b14-audit/ME_TAMPER/.b14-evidence/original_stdio.jsonl
+          if python benchmarks/p6b14/audit_cross_original.py               --sp .b14-audit/SP --me .b14-audit/ME_TAMPER               --python311 .b14-audit/py311 --python312 .b14-audit/py312               --out .b14-audit/MUST_NOT_EXIST.json; then
+            echo "Tampered wire accepted" >&2
+            exit 3
+          fi
+          test ! -e .b14-audit/MUST_NOT_EXIST.json
+          echo B14_INDEPENDENT_TAMPER_NEGATIVE_CONTROL_PASS
+      - name: Preserve auditable cross-artifact ledger and hashes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b14-final-native-original-cross-audit
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            benchmarks/p6b14/prelocked_native_effect_cohort.json
+            .b14-audit/B14_CROSS_ORIGINAL_RESULT.json
