@@ -1,0 +1,235 @@
+name: RISU P6-B21 real original MCP directed effects and preissued signed owner-scoped permissions
+on:
+  push:
+    branches: ['qualification/p6b21-*']
+    paths:
+      - 'benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json'
+      - 'benchmarks/p6b21/FROZEN_SCOPE_DIRECTION_EVALUATION.json'
+      - 'benchmarks/p6b21/capture_signed_owner_real_fs.py'
+      - '.github/workflows/p6b21-real-precall-owner-scope.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  real-native-source-with-cryptographic-precall-fixture-permission:
+    name: Source-original third party MCP + real preissued owner signatures and directional state
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lock the general effect kernel and owner-signed verifier BEFORE external original process
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          python - <<'PY'
+          import json
+          f=json.load(open('benchmarks/p6b21/FROZEN_SCOPE_DIRECTION_EVALUATION.json'))
+          p=json.load(open('benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json'))
+          assert f['schema']=='risu-p6b21-preset-owner-scope-and-direction-freeze-v1'
+          assert f['product']['git_blob']=='2f33e0f919b00f4205d3533b13124581288a3832'
+          assert len(f['cases'])==4 and p['tool']=='write_file'
+          assert {c['cell'] for c in f['cases']}==set(p['cells'])
+          assert p['classification']=='DEVELOPMENT_POSITIVE_CONTROL'
+          assert f['expected']['outside_signed_scope']==3
+          print('B21_PREDECLARED_DIRECTION_AND_SCOPE_MATRIX_LOCKED')
+          PY
+      - name: Acquire untouched third party original PyPI package by exact published version
+        run: |
+          set -euo pipefail
+          python -m pip download --disable-pip-version-check --no-deps \
+            --only-binary=:all: -d .b21-package 'filesystem-mcp==1.0.2'
+          python - <<'PY'
+          import hashlib,zipfile,json
+          from pathlib import Path
+          allw=list(Path('.b21-package').glob('filesystem_mcp-1.0.2-*.whl'))
+          assert len(allw)==1
+          wheel=allw[0]
+          digest=hashlib.sha256(wheel.read_bytes()).hexdigest()
+          assert digest=='94610f0b73df1d3ada4ef0353353eb93695645c7b82f71ca80ed13dc1022c235'
+          with zipfile.ZipFile(wheel) as z:source=z.read('filesystem_mcp/server.py')
+          assert hashlib.sha256(source).hexdigest()=='c754a7720d52d92eb49324649b19f58b07b20703fcc2c2c1b02ce1f20152fcc8'
+          Path('.b21-package/ORIGINAL_PUBLISHER_ARTIFACT.json').write_text(json.dumps({
+             'schema':'risu-b21-original-independent-public-publisher-wheel-v1',
+             'repository':'kujirahand/mcp_server-filesystem',
+             'wheel':wheel.name,'wheel_sha256':digest,
+             'server_sha256':hashlib.sha256(source).hexdigest(),
+             'signed_release':False,
+             'source_attested_by':'separate exact original GitHub blob check',
+             'limitation':'Original public PyPI wheel hash is pinned; no upstream signed release claim'
+          },sort_keys=True,indent=2)+'\n')
+          print('B21_ORIGINAL_PYPI_WHEEL_LOCKED',digest)
+          PY
+      - name: Verify exact unrelated upstream Git source blob is byte identical to published package
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,json,hashlib,base64,urllib.request,zipfile
+          from pathlib import Path
+          sha='1aff1e094ed317ec2c5de06591978781d660c48a'
+          original_blob='f886fcbc6e61f3be8e6fd76b6e5f3ad1f8cbb7b6'
+          url='https://api.github.com/repos/kujirahand/mcp_server-filesystem/contents/src/filesystem_mcp/server.py?ref='+sha
+          request=urllib.request.Request(url,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],
+            'Accept':'application/vnd.github+json','User-Agent':'risu-b21-original-external-source-validation'})
+          with urllib.request.urlopen(request,timeout=30) as resp:info=json.load(resp)
+          raw=base64.b64decode(info['content'])
+          assert info['sha']==original_blob
+          assert hashlib.sha1(b'blob '+str(len(raw)).encode()+bytes([0])+raw).hexdigest()==original_blob
+          wheel=next(Path('.b21-package').glob('*.whl'))
+          with zipfile.ZipFile(wheel) as z:package=z.read('filesystem_mcp/server.py')
+          assert raw==package
+          print('B21_ORIGINAL_UPSTREAM_PUBLISHER_GIT_OBJECT_AND_WHEEL_MATCH',original_blob)
+          PY
+      - name: Install original unmodified MCP server into separate isolated virtual environment
+        run: |
+          set -euo pipefail
+          python -m venv .b21-upstream-venv
+          .b21-upstream-venv/bin/python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+          .b21-upstream-venv/bin/python -m pip install --disable-pip-version-check --no-deps .b21-package/*.whl
+          .b21-upstream-venv/bin/python -m pip check
+          .b21-upstream-venv/bin/python -I - <<'PY'
+          import filesystem_mcp.server as s
+          import pathlib,hashlib,importlib.metadata
+          assert importlib.metadata.version('filesystem-mcp')=='1.0.2'
+          assert hashlib.sha256(pathlib.Path(s.__file__).read_bytes()).hexdigest()=='c754a7720d52d92eb49324649b19f58b07b20703fcc2c2c1b02ce1f20152fcc8'
+          print('B21_UNCHANGED_PYPI_ORIGINAL_INSTALLED_CODE_CONFIRMED')
+          PY
+      - name: Install offline RISU owner-authority product and cryptographic verifier only in parent runner
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<49' .
+          python -m risu_p5d_cli verify-mcp-effect-authority --help
+      - name: Create fresh actual synthetic fixture owner, sign grants BEFORE four original MCP calls
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b21/capture_signed_owner_real_fs.py \
+            --python .b21-upstream-venv/bin/python \
+            --wheel-dir .b21-package \
+            --plan benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json \
+            --out .b21-original
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('.b21-original')
+          for case in ('before_trigger','before_control','after_trigger','after_control'):
+              record=json.loads((root/case/'SOURCE_ORIGINAL_EXECUTION_RECORD.json').read_text())
+              assert record['status']=='CAPTURED_ORIGINAL_NATIVE_WITH_PRECALL_OWNER_GRANT',record
+              assert record['tool_result_success'] is True
+              assert record['grant_sha256_after_tool']==record['signed_owner_policy_file_sha256_before_tool']
+              assert (root/case/'original_stdio.jsonl').is_file()
+              print('B21_REAL_ORIGINAL_PREISSUED_SIGNED_MCP_WRITE',case,
+                    record['before'],record['after'])
+          PY
+      - name: Verify direction semantics and actual signed permission vs intentionally denied normal write
+        run: |
+          set -euo pipefail
+          ROOT_SHA="$(cat .b21-original/PREISSUED_OWNER_ROOT_SHA256.txt)"
+          python -m risu_p5d_cli verify-mcp-effect-authority \
+            --plan benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json \
+            --evidence-root .b21-original \
+            --authority-manifest .b21-original/SIGNED_OWNER_AUTHORITY_MANIFEST.json \
+            --trust-root .b21-original/pretrusted_synthetic_owner_root.json \
+            --trusted-root-sha256 "$ROOT_SHA" \
+            --format json --out .b21-original/REAL_DIRECTED_SIGNED_OWNER_FIRSTPASS.json
+          python - <<'PY'
+          import json
+          r=json.load(open('.b21-original/REAL_DIRECTED_SIGNED_OWNER_FIRSTPASS.json'))
+          s=r['summary']
+          assert r['status']=='DIRECTIONAL_OBSERVATION_WITH_SIGNED_SCOPE_VERIFIED'
+          assert r['trusted_root_mode']=='CI_LOCAL_FIXTURE_ONLY'
+          assert s['valid_pinned_owner_signatures']==4
+          assert s['typed_directional_sensor_assessments']==12
+          assert s['within_signed_scope']==9
+          assert s['outside_signed_scope']==3
+          assert s['cases_with_signed_scope_violations']==1
+          assert s['new_external_vulnerabilities_discovered']==0
+          assert [r['cases'][case]['policy_local_verdict'] for case in (
+             'before_trigger','before_control','after_trigger','after_control')]==[
+              'SIGNED_SCOPE_OBSERVED_COMPLIANCE','SIGNED_SCOPE_OBSERVED_COMPLIANCE',
+              'SIGNED_SCOPE_OBSERVED_VIOLATION','SIGNED_SCOPE_OBSERVED_COMPLIANCE']
+          assert r['cases']['before_trigger']['directions']['file-size']['transition']=='INCREASE'
+          assert r['cases']['after_control']['directions']['file-size']['transition']=='DECREASE'
+          assert r['cases']['after_control']['directions']['file-contents']['transition']=='REPLACE'
+          print('B21_REAL_SIGNED_SCOPE_AND_ACTUAL_DIRECTIONS_VERIFIED',s)
+          PY
+      - name: Confirm signed fixture policy violation is a detected post-hoc warning exit 1
+        run: |
+          set -euo pipefail
+          set +e
+          python -m risu_p5d_cli verify-mcp-effect-authority \
+            --plan benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json \
+            --evidence-root .b21-original \
+            --authority-manifest .b21-original/SIGNED_OWNER_AUTHORITY_MANIFEST.json \
+            --trust-root .b21-original/pretrusted_synthetic_owner_root.json \
+            --trusted-root-sha256 "$(cat .b21-original/PREISSUED_OWNER_ROOT_SHA256.txt)" \
+            --fail-on-violation
+          rc=$?
+          set -e
+          test "$rc" -eq 1
+          echo B21_SIGNED_FIXTURE_SCOPE_VIOLATION_EXIT1_DETECTED
+      - name: Reject forged preissued owner signature and stale trust root SHA
+        run: |
+          set -euo pipefail
+          cp -r .b21-original .b21-tampered
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          folder=Path('.b21-tampered')
+          f=folder/'after_trigger/PREISSUED_SIGNED_OWNER_GRANT.json'
+          claim=json.loads(f.read_text())
+          claim['policy']['allowed_directions']['file-size']=['INCREASE']
+          f.write_text(json.dumps(claim,sort_keys=True,indent=2)+'\n')
+          main=folder/'SIGNED_OWNER_AUTHORITY_MANIFEST.json'
+          manifest=json.loads(main.read_text())
+          manifest['cases']['after_trigger']['grant_sha256']=hashlib.sha256(f.read_bytes()).hexdigest()
+          event=folder/'after_trigger/PRECALL_BOUND_EXECUTION_EVENT.json'
+          e=json.loads(event.read_text())
+          e['grant_sha256']=hashlib.sha256(f.read_bytes()).hexdigest()
+          event.write_text(json.dumps(e,sort_keys=True,indent=2)+'\n')
+          manifest['cases']['after_trigger']['event_sha256']=hashlib.sha256(event.read_bytes()).hexdigest()
+          main.write_text(json.dumps(manifest,sort_keys=True,indent=2)+'\n')
+          PY
+          set +e
+          python -m risu_p5d_cli verify-mcp-effect-authority \
+            --plan benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json \
+            --evidence-root .b21-tampered \
+            --authority-manifest .b21-tampered/SIGNED_OWNER_AUTHORITY_MANIFEST.json \
+            --trust-root .b21-tampered/pretrusted_synthetic_owner_root.json \
+            --trusted-root-sha256 "$(cat .b21-original/PREISSUED_OWNER_ROOT_SHA256.txt)"
+          forged_rc=$?
+          python -m risu_p5d_cli verify-mcp-effect-authority \
+            --plan benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json \
+            --evidence-root .b21-original \
+            --authority-manifest .b21-original/SIGNED_OWNER_AUTHORITY_MANIFEST.json \
+            --trust-root .b21-original/pretrusted_synthetic_owner_root.json \
+            --trusted-root-sha256 "$(printf '%064d' 0)"
+          wrong_root_rc=$?
+          set -e
+          test "$forged_rc" -eq 2
+          test "$wrong_root_rc" -eq 2
+          echo B21_FORGED_SIGNED_PERMISSION_AND_WRONG_ROOT_PIN_REJECTED
+      - name: Archive every original signed preflight record, actual native trace, observed file bytes and result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b21-original-native-owner-signed-directional-firstpass
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b21-package/
+            .b21-original/
+            benchmarks/p6b21/FROZEN_FOUR_CASE_OWNER_EFFECT_PLAN.json
+            benchmarks/p6b21/FROZEN_SCOPE_DIRECTION_EVALUATION.json
