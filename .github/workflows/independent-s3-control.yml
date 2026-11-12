@@ -35,6 +35,11 @@ jobs:
           S3_BACKEND_VERSION=${{ matrix.version }} S3_TEST_ENDPOINT=http://127.0.0.1:4566 S3_CONTROL_OUTPUT=results/floci-${{ matrix.version }}.json \
             python3 research/backend/floci_s3_control.py 2>&1 | tee results/control.log
           docker logs floci-s3-control > results/backend.log 2>&1 || true
+      - name: Isolate HTTP persistent-connection aftermath of failed guards
+        shell: bash
+        run: |
+          HTTP11_CONTROL_OUTPUT=results/http11-${{ matrix.version }}.json S3_BACKEND_VERSION=${{ matrix.version }} S3_TEST_ENDPOINT=http://127.0.0.1:4566 \
+            python3 research/backend/floci_connection_probe.py 2>&1 | tee results/http11.log
       - name: Preserve control and backend runtime logs
         if: always()
         uses: actions/upload-artifact@v4
