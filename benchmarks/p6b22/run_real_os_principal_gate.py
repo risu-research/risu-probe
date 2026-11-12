@@ -188,13 +188,32 @@ def run(args):
               "--ledger",str(ledger),
               "--server-python",str(original_py),
               "--out",str(output)]
-        before=state(target)
-        if target.is_file():
-            (args.out/(label+"_BEFORE_ORIGINAL_TARGET.bin")).write_bytes(target.read_bytes())
+        def observed(stage):
+            proof=published/("observation_"+label+"_"+stage+".json")
+            execute(*signer,"observe","--private",private,"--root",root,
+                    "--target",target,"--case",label,"--phase",stage,
+                    "--out",proof)
+            signed=json.loads(proof.read_text())
+            body=signed["observation"]
+            assert body["owner_uid"]==uid_owner and body["case_id"]==label
+            assert body["phase"]==stage and body["target_path"]==str(target)
+            contents=(base64.b64decode(body["content_b64"],validate=True)
+                      if body["exists"] else None)
+            snapshot={
+              "exists":body["exists"],"sha256":body["sha256"],
+              "size":body["size"]
+            }
+            assert snapshot=={
+              "exists":contents is not None,
+              "sha256":sha(contents) if contents is not None else None,
+              "size":len(contents) if contents is not None else 0
+            }
+            if contents is not None:
+                (args.out/(label+"_"+stage.upper()+"_ORIGINAL_TARGET.bin")).write_bytes(contents)
+            return snapshot,sha(proof.read_bytes())
+        before,pre_owner_signed_hash=observed("before")
         p=execute(*tool,expect=0 if authorized else 3,timeout=100)
-        after=state(target)
-        if target.is_file():
-            (args.out/(label+"_AFTER_ORIGINAL_TARGET.bin")).write_bytes(target.read_bytes())
+        after,post_owner_signed_hash=observed("after")
         obj=json.loads(output.read_text())
         trace=syscall.read_text(errors="replace")
         # Actual OS syscall tracing verifies the original upstream Python
@@ -230,6 +249,8 @@ def run(args):
           "resource_directory_owner_uid_at_invocation":permitted.stat().st_uid,
           "source_report_file":label+".json",
           "strace_sha256":sha(syscall.read_bytes()),
+          "before_owner_signed_physical_observation_sha256":pre_owner_signed_hash,
+          "after_owner_signed_physical_observation_sha256":post_owner_signed_hash,
           "strace_os_authorship":"CI tracer process run under unprivileged executor"
         }
         records[label]=rec
@@ -319,6 +340,8 @@ def run(args):
     shutil.copyfile(root,args.out/"PREISSUED_PUBLIC_OWNER_ROOT.json")
     shutil.copyfile(current_rev,args.out/"FINAL_SIGNED_OWNER_REVOCATION.json")
     for p in published.glob("revocations_epoch*.json"):
+        shutil.copyfile(p,args.out/p.name)
+    for p in published.glob("observation_*.json"):
         shutil.copyfile(p,args.out/p.name)
     for p in published.glob("grant_*.json"):
         shutil.copyfile(p,args.out/p.name)
