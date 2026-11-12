@@ -17,12 +17,44 @@ jobs:
           repository: github/github-mcp-server
           ref: v2.1.0
           persist-credentials: false
+      - name: Prepare a domain-aware CodeQL review query
+        shell: bash
+        run: |
+          mkdir -p .codeql/guard-binding
+          cat > .codeql/guard-binding/qlpack.yml <<'YML'
+          name: research/go-guard-binding-review
+          version: 0.0.1
+          dependencies:
+            codeql/go-all: '*'
+          YML
+          cat > .codeql/guard-binding/GuardWriteReview.ql <<'QL'
+          /**
+           * @name Preflight and write paths require resource-binding review
+           * @description Finds paths passed to separate metadata and write APIs. Flags review candidates, not confirmed defects.
+           * @kind problem
+           * @id research/guard-write-path-review
+           * @problem.severity warning
+           * @precision medium
+           */
+          import go
+
+          from CallExpr readCall, CallExpr writeCall
+          where
+            readCall.getCalleeName() = "GetContents" and
+            writeCall.getCalleeName() = "CreateFile" and
+            readCall.getEnclosingFunction() = writeCall.getEnclosingFunction() and
+            readCall.getArgument(3).toString() = writeCall.getArgument(3).toString()
+          select writeCall,
+            "Metadata preflight and write share a source path but separate API implementations; verify effective resource identity."
+          QL
       - name: Initialize standard CodeQL baseline
         uses: github/codeql-action/init@v4
         with:
           languages: go
           build-mode: autobuild
-          queries: security-extended
+          queries: |
+            security-extended
+            +./.codeql/guard-binding/GuardWriteReview.ql
       - name: Run static analysis without publishing alerts
         uses: github/codeql-action/analyze@v4
         with:
