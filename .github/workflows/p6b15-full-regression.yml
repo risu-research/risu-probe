@@ -46,11 +46,13 @@ jobs:
           python -m venv .b15-verification
           if [[ "${{ runner.os }}" == Windows ]]; then
             PY=.b15-verification/Scripts/python.exe
+            CLI=.b15-verification/Scripts/risu-probe.exe
           else
             PY=.b15-verification/bin/python
+            CLI=.b15-verification/bin/risu-probe
           fi
           "$PY" -m pip install .b15-wheel-output/risu_probe_preview-*.whl
           "$PY" -m pip check
           "$PY" -m risu_p5d_cli check-mcp-observations --help
-          "$PY" -m unittest discover -s tests -v
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
           echo B15_FROZEN_PRODUCT_ALL_PRIOR_AND_NEW_REGRESSIONS_PASS
