@@ -19,6 +19,8 @@ import sys
 from risu_mcp_effects import (
     judge, load_json, canonical, pointer, relative, sha, EffectError, CELLS
 )
+from risu_mcp_trace import _read_trace
+from risu_mcp_authority import correlate
 
 REPORT="risu-mcp-directed-effect-authority-report-v1"
 MANIFEST="risu-mcp-directed-authority-evaluation-v1"
@@ -174,7 +176,8 @@ def verify(plan, evidence, manifest, roots_file, expected_root_hash):
         policy=grant["policy"]
         demand(type(policy) is dict and set(policy)=={
            "audience","issuer","key_id","case","actor","resource_id",
-           "run_nonce","tool","args_sha256","wheel_sha256","issued_at",
+           "run_nonce","tool","args_sha256","resource_argument_pointer",
+           "resource_argument_sha256","wheel_sha256","issued_at",
            "expires_at","allowed_directions"},
            "INVALID_OWNER_SIGNED_POLICY_BODY")
         demand(policy["audience"]=="risu-mcp-effect-authority-b21" and
@@ -213,11 +216,23 @@ def verify(plan, evidence, manifest, roots_file, expected_root_hash):
                    all(type(op) is str and op in KIND_OPS[kind_by_id[sensor_id]]
                        for op in operations),
                    "INVALID_OR_TOO_BROAD_SIGNED_OPERATION_SCOPE")
+        # Explicit signed resource mapping must be grounded in original
+        # native MCP arguments; no string-prefix / file-name inference.
+        traced,trace_hash=_read_trace(relative(evidence,plan["cells"][cell]["trace"]))
+        matched,anomalies=correlate(traced)
+        demand(not anomalies and len(matched)==1 and
+               matched[0]["name"]==policy["tool"] and
+               type(matched[0]["args"]) is dict,
+               "CANNOT_BIND_OWNER_RESOURCE_TO_ORIGINAL_TOOL_ARGUMENTS")
+        selected=pointer(matched[0]["args"],policy["resource_argument_pointer"])
+        demand(policy["resource_argument_sha256"]==sha(canonical(selected)),
+               "RESOURCE_OWNER_GRANT_NOT_BOUND_TO_ACTUAL_ARGUMENT_TARGET")
         verify_signature(policy,grant["signature_ed25519_b64"],
                          owner["ed25519_public_key_b64"])
         demand(type(event) is dict and event.get("schema")==EVENT and
                set(event)=={"schema","case","actor","resource_id","run_nonce",
-                            "grant_sha256","tool","args_sha256","wheel_sha256",
+                            "grant_sha256","tool","args_sha256",
+                            "resource_argument_sha256","wheel_sha256",
                             "invoked_at","completed_at","trace_sha256",
                             "original_observer_sha256"},
                "INVALID_PRECALL_EXECUTION_EVENT")
@@ -228,6 +243,7 @@ def verify(plan, evidence, manifest, roots_file, expected_root_hash):
                event["grant_sha256"]==sha(gfile.read_bytes()) and
                event["tool"]==policy["tool"] and
                event["args_sha256"]==policy["args_sha256"] and
+               event["resource_argument_sha256"]==policy["resource_argument_sha256"] and
                event["wheel_sha256"]==policy["wheel_sha256"],
                "EXECUTION_NOT_BOUND_TO_PREISSUED_OWNER_POLICY")
         invoked=parse_time(event["invoked_at"])
