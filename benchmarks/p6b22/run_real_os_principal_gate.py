@@ -216,6 +216,8 @@ def run(args):
           "revocation_epoch_sha256":rev_sha or rev_pin,
           "original_server_pid":obj.get("original_mcp_process_pid"),
           "real_owner_uid":uid_owner,"real_executor_uid":uid_exec,
+          "resource_directory_mode_at_invocation":oct(permitted.stat().st_mode&0o7777),
+          "resource_directory_owner_uid_at_invocation":permitted.stat().st_uid,
           "source_report_file":label+".json",
           "strace_sha256":sha(syscall.read_bytes()),
           "strace_os_authorship":"CI tracer process run under unprivileged executor"
@@ -303,6 +305,8 @@ def run(args):
 
     shutil.copyfile(root,args.out/"PREISSUED_PUBLIC_OWNER_ROOT.json")
     shutil.copyfile(current_rev,args.out/"FINAL_SIGNED_OWNER_REVOCATION.json")
+    for p in published.glob("revocations_epoch*.json"):
+        shutil.copyfile(p,args.out/p.name)
     for p in published.glob("grant_*.json"):
         shutil.copyfile(p,args.out/p.name)
     for p in requests.glob("*.json"):
