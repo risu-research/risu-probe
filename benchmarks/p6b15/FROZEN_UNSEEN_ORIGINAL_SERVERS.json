@@ -1,0 +1,172 @@
+{
+  "schema": "risu-p6b15-untouched-external-cohort-v1",
+  "frozen_analyzer": "4314e9bf92e2ec75c421bab25eae3b43f1424a08",
+  "frozen_detector_commit": "be4e18f4057384d7b0bb302098fa9a563cf984a4",
+  "selection_basis": "Only public README, metadata, tool names and documented commands consulted after detector was frozen. No implementation source inspected before target commits and exact tool calls were preregistered.",
+  "date": "2026-11-12",
+  "isolation": "Exact public Git SHA in single-use GitHub Actions environment; all data synthetic and local; no remote services, credentials, production stores, upstream source patches, or user input.",
+  "denominator": {
+    "upstream_servers": 3,
+    "upstream_owners": 3,
+    "locked_tool_calls": 14
+  },
+  "outcome_policy": "All three fixed cohorts remain in denominator even if unexecutable, tool missing, result incomplete or all obligations pass. The frozen product must not be tuned or repaired on holdout output. Harness-only corrections must be separately logged and preserve initial original run.",
+  "cases": [
+    {
+      "id": "PA",
+      "repository": "panasenco/mcp-sqlite",
+      "commit": "c5f46391520d9c8c5283249e5513788d4de698f7",
+      "language": "Python",
+      "execution": "Original pinned mcp-sqlite CLI with private SQLite database and no metadata",
+      "source_review": "README_ONLY",
+      "calls": [
+        {
+          "name": "sqlite_get_catalog",
+          "args": {},
+          "expect": "state-unchanged",
+          "label": "catalog_read_only"
+        },
+        {
+          "name": "sqlite_execute",
+          "args": {
+            "sql": "SELECT id,label FROM records ORDER BY id"
+          },
+          "expect": "state-unchanged",
+          "label": "sql_select_only"
+        },
+        {
+          "name": "sqlite_execute",
+          "args": {
+            "sql": "UPDATE records SET label='RISU_B15_CHANGED' WHERE id=1"
+          },
+          "expect": "state-changed",
+          "label": "sql_documented_writer"
+        },
+        {
+          "name": "sqlite_execute",
+          "args": {
+            "sql": "SELECT id,label FROM records WHERE id=1"
+          },
+          "expect": "state-unchanged",
+          "label": "sql_after_read"
+        }
+      ],
+      "oracle": "Committed SQLite table rows, schema and index; snapshot from independent SQLite reader"
+    },
+    {
+      "id": "ZM",
+      "repository": "zongmin-yu/sqlite-literature-management-fastmcp-mcp-server",
+      "commit": "a3ceee63a34ff99de3bcfd80e0c72bf439017f4e",
+      "language": "Python",
+      "execution": "Original FastMCP stdio server, original user_version 3 schema generated in temp SQLite",
+      "source_review": "README_ONLY",
+      "calls": [
+        {
+          "name": "list_tables",
+          "args": {},
+          "expect": "state-unchanged",
+          "label": "catalog_read_only"
+        },
+        {
+          "name": "read_query",
+          "args": {
+            "query": "SELECT COUNT(*) AS n FROM sources"
+          },
+          "expect": "state-unchanged",
+          "label": "sql_select_only"
+        },
+        {
+          "name": "read_query",
+          "args": {
+            "query": "CREATE TABLE risu_b15_unexpected_table(id INTEGER)"
+          },
+          "expect": "state-unchanged",
+          "label": "declared_read_only_ddl_guard"
+        },
+        {
+          "name": "add_sources",
+          "args": {
+            "sources": [
+              [
+                "RISU B15 Synthetic Paper",
+                "paper",
+                "arxiv",
+                "b15.synthetic.2026",
+                null
+              ]
+            ]
+          },
+          "expect": "state-changed",
+          "label": "documented_writer"
+        },
+        {
+          "name": "read_query",
+          "args": {
+            "query": "SELECT COUNT(*) AS n FROM sources"
+          },
+          "expect": "state-unchanged",
+          "label": "sql_after_read"
+        }
+      ],
+      "oracle": "SQLite logical user tables and schema observed by independent connection; published create_sources_db.sql initializes empty local test DB"
+    },
+    {
+      "id": "FM",
+      "repository": "fellowgeek/mcp-memory",
+      "commit": "a50a87708628d0822af439015503de47c35d7acc",
+      "language": "Python",
+      "execution": "Original stdio memory server launched with synthetic private project_root, isolated environment",
+      "source_review": "README_ONLY",
+      "calls": [
+        {
+          "name": "memory_retrieve",
+          "args": {
+            "key": "risu_b15_probe",
+            "project_root": "${ROOT}"
+          },
+          "expect": "state-unchanged",
+          "label": "absent_memory_lookup"
+        },
+        {
+          "name": "memory_store",
+          "args": {
+            "key": "risu_b15_probe",
+            "content": "RISU B15 synthetic 🧭 reminder",
+            "project_root": "${ROOT}"
+          },
+          "expect": "state-changed",
+          "label": "documented_writer"
+        },
+        {
+          "name": "memory_retrieve",
+          "args": {
+            "key": "risu_b15_probe",
+            "project_root": "${ROOT}"
+          },
+          "expect": "state-unchanged",
+          "label": "stored_memory_lookup"
+        },
+        {
+          "name": "memory_search",
+          "args": {
+            "query": "RISU B15 synthetic",
+            "project_root": "${ROOT}"
+          },
+          "expect": "state-unchanged",
+          "label": "memory_search_read_only"
+        },
+        {
+          "name": "memory_delete",
+          "args": {
+            "key": "risu_b15_probe",
+            "project_root": "${ROOT}"
+          },
+          "expect": "state-changed",
+          "label": "documented_delete"
+        }
+      ],
+      "oracle": "Local normalized persistent OKF memory files plus SQLite content snapshot; exclude time metadata or volatile logs"
+    }
+  ],
+  "interpretation": "Declaring contracts from README documents expected behavior; a mismatch is candidate-only pending independent upstream issue/history review. ReadOnlyHint is advisory, unrelated text wording is never a detector input."
+}
