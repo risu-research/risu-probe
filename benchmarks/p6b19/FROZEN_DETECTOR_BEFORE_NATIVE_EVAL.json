@@ -1,0 +1,20 @@
+{
+  "schema": "risu-p6b19-frozen-detector-before-external-firstpass-v1",
+  "locked_on": "2026-11-12",
+  "branch": "qualification/p6b19-upstream-signed-wheel-real-repair-20261112",
+  "detector_source_git_blob": "41bb9439174c37a53481db3e025cb9601ae6040f",
+  "preexisting_runtime_checker_blob": "eba052165106bd85cb935ed505544ea33819054b",
+  "test_source_blob": "9e70faae8400ca83c8d6c189000a1bcd4ff50b98",
+  "original_cohort": "benchmarks/p6b19/FROZEN_PUBLISHER_WHEELS_REAL_GIT_REPAIR.json",
+  "official_firstpass_pairs": "mcp-server-git 2026.11.4 vs 2026.11.11, each 2 native git_status tests with and without harmless fsmonitor config",
+  "predeclared_scope": "Prior published GHSA-6hqx-gqrx-c5r2 repaired, publisher-signed PyPI wheels, Git module byte identity, normal tool result, independent safe marker side effect.",
+  "protocol": "If public signed provenance fails or tool cannot run due dependencies, record UNVERIFIED, never change source detector on the same heldout; harness-only corrections retain first attempt and locked denominator.",
+  "measurements": "Two attestations, 2 SHA256 published artifacts, 2 upstream commits/code blobs, 4 real original MCP tool calls, 4 independent before/after marker witnesses; output conditional on preregistered correct data.",
+  "ban_claims": [
+    "new security vulnerability discovery",
+    "upstream SLSA source-to-build proof from publish attestation alone",
+    "detection of arbitrary code execution without external effect witness",
+    "population precision or recall",
+    "server source identity from user-supplied JSON alone"
+  ]
+}
