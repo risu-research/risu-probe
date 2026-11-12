@@ -4,6 +4,7 @@ on:
     branches: ['qualification/p6b22-*']
     paths:
       - 'benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION.json'
+      - 'benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION_V2.json'
       - 'benchmarks/p6b22/owner_account_issuer.py'
       - 'benchmarks/p6b22/run_real_os_principal_gate.py'
       - '.github/workflows/p6b22-real-two-os-users-precall.yml'
@@ -30,12 +31,14 @@ jobs:
         run: |
           set -euo pipefail
           python tools/public_ci_audit.py
-          test "$(git hash-object src/risu_mcp_preflight.py)" = f875dab35499bf564d132bd01675e67b76e91a75
+          test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
           test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
           test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
           python - <<'PY'
           import json
           f=json.load(open('benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION.json'))
+          v2=json.load(open('benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION_V2.json'))
+          assert v2['new_kernel']['git_blob']=='651af884c3303bbe6729a751a89b57d939e9eb6d'
           assert f['kernel']['git_blob']=='f875dab35499bf564d132bd01675e67b76e91a75'
           assert f['original_calls']['original_source_native_expected']==3
           assert f['original_calls']['denied_before_spawn_expected']==7
@@ -122,3 +125,4 @@ jobs:
             .b22-firstpass/
             .b22-package/
             benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION.json
+            benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION_V2.json
