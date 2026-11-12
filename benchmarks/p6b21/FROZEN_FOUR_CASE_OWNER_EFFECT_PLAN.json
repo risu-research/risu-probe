@@ -1,0 +1,59 @@
+{
+  "schema": "risu-mcp-effect-matrix-plan-v1",
+  "experiment": "B21_GENUINE_EXTERNAL_FILESYSTEM_MCP_WITH_PRECALL_OWNER_SIGNED_SCOPES",
+  "classification": "DEVELOPMENT_POSITIVE_CONTROL",
+  "tool": "write_file",
+  "cells": {
+    "before_trigger": {
+      "trace": "before_trigger/original_stdio.jsonl",
+      "episode": "before_trigger/episode.json"
+    },
+    "before_control": {
+      "trace": "before_control/original_stdio.jsonl",
+      "episode": "before_control/episode.json"
+    },
+    "after_trigger": {
+      "trace": "after_trigger/original_stdio.jsonl",
+      "episode": "after_trigger/episode.json"
+    },
+    "after_control": {
+      "trace": "after_control/original_stdio.jsonl",
+      "episode": "after_control/episode.json"
+    }
+  },
+  "sensors": [
+    {
+      "id": "file-presence",
+      "kind": "boolean",
+      "pattern": "custom",
+      "expected": {
+        "before_trigger": true,
+        "before_control": false,
+        "after_trigger": true,
+        "after_control": false
+      }
+    },
+    {
+      "id": "file-contents",
+      "kind": "digest",
+      "pattern": "custom",
+      "expected": {
+        "before_trigger": true,
+        "before_control": false,
+        "after_trigger": true,
+        "after_control": true
+      }
+    },
+    {
+      "id": "file-size",
+      "kind": "counter",
+      "pattern": "custom",
+      "expected": {
+        "before_trigger": true,
+        "before_control": false,
+        "after_trigger": true,
+        "after_control": true
+      }
+    }
+  ]
+}
