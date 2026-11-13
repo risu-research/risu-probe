@@ -115,8 +115,16 @@ def audit(grant_path,original_result,token,original_archive=None):
        sha(original_bytes)==result["owner_old_remote_content_sha256"],
        "Real immutable original owner Git blob before-state not independently recovered")
 
+    # Audit the ORIGINAL immutable GitHub commit as the state witness.
+    # Future owner-approved commits on the research branch must never
+    # invalidate independent replication of the original evidence.
+    original_response=result["original_result"]["original_mcp_tool_result"]
+    claimed_commit=json.loads(original_response["content"][0]["text"])["commit"]["sha"]
+    ok(type(claimed_commit) is str and len(claimed_commit)==40 and
+       all(x in "0123456789abcdef" for x in claimed_commit),
+       "Original effect commit must be a GitHub immutable commit identifier")
     now=api("https://api.github.com/repos/"+ISSUER+"/contents/"+
-            PATH+"?ref="+REF,token)
+            PATH+"?ref="+claimed_commit,token)
     remote_after=base64.b64decode(now["content"],validate=False)
     ok(now["sha"]==result["remote_post_effect"]["git_blob_sha"] and
        sha(remote_after)==grant["post_raw_sha256"]==
@@ -195,6 +203,7 @@ def audit(grant_path,original_result,token,original_archive=None):
       "independent_real_github_remote_after_blob_sha1":now["sha"],
       "independent_real_github_remote_after_sha256":sha(remote_after),
       "actual_remote_resource_write_git_commit":commit_sha,
+      "audited_remote_after_at_immutable_commit":True,
       "actual_commit_modifies_exactly_one_owner_approved_file":True,
       "original_preflight_denials_recorded":5,
       "original_replay_denial_recorded":True,
