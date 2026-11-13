@@ -374,3 +374,46 @@ human's manually clicked consent. The executor also had a repository
 write token, so the gate is not yet an unbypassable credential broker.
 
 See [B23 real GitHub owner provenance and independent remote-effect report](docs/P6B23_REAL_GITHUB_ADMIN_ATTESTED_OWNER_PRECALL.md).
+
+## P6-B24 · Read-only agents cannot bypass the credential broker
+
+An opt-in, GitHub-backed authorization experiment separates **owner
+approval provenance, an untrusted agent, and the trusted writer** into
+independent GitHub Actions jobs with distinct job-local tokens.
+
+The owner job has `contents:read` plus OIDC attestation authority. The
+untrusted-agent job has **only `contents:read`**. The trusted broker is
+the **only job** with repository-scoped `contents:write`. An independent
+auditor runs afterward with read-only permissions.
+
+In a real `risu-research/risu-verify` owner repository experiment,
+the untrusted agent attempted both a direct GitHub HTTP `PUT` (**403**)
+and a direct unmodified official GitHub MCP Server `create_or_update_file`
+(**original MCP error, GitHub HTTP 403**). Neither unauthorized file
+appeared. The different, OIDC-verified trusted broker job subsequently
+used the pinned original GitHub MCP v2.1.0 to modify **exactly one
+owner-approved repository file**, with an immutable GitHub effect commit
+and independent read-only cross-audit.
+
+```sh
+# Run only in a configured trusted broker job holding its own GitHub
+# repository-specific contents:write credential.
+risu-probe enforce-mcp-owner-credential-broker \
+  --grant OWNER_SIGNED_EXACT_ONE_FILE.json \
+  --original-server ./github-mcp-server \
+  --original-archive PINNED_GITHUB_MCP_v2.1.0.tar.gz \
+  --authenticating-run OWNER_WORKFLOW_RUN_ID \
+  --approval-mode DELEGATED_OWNER_ACCOUNT_GIT_COMMIT_AUTOMATED_DEVELOPMENT \
+  --actor VERIFIED_OWNER_ADMIN \
+  --out NEW_EVIDENCE_DIRECTORY
+```
+
+**Trust boundary:** This is a true inability to write **from the tested
+untrusted GitHub Actions job's token**, even when the client bypasses
+RISU. The trusted broker's token still has *repository-wide* contents
+write permission. The B24 issuer grant was an authenticated real GitHub
+administrator's **connected-account delegated action**, not another
+human's direct UI approval. Separate human approval and stronger
+path-scoped server-enforced write constraints remain to be tested.
+
+See [the complete B24 origin, no-bypass and original MCP audit](docs/P6B24_REAL_OWNER_NO_WRITE_AGENT_BROKER.md).
