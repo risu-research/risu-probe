@@ -1,0 +1,214 @@
+{
+  "schema": "risu-p6b35-sealed-independent-upstream-defect-holdout-v1",
+  "stage": "SEALED_BEFORE_B34_DEVELOPMENT",
+  "baseline_public_commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "product_start_version": "0.9.23.dev0",
+  "prereg_commit": "c73f5a40f4414f97c558d3ce8e5319f8f7ad8839",
+  "nine_distinct_upstream_organizations": true,
+  "upstream_commit_rule": "before=first_parent_of_verified_merged_fix; after=merged_fix_commit; exact focused original Git blob must match",
+  "baseline_B34_development_files": [
+    "agentscope-ai/agentscope",
+    "NousResearch/hermes-agent",
+    "modelcontextprotocol/python-sdk"
+  ],
+  "prohibited_holdout_usage": "No opening contents of the following B35 original source paths during B34 rule implementation. Evaluation after candidate code and tests are frozen.",
+  "scoring_cohorts": {
+    "primary": "python",
+    "cross_language": [
+      "typescript",
+      "rust"
+    ]
+  },
+  "candidate_policy": "All nine selected in advance; report eligibility, incomplete, misses and unsupported; no post-hoc replacement, never claim runtime confirmation from source-only.",
+  "cases": [
+    {
+      "id": "D1",
+      "repo": "confident-ai/deepeval",
+      "language": "python",
+      "fix_pr": "https://github.com/confident-ai/deepeval/pull/3533",
+      "issue": "https://github.com/confident-ai/deepeval/issues/3531",
+      "before": "954752bae1ebef291984ea42cf87da79b8e820fa",
+      "after": "6cb657de320a7b68a901e29455b3a9224a215077",
+      "mechanism": "MCP 2.x structured_content value access mismatches older camelCase attribute",
+      "files": [
+        [
+          "deepeval/metrics/mcp/utils.py",
+          "67fd97abcd37647e9382516f0a3bae0424273a0c",
+          "9c2a51565e4d678e679e225b13c008143e37798a"
+        ]
+      ]
+    },
+    {
+      "id": "D2",
+      "repo": "Tencent/AI-Infra-Guard",
+      "language": "python",
+      "fix_pr": "https://github.com/Tencent/AI-Infra-Guard/pull/727",
+      "before": "33768c58942dbef693dae5e929d633daa0568b34",
+      "after": "7b62e471100918efc00253ece3aae1b8ee2d4b65",
+      "mechanism": "MCP tool converter discards content blocks and structured content after first block",
+      "files": [
+        [
+          "mcp-scan/mcp_scan/utils/mcp_tools.py",
+          "3bb9bbc9ec04a8ace4c88d2e092f7ffaef91b55a",
+          "2dc255c8ec739df04b55e0604c42b7269ce953a9"
+        ]
+      ]
+    },
+    {
+      "id": "D3",
+      "repo": "Significant-Gravitas/AutoGPT",
+      "language": "python",
+      "fix_pr": "https://github.com/Significant-Gravitas/AutoGPT/pull/16265",
+      "before": "be3798deaaca06f635206925a266f6c2b7e574b0",
+      "after": "96229064bf6713df9352a2e7ae11ae5e88fabe13",
+      "mechanism": "Structured-only MCP result content discarded by adapter and/or copilot tool",
+      "files": [
+        [
+          "autogpt_platform/backend/backend/blocks/mcp/block.py",
+          "f3d00e541369a9b89ff70bcae62176ada934b8f4",
+          "40402aab231f3a9feb10f944bd7acb65a136d1a6"
+        ],
+        [
+          "autogpt_platform/backend/backend/copilot/tools/run_mcp_tool.py",
+          "2d9598884ef18f753c9cd7de5b06dfd2d420ad77",
+          "ffc133534d9431b79b2e06180309eef11cbb70b1"
+        ]
+      ]
+    },
+    {
+      "id": "D4",
+      "repo": "PostHog/posthog-python",
+      "language": "python",
+      "fix_pr": "https://github.com/PostHog/posthog-python/pull/1166",
+      "before": "314fad070507fce6a95ebb58d8a550f18a1a34ac",
+      "after": "0c12ca1521f6538873e00f5240cad306c9bba455",
+      "mechanism": "MCP 2.x compatibility and context injection hidden by optional FastMCP shim",
+      "files": [
+        [
+          "posthog/mcp/posthog_mcp.py",
+          "49f892621c308e1caa759955ee1db1f947ade09e",
+          "69951eadee501424f252a6b7e015b4c211006034"
+        ]
+      ]
+    },
+    {
+      "id": "D5",
+      "repo": "Nano-Collective/nanocoder",
+      "language": "typescript",
+      "fix_pr": "https://github.com/Nano-Collective/nanocoder/pull/1960",
+      "before": "d0d6ecf2e066c40db601d8dd5bf1e636fb5648e7",
+      "after": "ed66109c7b552a15477c18d1b1ff1e01140fb56b",
+      "mechanism": "Client uses only first MCP result content block, losing later text/media",
+      "files": [
+        [
+          "source/mcp/mcp-client.ts",
+          "6b0bd8cb5555e3f977ba6012a2e2bf35d63c4f5d",
+          "ba400a27c902eb7bc86f5386acf1c42d423fc8a9"
+        ]
+      ]
+    },
+    {
+      "id": "D6",
+      "repo": "microsoft/playwright",
+      "language": "typescript",
+      "fix_pr": "https://github.com/microsoft/playwright/pull/43973",
+      "before": "d5f7c562ada333f2d86efe7c89002749e5d59667",
+      "after": "530161aae0ba59643dbbfa3c1b8c929874cc18ec",
+      "mechanism": "JSON stringify loses non-JSON evaluate value and misattributes post-effect error",
+      "files": [
+        [
+          "packages/playwright-core/src/tools/backend/evaluate.ts",
+          "eaaa7843773b1dad23bc2c72edeafffa2cbb3903",
+          "581969a225ec138d35962505a1f2d8831336f761"
+        ]
+      ]
+    },
+    {
+      "id": "D7",
+      "repo": "langfuse/langfuse",
+      "language": "typescript",
+      "fix_pr": "https://github.com/langfuse/langfuse/pull/19579",
+      "before": "1fbe5c3b2642bc688434d81d514c64f6559dbf3f",
+      "after": "15e7e2205039926bad12a001a9d9e6f395f9e62f",
+      "mechanism": "Returned MCP tool errors not represented by isError for clients",
+      "files": [
+        [
+          "web/src/features/mcp/core/define-tool.ts",
+          "f12cd1a9363c727e18edf886be979515483158af",
+          "c5de607ba43c626d04dc2bf1ecffc33aede94562"
+        ],
+        [
+          "web/src/features/mcp/server/mcpServer.ts",
+          "eaf8fde9711b4459024246f5888a4a2d7a34cd4d",
+          "b8ed04972cb2edd76ce06498adc2890caff65c6a"
+        ]
+      ]
+    },
+    {
+      "id": "D8",
+      "repo": "Daghis/teamcity-mcp",
+      "language": "typescript",
+      "fix_pr": "https://github.com/Daghis/teamcity-mcp/pull/556",
+      "before": "060007305d4d55801b5cd27ddb81a194d33b8716",
+      "after": "32cf2c91c2b987b4f43e8dedc904f74ac005b7f6",
+      "mechanism": "MCP tool success false envelope lacks isError true protocol flag",
+      "files": [
+        [
+          "src/server.ts",
+          "3b2c0c7e557626c123c700eb6675fa597bb7ba1c",
+          "7f81241c03e7724241c8bc0742ac06bc63296809"
+        ]
+      ]
+    },
+    {
+      "id": "D9",
+      "repo": "affinidi-ai/agent-gateway",
+      "language": "rust",
+      "fix_pr": "https://github.com/affinidi-ai/agent-gateway/pull/201",
+      "before": "09c7394521e7331f8de3cd12bd5a89de3bc64e9e",
+      "after": "3c31dae4c6c51fba5d1aa5a76e3cf78c5a8dd803",
+      "mechanism": "Binary REST results erroneously decoded as UTF8 before MCP proxy results rather than emitted as byte-preserving blobs",
+      "files": [
+        [
+          "src/mcp_proxies/handlers.rs",
+          "10c0872374a3ccdb1c5d3d0df82851a6e86b9c9c",
+          "1c5e11fd8e70f843270352ec906af75dc563d7b0"
+        ],
+        [
+          "src/mcp_proxies/modern_rest.rs",
+          "3f98ce81d2a972c0338e8172d60cbaa6ea0c7cca",
+          "88f84cfdb64233f283f7c0d6bbff37d2b7180376"
+        ]
+      ]
+    }
+  ],
+  "exclusions": [
+    {
+      "repo": "agentscope-ai/agentscope",
+      "reason": "B34 development case, forbidden in B35"
+    },
+    {
+      "repo": "NousResearch/hermes-agent",
+      "reason": "B34 development case, forbidden in B35"
+    },
+    {
+      "repo": "modelcontextprotocol/python-sdk",
+      "reason": "B34 development cases H3–H5, forbidden in B35"
+    },
+    {
+      "repo": "Tracer-Cloud/opensre",
+      "url": "https://github.com/Tracer-Cloud/opensre/pull/7045",
+      "reason": "unmerged and cursor-pagination topic previously developed in RISU P6"
+    },
+    {
+      "repo": "modelcontextprotocol/python-sdk",
+      "url": "https://github.com/modelcontextprotocol/python-sdk/pull/3650",
+      "reason": "unmerged B34 candidate"
+    },
+    {
+      "repo": "cBioPortal/cbioportal-mcp",
+      "url": "https://github.com/cBioPortal/cbioportal-mcp/pull/203",
+      "reason": "telemetry-only error representation, not reliably a MCP output conversion defect"
+    }
+  ]
+}
