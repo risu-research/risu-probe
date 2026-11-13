@@ -9,6 +9,7 @@ on:
       - src/risu_p5d_cli.py
       - pyproject.toml
       - tests/test_p6b31_signed_source_provenance.py
+      - tests/test_firstuse.py
       - docs/SIGNED_RELEASE_PROVENANCE.md
       - .github/workflows/b31-signed-release-provenance-product.yml
   pull_request:
