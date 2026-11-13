@@ -1,0 +1,286 @@
+name: "B35 sealed: frozen new algorithm vs nine independent real upstream fixes"
+on:
+  push:
+    branches:
+      - qualification/p6b35-sealed-independent-holdout-20261113
+    paths:
+      - benchmarks/p6b35/**
+      - .github/workflows/p6b35-sealed-external-first-look.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  first-look-original-sources:
+    name: Original merged before-after Git blobs, frozen public and pre-held-out algorithm
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout B35 evaluator and untouched sealed manifest
+        uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - name: Checkout exact B34-derived algorithm frozen BEFORE B35 first look
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: c34def4a25b66cbc89df039ca235d6c1df2094f0
+          path: development
+          persist-credentials: false
+      - name: Checkout frozen public RISU Probe baseline
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 8d622b792b4ae58b7157fd81ee5f95d6febcfd53
+          path: frozen
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Checkout D1 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: confident-ai/deepeval
+          ref: 954752bae1ebef291984ea42cf87da79b8e820fa
+          path: holdout/upstream/D1/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            deepeval/metrics/mcp/utils.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout D1 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: confident-ai/deepeval
+          ref: 6cb657de320a7b68a901e29455b3a9224a215077
+          path: holdout/upstream/D1/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            deepeval/metrics/mcp/utils.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout D2 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: Tencent/AI-Infra-Guard
+          ref: 33768c58942dbef693dae5e929d633daa0568b34
+          path: holdout/upstream/D2/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            mcp-scan/mcp_scan/utils/mcp_tools.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout D2 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: Tencent/AI-Infra-Guard
+          ref: 7b62e471100918efc00253ece3aae1b8ee2d4b65
+          path: holdout/upstream/D2/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            mcp-scan/mcp_scan/utils/mcp_tools.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout D3 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: Significant-Gravitas/AutoGPT
+          ref: be3798deaaca06f635206925a266f6c2b7e574b0
+          path: holdout/upstream/D3/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            autogpt_platform/backend/backend/blocks/mcp/block.py
+            autogpt_platform/backend/backend/copilot/tools/run_mcp_tool.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout D3 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: Significant-Gravitas/AutoGPT
+          ref: 96229064bf6713df9352a2e7ae11ae5e88fabe13
+          path: holdout/upstream/D3/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            autogpt_platform/backend/backend/blocks/mcp/block.py
+            autogpt_platform/backend/backend/copilot/tools/run_mcp_tool.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout D4 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: PostHog/posthog-python
+          ref: 314fad070507fce6a95ebb58d8a550f18a1a34ac
+          path: holdout/upstream/D4/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            posthog/mcp/posthog_mcp.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout D4 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: PostHog/posthog-python
+          ref: 0c12ca1521f6538873e00f5240cad306c9bba455
+          path: holdout/upstream/D4/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            posthog/mcp/posthog_mcp.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout D5 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: Nano-Collective/nanocoder
+          ref: d0d6ecf2e066c40db601d8dd5bf1e636fb5648e7
+          path: holdout/upstream/D5/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            source/mcp/mcp-client.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout D5 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: Nano-Collective/nanocoder
+          ref: ed66109c7b552a15477c18d1b1ff1e01140fb56b
+          path: holdout/upstream/D5/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            source/mcp/mcp-client.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout D6 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: microsoft/playwright
+          ref: d5f7c562ada333f2d86efe7c89002749e5d59667
+          path: holdout/upstream/D6/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            packages/playwright-core/src/tools/backend/evaluate.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout D6 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: microsoft/playwright
+          ref: 530161aae0ba59643dbbfa3c1b8c929874cc18ec
+          path: holdout/upstream/D6/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            packages/playwright-core/src/tools/backend/evaluate.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout D7 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: langfuse/langfuse
+          ref: 1fbe5c3b2642bc688434d81d514c64f6559dbf3f
+          path: holdout/upstream/D7/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            web/src/features/mcp/core/define-tool.ts
+            web/src/features/mcp/server/mcpServer.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout D7 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: langfuse/langfuse
+          ref: 15e7e2205039926bad12a001a9d9e6f395f9e62f
+          path: holdout/upstream/D7/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            web/src/features/mcp/core/define-tool.ts
+            web/src/features/mcp/server/mcpServer.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout D8 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: Daghis/teamcity-mcp
+          ref: 060007305d4d55801b5cd27ddb81a194d33b8716
+          path: holdout/upstream/D8/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/server.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout D8 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: Daghis/teamcity-mcp
+          ref: 32cf2c91c2b987b4f43e8dedc904f74ac005b7f6
+          path: holdout/upstream/D8/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/server.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout D9 external original before
+        uses: actions/checkout@v5
+        with:
+          repository: affinidi-ai/agent-gateway
+          ref: 09c7394521e7331f8de3cd12bd5a89de3bc64e9e
+          path: holdout/upstream/D9/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp_proxies/handlers.rs
+            src/mcp_proxies/modern_rest.rs
+          sparse-checkout-cone-mode: false
+      - name: Checkout D9 external original after
+        uses: actions/checkout@v5
+        with:
+          repository: affinidi-ai/agent-gateway
+          ref: 3c31dae4c6c51fba5d1aa5a76e3cf78c5a8dd803
+          path: holdout/upstream/D9/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp_proxies/handlers.rs
+            src/mcp_proxies/modern_rest.rs
+          sparse-checkout-cone-mode: false
+      - name: Install exact frozen public baseline in a clean virtual environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen rev-parse HEAD)" = 8d622b792b4ae58b7157fd81ee5f95d6febcfd53
+          test "$(git -C development rev-parse HEAD)" = c34def4a25b66cbc89df039ca235d6c1df2094f0
+          python -m venv .b35-python
+          .b35-python/bin/python -m pip install --disable-pip-version-check ./frozen
+          .b35-python/bin/risu-probe doctor --format json
+      - name: Run FIRST B35 evaluation without changing rules or executing original upstream code
+        shell: bash
+        run: |
+          set -euo pipefail
+          .b35-python/bin/python holdout/benchmarks/p6b35/run_sealed_once.py .b35-python/bin/risu-probe
+          sha256sum holdout/out/B35_FIRST_LOOK_RESULTS.json
+          cat holdout/out/B35_FIRST_LOOK_REPORT.md
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-p6b35-nine-original-external-fixes-first-look
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            holdout/out/B35_FIRST_LOOK_RESULTS.json
+            holdout/out/B35_FIRST_LOOK_REPORT.md
