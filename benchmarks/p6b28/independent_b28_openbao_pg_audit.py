@@ -84,8 +84,11 @@ def audit(data):
        and pres.get("issuer_config_http") in (400,403),
        "Original OpenBao policy permits unapproved issuer API paths")
     demand(pres.get("native_one_use_first_http")==200
-       and pres.get("native_one_use_repeat_http") in (400,403),
-       "Original OpenBao one-use token did not constrain credential issuance")
+       and pres.get("native_one_use_repeat_http") in (400,403)
+       and pres.get("native_wrapped_token_recredential_http") in (400,403)
+       and pres.get("native_credential_delivery")==
+          "OpenBao native single-use response wrapping",
+       "Original OpenBao native one-use wrapped credential delivery failed")
     negatives=pres["native_database_denied_cases"]
     demand(len(negatives)==len(NEGATIVES) and
         {x["name"] for x in negatives}==NEGATIVES,
