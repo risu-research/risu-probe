@@ -154,7 +154,11 @@ def validate(research:Path,pkg:Path):
                info["owner_uid"],
                "Owner abandoned physical OS file directory before request")
         if label=="denied_os_dac":
-            ensure(rec["resource_directory_mode_at_invocation"]=="0o700",
+            # Preserve the sticky/setgid directory bit: chmod 0700 can
+            # retain setgid (actual mode was 02700). What matters for DAC
+            # withdrawal is exact owner rwx with zero group/other grants.
+            mode=int(rec["resource_directory_mode_at_invocation"],8)
+            ensure(mode & 0o777==0o700,
                    "No independent original OS DAC withdrawal witness")
         rev=rec["revocation_epoch_sha256"]
         ensure(rev in signed_epochs,"Unproven original signed revocation epoch")
