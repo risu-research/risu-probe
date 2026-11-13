@@ -287,20 +287,20 @@ def audit_actual_agent_read_only_bypass(agent_path,grant_path,broker_result,toke
        "/contents/.github/workflows/p6b24-owner-gated-broker.yml?ref="+
        run["head_sha"],token)
     data=base64.b64decode(owner_source["content"],validate=False).decode()
-    ok("\\n  untrusted-agent:\\n" in data and
-       "\\n  trusted-broker:\\n" in data and
-       "\\n  owner-provenance:\\n" in data,
+    ok("\n  untrusted-agent:\n" in data and
+       "\n  trusted-broker:\n" in data and
+       "\n  owner-provenance:\n" in data,
        "GitHub source-original job segregation not independently recovered")
-    agent_job=data.split("\\n  untrusted-agent:\\n",1)[1].split(
-                     "\\n  trusted-broker:\\n",1)[0]
-    broker_job=data.split("\\n  trusted-broker:\\n",1)[1]
-    sign_job=data.split("\\n  owner-provenance:\\n",1)[1].split(
-                   "\\n  untrusted-agent:\\n",1)[0]
-    ok("permissions:\\n      contents: read" in agent_job and
+    agent_job=data.split("\n  untrusted-agent:\n",1)[1].split(
+                     "\n  trusted-broker:\n",1)[0]
+    broker_job=data.split("\n  trusted-broker:\n",1)[1]
+    sign_job=data.split("\n  owner-provenance:\n",1)[1].split(
+                   "\n  untrusted-agent:\n",1)[0]
+    ok("permissions:\n      contents: read" in agent_job and
        "id-token: write" not in agent_job and
-       "permissions:\\n      contents: write" in broker_job and
+       "permissions:\n      contents: write" in broker_job and
        "id-token: write" not in broker_job and
-       "permissions:\\n      contents: read" in sign_job and
+       "permissions:\n      contents: read" in sign_job and
        "id-token: write" in sign_job and
        "attestations: write" in sign_job,
        "GitHub host immutable workflow source lacks separate least-privilege job credentials")
