@@ -50,17 +50,32 @@ def strict_load(path):
         return d
     with p.open("r",encoding="utf-8") as h:
         return json.load(h,object_pairs_hook=pairs)
-def observed_case(label,subject,verified,origin,limits):
+def observed_case(label,subject,verified,origin,limits,refuted=()):
     need(type(verified) is dict and set(verified)==set(ROOT_REQUIREMENTS),
          "INCOMPLETE_CLAIM_OBLIGATION_LABELS")
     need(all(type(x) is bool for x in verified.values()),
          "CLAIM_OBLIGATIONS_NOT_BOOLEAN")
+    refuted=set(refuted)
+    need(refuted.issubset(ROOT_REQUIREMENTS) and
+         not any(verified[p] for p in refuted),
+         "REFUTATION_CONTRADICTS_VERIFIED_CLAIM")
+    # A positive counterexample is stronger than lack of evidence. Keep
+    # REFUTED and UNVERIFIED separate even though both deny certification.
+    evidence_states={
+       p:("VERIFIED" if verified[p] else
+          "REFUTED" if p in refuted else "UNVERIFIED")
+       for p in ROOT_REQUIREMENTS
+    }
     return {
       "label":label,"subject":subject,"subject_key":unique_key(subject),
       "provenance":origin,
       "obligations":verified,
-      "supported":[x for x in ROOT_REQUIREMENTS if verified[x]],
-      "missing":[x for x in ROOT_REQUIREMENTS if not verified[x]],
+      "evidence_states":evidence_states,
+      "supported":[p for p in ROOT_REQUIREMENTS if verified[p]],
+      "refuted":[p for p in ROOT_REQUIREMENTS if p in refuted],
+      "unverified":[p for p in ROOT_REQUIREMENTS
+                    if not verified[p] and p not in refuted],
+      "missing":[p for p in ROOT_REQUIREMENTS if not verified[p]],
       "full_owner_specific_closure":all(verified.values()),
       "limits":limits,
     }
@@ -192,6 +207,7 @@ def check_b27(matrix):
         "ORIGINAL_S3_B27_NATIVE_IAM_AND_BYTES_RECORDED",
         ["Original S3 IAM exact-object PutObject permits different bytes and repetitions.",
          "No third-party human owner; issuer is controlled fixture."],
+        refuted=("exact_approved_result_bytes","replay_refused"),
       ),
     ]
 def check_b28(cert):
@@ -271,6 +287,17 @@ def analyze(b30,b29,b27,b28):
       "owner_approved_full_execution_proven":len(strict_full)>0,
       "full_closure_subject_keys":[c["subject_key"] for c in strict_full],
       "proof_obligations":list(ROOT_REQUIREMENTS),
+      "evidence_state_semantics":{
+         "VERIFIED":"the required source-specific observation is present and matches",
+         "REFUTED":"an original observed counterexample contradicts the required claim",
+         "UNVERIFIED":"not established by the checked original evidence; may have other sources outside this comparison",
+      },
+      "explicit_original_counterexample":{
+         "subject":"B27_EXTERNAL_SEAWEEDFS_S3",
+         "result":"original native same-object PUT accepted different bytes and repeated PUT",
+         "refuted_properties":["exact_approved_result_bytes","replay_refused"],
+         "not_an_upstream_security_bug_claim":True,
+      },
       "closest_individual_evidence":{
           "label":diagnostic[0]["label"],
           "missing":diagnostic[0]["missing"],
