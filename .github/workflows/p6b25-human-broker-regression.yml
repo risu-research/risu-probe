@@ -29,11 +29,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Verify product core unchanged from independently audited B24 and B25 source lock
+      - name: Verify independent B24 core locks and revised B25.1 strict GitHub transport source lock
         run: |
           set -euo pipefail
           python tools/public_ci_audit.py
-          test "$(git hash-object src/risu_mcp_human_review_broker.py)" = 2ae1e43850d15fb22601ce666aec99dc330a2374
+          test "$(git hash-object src/risu_mcp_human_review_broker.py)" = 4a0e31affd2ecb27edc17d0b10e64bb40d4d0f45
           test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
           test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
       - name: Build and install actual wheel then run complete previous B24 and new B25 consent-negative tests
