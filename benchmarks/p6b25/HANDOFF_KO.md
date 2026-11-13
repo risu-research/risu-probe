@@ -53,7 +53,7 @@ https://github.com/risu-research/risu-verify/actions/runs/43351968519
 
 기존과 신규 모두 포함한 538 tests가
 Ubuntu, macOS, Windows 각각 통과:
-https://github.com/risu-research/risu-probe/actions/runs/43351520641
+https://github.com/risu-research/risu-probe/actions/runs/43352914194
 
 Mock approval로 인한 제품 동작 검증은 개발 양성 대조군일 뿐
 실제 사람 승인 시험으로 집계하지 않음.
