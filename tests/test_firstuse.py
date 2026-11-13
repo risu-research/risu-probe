@@ -74,7 +74,11 @@ paths:
 
     def test_check_success_uses_installed_wheel(self):
         from importlib import metadata
-        self.assertEqual(metadata.version('risu-probe-preview'),'0.9.20.dev0')
+        import tomllib
+        declared=tomllib.loads(
+            (Path(__file__).resolve().parents[1]/'pyproject.toml').read_text(
+                encoding='utf-8'))['project']['version']
+        self.assertEqual(metadata.version('risu-probe-preview'),declared)
         (self.root/'p.py').write_text('x=1\n')
         self.assertEqual(cli([str(self.root)]),0)
     def test_sarif_supported(self):

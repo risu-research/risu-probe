@@ -1,0 +1,114 @@
+name: RISU signed-release provenance stable product verification
+on:
+  push:
+    branches:
+      - main
+      - integration/b31-verified-sigstore-main-20261113
+    paths:
+      - src/risu_signed_release_verifier.py
+      - src/risu_p5d_cli.py
+      - pyproject.toml
+      - tests/test_p6b31_signed_source_provenance.py
+      - tests/test_firstuse.py
+      - docs/SIGNED_RELEASE_PROVENANCE.md
+      - .github/workflows/b31-signed-release-provenance-product.yml
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+  attestations: read
+jobs:
+  installed-core-regressions:
+    name: Main product wheel and B31 negative safety tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build and install main-derived wheel; test against installed CLI
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .stable-wheel
+          python -m pip wheel --no-deps -w .stable-wheel .
+          python -m venv .stable-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.stable-installed/Scripts/python.exe
+            CLI=.stable-installed/Scripts/risu-probe.exe
+          else
+            PY=.stable-installed/bin/python
+            CLI=.stable-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .stable-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" verify-signed-release-provenance --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B31_STABLE_MAIN_DERIVED_ALL_REGRESSIONS_PASS
+
+  independently-signed-original-releases:
+    name: Pinned original Github CLI plus independently published Fulcio live Sigstore verifier
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download independent upstream original released bytes without executing
+        run: |
+          set -euo pipefail
+          mkdir -p .stable-signed .stable-certificates
+          curl -fLSs --retry 4 --retry-all-errors --max-time 240 \
+            https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_linux_amd64.tar.gz \
+            -o .stable-signed/gh_2.62.0_linux_amd64.tar.gz
+          curl -fLSs --retry 4 --retry-all-errors --max-time 300 \
+            https://github.com/sigstore/fulcio/releases/download/v1.10.0/fulcio-linux-amd64 \
+            -o .stable-signed/fulcio-linux-amd64
+          echo '41c8b0698ad3003cb5c44bde672a1ffd5f818595abd80162fbf8cc999418446a  .stable-signed/gh_2.62.0_linux_amd64.tar.gz' | sha256sum -c -
+          echo '92092b98fbb78ec24585982f970367a734ac8ab035fde42df05ef9b0c48cb07d  .stable-signed/fulcio-linux-amd64' | sha256sum -c -
+      - name: Verify native signatures with trusted OIDC workflow source/ref, retain only result verdicts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          B31_ORIGINAL_RELEASE_DIR: .stable-signed
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          risu-probe verify-signed-release-provenance \
+            --asset .stable-signed/gh_2.62.0_linux_amd64.tar.gz \
+            --repo cli/cli --asset-name gh_2.62.0_linux_amd64.tar.gz \
+            --signer-workflow cli/cli/.github/workflows/deployment.yml \
+            --source-ref refs/heads/trunk \
+            --sha256 41c8b0698ad3003cb5c44bde672a1ffd5f818595abd80162fbf8cc999418446a \
+            --out .stable-certificates/github_cli_signed_provenance.json
+          risu-probe verify-signed-release-provenance \
+            --asset .stable-signed/fulcio-linux-amd64 \
+            --repo sigstore/fulcio --asset-name fulcio-linux-amd64 \
+            --signer-workflow sigstore/fulcio/.github/workflows/release.yml \
+            --source-ref refs/tags/v1.10.0 \
+            --sha256 92092b98fbb78ec24585982f970367a734ac8ab035fde42df05ef9b0c48cb07d \
+            --out .stable-certificates/fulcio_independent_signed_provenance.json
+          python -m unittest discover -s tests -p test_p6b31_signed_source_provenance.py -v
+          echo B31_STABLE_MAIN_TWO_EXTERNAL_ORIGINAL_SIGNED_RELEASES_CRYPTO_VALIDATED_PASS
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b31-stable-two-independent-sigstore-signed-release-certificate
+          retention-days: 30
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .stable-certificates/github_cli_signed_provenance.json
+            .stable-certificates/fulcio_independent_signed_provenance.json
