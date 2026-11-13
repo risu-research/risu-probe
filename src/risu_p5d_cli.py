@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='enforce-mcp-resource-side':
+        from risu_mcp_resource_guard import cli
+        return cli(args[1:])
     if args and args[0]=='enforce-mcp-human-reviewed-write':
         from risu_mcp_human_review_broker import main
         return main()
