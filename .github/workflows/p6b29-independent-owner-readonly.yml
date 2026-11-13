@@ -1,0 +1,153 @@
+name: RISU B29 independent owner identity and anti-cross-experiment evidence
+on:
+  push:
+    branches:
+      - qualification/p6b29-independent-owner-evidence-20261113
+    paths:
+      - 'src/risu_mcp_independent_owner_evidence.py'
+      - 'src/risu_p5d_cli.py'
+      - 'tests/test_p6b29_independent_owner_evidence.py'
+      - 'pyproject.toml'
+      - 'benchmarks/p6b29/**'
+      - '.github/workflows/p6b29-independent-owner-readonly.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  live-original-github-two-negative-controls:
+    name: Read-only live GitHub original review and cross-run anti-stitch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify actual prior GitHub API inputs with NO permission to change deployments
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          mkdir -p .b29-original-evidence
+          set +e
+          risu-probe verify-mcp-independent-owner \
+             --repo risu-research/risu-verify \
+             --run-id 43355918665 \
+             --environment risu-b25-human-owner-approval \
+             --effect-repo risu-research/risu-verify \
+             --effect-run-id 43355918665 \
+             --out .b29-original-evidence/b25-original-github-self-review.json
+          native_self_exit=$?
+          risu-probe verify-mcp-independent-owner \
+             --repo risu-research/risu-verify \
+             --run-id 43355918665 \
+             --environment risu-b25-human-owner-approval \
+             --effect-repo risu-research/risu-probe \
+             --effect-run-id 43377450878 \
+             --out .b29-original-evidence/b25-to-b28-invalid-cross-run-stitch.json
+          cross_run_exit=$?
+          set -e
+          test "$native_self_exit" -eq 2
+          test "$cross_run_exit" -eq 2
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base=Path(".b29-original-evidence")
+          a=json.loads((base/"b25-original-github-self-review.json").read_text())
+          b=json.loads((base/"b25-to-b28-invalid-cross-run-stitch.json").read_text())
+          assert a["mode"]=="LIVE_ORIGINAL_GITHUB_REST"
+          assert b["mode"]=="LIVE_ORIGINAL_GITHUB_REST"
+          assert a["status"]=="REFUSED_UNSUPPORTED_INDEPENDENT_APPROVAL"
+          assert b["status"]=="REFUSED_UNSUPPORTED_INDEPENDENT_APPROVAL"
+          assert "SELF_APPROVAL_OR_NONINDEPENDENT_PLATFORM_PRINCIPAL" in a["refusals"]
+          assert "GITHUB_NATIVE_PREVENT_SELF_REVIEW_DISABLED" in a["refusals"]
+          assert "CROSS_REPOSITORY_RUN_OR_REVISION_APPROVAL_STITCHING" in b["refusals"]
+          assert a["original_github_review_source"]["run_id"]==43355918665
+          assert b["claimed_effect_source"]["run_id"]==43377450878
+          assert a["original_github_review_source"]["run_actor_id"] in a["original_github_review_source"]["approved_user_ids"]
+          assert a["original_github_review_source"]["repo_id"]!=b["claimed_effect_source"]["repo_id"]
+          for x in (a,b):
+              assert x["supported_claims"]["independently_controlled_human_owner"] is False
+              assert x["supported_claims"]["real_remote_resource_effect_independently_verified"] is False
+              assert x["supported_claims"]["cross_experiment_approval_reuse_permitted"] is False
+              assert "GITHUB_NATIVE_ADMIN_BYPASS_NOT_DISABLED" not in x["refusals"]
+          print("B29_REAL_GITHUB_SAME_ACCOUNT_APPROVAL_REFUSAL_PASS")
+          print("B29_REAL_GITHUB_B25_B28_CROSS_REPO_RUN_STITCH_REFUSAL_PASS")
+          print("B29_NO_INVENTED_INDEPENDENT_REAL_HUMAN_APPROVAL_PASS")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risu-b29-original-github-review-and-unstitchable-effect-refusals
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            .b29-original-evidence/b25-original-github-self-review.json
+            .b29-original-evidence/b25-to-b28-invalid-cross-run-stitch.json
+
+  installed-product-regressions:
+    name: Installed RISU B29 independent reviewer and full product (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build and install actual RISU Probe wheel
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b29-wheel
+          python -m pip wheel --no-deps -w .b29-wheel .
+          python -m venv .b29-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b29-installed/Scripts/python.exe
+            CLI=.b29-installed/Scripts/risu-probe.exe
+          else
+            PY=.b29-installed/bin/python
+            CLI=.b29-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b29-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          "$PY" -m pip check
+          "$CLI" verify-mcp-independent-owner --help
+          echo B29_INSTALLED_GITHUB_REVIEWER_CHECKER_READY
+      - name: Run adversarial synthetic identity and same-run anti-stitch controls
+        run: |
+          set -euo pipefail
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b29-installed/Scripts/python.exe
+          else
+            PY=.b29-installed/bin/python
+          fi
+          "$PY" -m unittest discover -s tests -p 'test_p6b29_independent_owner_evidence.py' -v
+          echo B29_SYNTHETIC_STRUCTURAL_POSITIVE_AND_NEGATIVE_TESTS_PASS
+      - name: Run every prior RISU Probe regression against installed package
+        run: |
+          set -euo pipefail
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b29-installed/Scripts/python.exe
+            CLI=.b29-installed/Scripts/risu-probe.exe
+          else
+            PY=.b29-installed/bin/python
+            CLI=.b29-installed/bin/risu-probe
+          fi
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B29_ALL_PRIOR_RISU_REGRESSIONS_PASS
