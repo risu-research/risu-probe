@@ -1,0 +1,101 @@
+name: RISU B27 original PostgreSQL native resource-side authorization heldout
+on:
+  push:
+    branches:
+      - qualification/p6b27-external-resource-enforcement-20261112
+    paths:
+      - 'benchmarks/p6b27/**'
+      - '.github/workflows/p6b27-original-postgres-rls.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  external-postgresql-native-policy:
+    name: Original PostgreSQL owner-issued role, native RLS bypass and independent effect
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install official Ubuntu-packaged unmodified PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql postgresql-contrib
+          sudo service postgresql start
+          sudo -n -u postgres psql -X -At -c 'SELECT version();'
+          python3 -m py_compile benchmarks/p6b27/run_external_postgres.py benchmarks/p6b27/independent_postgres_audit.py
+      - name: Record native PostgreSQL binary and distro package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .b27-out
+          python3 - <<'PY'
+          import hashlib,json,pathlib,subprocess
+          def out(*args):return subprocess.check_output(args,text=True).strip()
+          bindir=out("pg_config","--bindir")
+          binary=pathlib.Path(bindir)/"postgres"
+          assert binary.is_file(),str(binary)
+          raw=binary.read_bytes()
+          packages=out("dpkg-query","-W","postgresql","postgresql-common")
+          doc={"schema":"risu-b27-original-postgresql-distribution-v1",
+               "postgres_binary":str(binary),"postgres_binary_sha256":hashlib.sha256(raw).hexdigest(),
+               "pg_config":out("pg_config","--version"),
+               "distro_packages":packages.splitlines(),
+               "source":"Ubuntu distribution PostgreSQL packages verified by system apt signature chain"}
+          pathlib.Path(".b27-out/postgres_original_package_identity.json").write_text(json.dumps(doc,indent=2)+"\n")
+          print("B27_ORIGINAL_POSTGRESQL_BINARY_AND_PACKAGE_IDENTITY_LOCKED")
+          PY
+      - name: Run original upstream PostgreSQL with separate issuer and actor identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -n python3 benchmarks/p6b27/run_external_postgres.py --out .b27-out
+          echo B27_ORIGINAL_BACKEND_DIRECT_SQL_EFFECT_AND_BYPASS_TESTS_PASS
+      - name: Independent native policy/catalog and actual resource state audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -n python3 benchmarks/p6b27/independent_postgres_audit.py \
+              --result .b27-out/original_external_postgres_result.json \
+              --out .b27-out/independent_external_postgres_audit.json
+          echo B27_INDEPENDENT_ORIGINAL_DATABASE_AUDIT_PASS
+      - name: Independent auditor must refuse altered negative result
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -n python3 - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path(".b27-out")
+          r=json.loads((root/"original_external_postgres_result.json").read_text())
+          r["negative_cases"][0]["kind"]="DML"
+          r["negative_cases"][0]["affected"]=1
+          (root/"TAMPERED_FOR_NEGATIVE_TEST.json").write_text(json.dumps(r))
+          PY
+          if sudo -n python3 benchmarks/p6b27/independent_postgres_audit.py \
+                --result .b27-out/TAMPERED_FOR_NEGATIVE_TEST.json \
+                --out .b27-out/INVALID_SHOULD_NOT_EXIST.json; then
+            echo "B27 independent original PostgreSQL auditor accepted tampered outcome" >&2
+            exit 1
+          fi
+          test ! -e .b27-out/INVALID_SHOULD_NOT_EXIST.json
+          echo B27_INDEPENDENT_AUDITOR_TAMPER_REFUSAL_PASS
+      - name: Make nonsecret original evidence available to artifact uploader
+        if: always()
+        run: |
+          sudo -n chown -R "$(id -u):$(id -g)" .b27-out || true
+      - name: Save actual native service evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risu-b27-original-postgresql-direct-enforcement
+          retention-days: 30
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b27-out/original_external_postgres_result.json
+            .b27-out/independent_external_postgres_audit.json
+            .b27-out/postgres_original_package_identity.json
