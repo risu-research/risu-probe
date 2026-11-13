@@ -248,6 +248,7 @@ class B33TwoIndependentLiveOriginalRunsCannotBeStitched(unittest.TestCase):
         self.assertEqual(self.a["original_before_sha256"],self.b["original_before_sha256"])
         self.assertEqual(self.a["original_after_sha256"],self.b["original_after_sha256"])
         self.assertEqual(self.a["original_actor"],self.b["original_actor"])
+        self.assertEqual(self.h1["authorization"],self.h2["authorization"])
         self.assertNotEqual(self.a["source_repository"],self.b["source_repository"])
 
     def reject_genuine_cross_run_mix(self,label,field):
@@ -258,8 +259,11 @@ class B33TwoIndependentLiveOriginalRunsCannotBeStitched(unittest.TestCase):
                 m.normalize(mixed)
 
     def test_actual_crypto_verified_other_run_source_is_not_approval(self):
+        # Platform permissions are the same on both runs by design; the
+        # read-only source-verified permissions are policy properties, not
+        # a unique subject/run identity, so swapping identical values is valid.
         for key in ("run","writer_job","signatures","candidate","receipt",
-                    "intent","original","authorization"):
+                    "intent","original"):
             self.reject_genuine_cross_run_mix(key,key)
 
     def test_specific_valid_signatures_cannot_move_between_original_runs(self):
