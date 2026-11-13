@@ -5,6 +5,7 @@ on:
       - qualification/p6b27-external-resource-enforcement-20261112
     paths:
       - 'benchmarks/p6b27/run_original_seaweedfs.py'
+      - 'benchmarks/p6b27/seaweedfs_untrusted_client.py'
       - 'benchmarks/p6b27/independent_seaweedfs_audit.py'
       - 'benchmarks/p6b27/SEAWEEDFS_HOLDOUT_LOCK.md'
       - '.github/workflows/p6b27-original-seaweedfs-s3.yml'
@@ -27,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --disable-pip-version-check 'boto3>=1.35,<2'
-          python -m py_compile benchmarks/p6b27/run_original_seaweedfs.py benchmarks/p6b27/independent_seaweedfs_audit.py
+          python -m py_compile benchmarks/p6b27/run_original_seaweedfs.py benchmarks/p6b27/independent_seaweedfs_audit.py benchmarks/p6b27/seaweedfs_untrusted_client.py
       - name: Fetch original developer release and verify GitHub asset SHA-256 before any execution
         run: |
           set -euo pipefail
@@ -45,12 +46,20 @@ jobs:
       - name: Run upstream original S3 backend, native IAM credentials, direct S3 effects, and independent audit
         run: |
           set -euo pipefail
-          python benchmarks/p6b27/run_original_seaweedfs.py \
+          sudo -n "$(command -v python)" benchmarks/p6b27/run_original_seaweedfs.py \
             --weed .b27-external-release/weed \
             --out .b27-seaweedfs-out
           test -s .b27-seaweedfs-out/seaweedfs_live_observation.json
           test -s .b27-seaweedfs-out/seaweedfs_independent_audit.json
           echo B27_INDEPENDENT_SEAWEEDFS_HOLDOUT_COMPLETED_WITH_ORIGINAL_BYTES
+      - name: Transfer only nonsecret evidence reports from trusted owner process to GitHub artifact uploader
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in .b27-seaweedfs-out/seaweedfs_live_observation.json .b27-seaweedfs-out/seaweedfs_independent_audit.json; do
+            if test -f "$f"; then sudo -n chown "$(id -u):$(id -g)" "$f"; fi
+          done
       - name: Upload native publisher, owner policy and independent outcome without credentials
         if: always()
         uses: actions/upload-artifact@v4
