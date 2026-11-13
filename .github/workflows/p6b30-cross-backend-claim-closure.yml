@@ -1,0 +1,99 @@
+name: RISU B30 four-original-backend typed permission-and-effect witness join
+on:
+  push:
+    branches:
+      - qualification/p6b30-claim-effect-closure-20261113
+    paths:
+      - 'src/risu_mcp_claim_sufficiency.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b30_claim_sufficiency.py'
+      - '.github/workflows/p6b30-cross-backend-claim-closure.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  four-original-trust-isolated-proofs:
+    name: Four pinned original GitHub artefacts; typed subject join and adversarial consent collision
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          name: risu-b30-original-github-b25-immutable-resource-effect-closure
+          repository: risu-research/risu-probe
+          run-id: 43439862506
+          github-token: ${{ github.token }}
+          path: .b30-evidence/b30-original
+      - uses: actions/download-artifact@v4
+        with:
+          name: risu-b29-original-github-review-and-unstitchable-effect-refusals
+          repository: risu-research/risu-probe
+          run-id: 43436411185
+          github-token: ${{ github.token }}
+          path: .b30-evidence/b29-original
+      - uses: actions/download-artifact@v4
+        with:
+          name: risu-b27-two-external-implementations-native-effect-comparison
+          repository: risu-research/risu-probe
+          run-id: 43365668801
+          github-token: ${{ github.token }}
+          path: .b30-evidence/b27-original
+      - uses: actions/download-artifact@v4
+        with:
+          name: risu-b28-installed-portable-authority-certificate-ubuntu-latest
+          repository: risu-research/risu-probe
+          run-id: 43378448871
+          github-token: ${{ github.token }}
+          path: .b30-evidence/b28-original
+      - name: Independently read four original run artifacts, verify typed provenance and 25+ mutations
+        env:
+          RISU_B30_MATRIX_EVIDENCE_DIR: .b30-evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m unittest discover -s tests -p test_p6b30_claim_sufficiency.py -v
+          echo B30_FOUR_ORIGINAL_BACKEND_RECORDS_ADVERSARIAL_WITNESS_TESTS_PASS
+      - name: Produce minimal missing-obligation certificates for distinct actual resource subjects
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .b30-matrix
+          risu-probe compare-mcp-claim-sufficiency \
+            --b30 .b30-evidence/b30-original/original_b25_effect_closure.json \
+            --b29 .b30-evidence/b29-original/b25-original-github-self-review.json \
+            --b27 .b30-evidence/b27-original/independent_capability_matrix.json \
+            --b28 .b30-evidence/b28-original/.b28-record-certificate.json \
+            --out .b30-matrix/subject_scoped_witnesses.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path(".b30-matrix/subject_scoped_witnesses.json").read_text())
+          assert len(x["subjects"])==4
+          assert x["owner_approved_full_execution_proven"] is False
+          assert x["naive_subject_agnostic_baseline"]["would_report_full_authorized_execution"] is True
+          assert x["closest_individual_evidence"]["label"]=="B28_EXTERNAL_OPENBAO_POSTGRESQL_LEASE"
+          assert x["closest_individual_evidence"]["missing"]==["real_independent_owner_approval"]
+          assert len(set(t["subject_key"] for t in x["subjects"]))==4
+          for t in x["subjects"]:
+              assert t["full_owner_specific_closure"] is False
+          print("B30_SUBJECT_SCOPED_PERMISSION_CANNOT_TRANSFER_ACROSS_ORIGINAL_BACKENDS_PASS")
+          print("B30_REAL_B25_B27_B28_B29_NONCOMPOSABLE_CONSENT_COUNTEREXAMPLE_PASS")
+          print("B30_MINIMAL_UNMET_OWNER_PERMISSION_PROOF_OBLIGATIONS_PASS")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b30-four-independent-original-backend-claim-specific-matrix
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
+          path: .b30-matrix/subject_scoped_witnesses.json
