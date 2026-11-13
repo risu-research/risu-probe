@@ -1,0 +1,58 @@
+name: RISU B25 human-approved exact-one-file broker and full prior-product regression
+on:
+  push:
+    branches: ['qualification/p6b25-real-review-credential-isolation-20261112']
+    paths:
+      - 'src/risu_mcp_human_review_broker.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b25_human_review_broker.py'
+      - '.github/workflows/p6b25-human-broker-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  installed-all-and-negative-consent:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify product core unchanged from independently audited B24 and B25 source lock
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_human_review_broker.py)" = 74f2d2431e94c4021b253572fd7967451ae5d6b8
+          test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+      - name: Build and install actual wheel then run complete previous B24 and new B25 consent-negative tests
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b25-wheel
+          python -m pip wheel --no-deps -w .b25-wheel .
+          python -m venv .b25-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+             PY=.b25-installed/Scripts/python.exe
+             CLI=.b25-installed/Scripts/risu-probe.exe
+          else
+             PY=.b25-installed/bin/python
+             CLI=.b25-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b25-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli enforce-mcp-human-reviewed-write --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B25_PRIOR_ALL_RISU_AND_NO_HUMAN_APPROVAL_NEVER_WRITES_PASS
