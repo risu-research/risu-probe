@@ -141,11 +141,12 @@ def audit(data):
        and byname["b28_bao_issuer"]["rolcreaterole"] is True
        and byname["b28_template_writer"]["rolcanlogin"] is False,
        "Issuer can bypass native PostgreSQL RLS or template is a direct login")
-    meta=native_json("""SELECT c.relrowsecurity AS rls,c.relforcerowsecurity AS force_rls,
+    meta=native_json("""SELECT row_to_json(x) FROM (
+       SELECT c.relrowsecurity AS rls,c.relforcerowsecurity AS force_rls,
        pg_get_userbyid(c.relowner) AS actual_owner,
        (SELECT count(*) FROM pg_policy p WHERE p.polrelid=c.oid) AS native_policies
        FROM pg_class c JOIN pg_namespace n ON c.relnamespace=n.oid
-       WHERE n.nspname='b28' AND c.relname='resources';""")
+       WHERE n.nspname='b28' AND c.relname='resources') x;""")
     demand(meta=={"rls":True,"force_rls":True,"actual_owner":"b28_owner",
                   "native_policies":2},
            "Native PostgreSQL resource-side forced owner policy missing")
@@ -163,12 +164,12 @@ def audit(data):
            and "APPROVED CONTENT" in write["with_check"]
            and "approved/report" in select["qual"],
            "Native original PostgreSQL old/new scope policy not present")
-    privileges=native_json("""SELECT
+    privileges=native_json("""SELECT row_to_json(x) FROM (SELECT
        has_column_privilege('b28_template_writer','b28.resources','state','UPDATE') AS can_update_state,
        has_column_privilege('b28_template_writer','b28.resources','body','UPDATE') AS can_update_body,
        has_column_privilege('b28_template_writer','b28.resources','owner_epoch','UPDATE') AS can_update_epoch,
        has_table_privilege('b28_template_writer','b28.resources','DELETE') AS can_delete,
-       has_table_privilege('b28_template_writer','b28.resources','INSERT') AS can_insert;""")
+       has_table_privilege('b28_template_writer','b28.resources','INSERT') AS can_insert) x;""")
     demand(privileges=={"can_update_state":True,"can_update_body":True,
             "can_update_epoch":False,"can_delete":False,"can_insert":False},
            "Native original resource privilege scope not enforced")
