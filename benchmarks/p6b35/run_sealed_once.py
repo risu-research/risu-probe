@@ -188,9 +188,9 @@ def main():
           "REPOSITORY_ORGANIZATIONS_NOT_DISTINCT")
     sys.path.insert(0,str(DEV/"research"))
     from b34_channel_projection import analyze_source
-    class Frozen:
-        analyze_source=staticmethod(analyze_source)
-    results=[analyze(c,Frozen,CLI) for c in cases]
+    from types import SimpleNamespace
+    frozen_algorithm=SimpleNamespace(analyze_source=analyze_source)
+    results=[analyze(c,frozen_algorithm,CLI) for c in cases]
     python=[r for r in results if r["language"]=="python"]
     eligible=[r for r in python if r["status"] in ("LOCALIZED_SOURCE_HYPOTHESIS","MISSED")]
     hits=[r for r in eligible if r["status"]=="LOCALIZED_SOURCE_HYPOTHESIS"]
