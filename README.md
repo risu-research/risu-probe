@@ -335,3 +335,42 @@ qualification. The module deliberately supports a bounded original file
 writer, rather than arbitrary external actions.
 
 [Detailed B22 source and authorization audit](docs/P6B22_REAL_OS_OWNER_PRECALL_ENFORCEMENT.md).
+
+## P6-B23 · GitHub-attested repository-owner grants for original MCP execution
+
+B23 extends B22's synthetic OS-resource owner research to a **real
+organization-owned GitHub repository** and a real authenticated repository
+administrator, with issuer and executor in different GitHub Actions jobs.
+The explicit, narrowly scoped owner-account grant is signed via GitHub
+OIDC/Sigstore provenance and independently verified against the original
+GitHub organization/repository IDs, administrator permission, tool,
+arguments, branch, file path, pre-existing Git blob, intended new bytes,
+publisher binary and one-use nonce before the official GitHub MCP server runs.
+
+The unmodified **GitHub MCP Server v2.1.0** then changed the real owner
+repository file through one source-native `create_or_update_file` call.
+A separate **read-only** auditor used GitHub's own immutable Git blob,
+original write commit, exact single-file diff, the complete original
+MCP stdio and the externally verified grant attestation as evidence.
+Five forged or wrong-scope requests plus one reuse were declined before
+the original source call. The added local nonce-first product path also
+distinguishes replay from a later stale remote Git blob.
+
+```sh
+risu-probe enforce-mcp-github-owner \
+  --grant OWNER_AUTHORIZATION.json \
+  --original-server ./github-mcp-server \
+  --original-archive ORIGINAL_GITHUB_MCP_RELEASE.tar.gz \
+  --authenticating-run AUTHENTICATED_OWNER_WORKFLOW_RUN_ID \
+  --approval-mode DELEGATED_OWNER_ACCOUNT_GIT_COMMIT_AUTOMATED_DEVELOPMENT \
+  --actor VERIFIED_REPOSITORY_ADMIN_ACCOUNT \
+  --out NEW_RESULT_DIRECTORY
+```
+
+**Authorization classification matters:** This real GitHub admin grant
+was a user-authorized **delegated connected-account action**, attested
+by a real GitHub identity service. It was not a distinct external
+human's manually clicked consent. The executor also had a repository
+write token, so the gate is not yet an unbypassable credential broker.
+
+See [B23 real GitHub owner provenance and independent remote-effect report](docs/P6B23_REAL_GITHUB_ADMIN_ATTESTED_OWNER_PRECALL.md).
