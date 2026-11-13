@@ -167,6 +167,19 @@ def run(binary,out):
         assert_true(check.returncode==0,
                     "Independent original S3 audit refused: "+check.stderr[-650:])
         verdict=json.loads((out/"seaweedfs_independent_audit.json").read_text())
+        # Tampered case evidence must fail independently, without changing
+        # the published server or test rules.
+        forged=json.loads((out/"seaweedfs_live_observation.json").read_text())
+        forged["cases"][0]["native_http_status"]=403
+        (out/"invalid_case_for_auditor_only.json").write_text(json.dumps(forged))
+        negative=subprocess.run([sys.executable,str(auditor),
+             "--observation",str(out/"invalid_case_for_auditor_only.json"),
+             "--out",str(out/"INVALID_REPORT_SHOULD_NOT_EXIST.json")],
+             env=audit_env,text=True,capture_output=True,timeout=40)
+        assert_true(negative.returncode!=0 and not
+              (out/"INVALID_REPORT_SHOULD_NOT_EXIST.json").exists(),
+              "Independent S3 auditor accepted modified original result")
+        print("B27_SEAWEEDFS_INDEPENDENT_AUDIT_TAMPER_NEGATIVE_PASS")
         print("B27_ORIGINAL_SEAWEEDFS_EXTERNAL_BACKEND_HOLDOUT_MEASURED")
         print(json.dumps({"native_iam":True,"verdict":verdict["verdict"],
              "exact_object":cases[1]["native_http_status"],
