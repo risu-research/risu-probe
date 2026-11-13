@@ -23,12 +23,14 @@ SHA="a"*40
 def example():
     run={
       "id":R1,"run_attempt":1,"status":"completed","conclusion":"success",
+      "run_started_at":"2026-11-13T03:00:00Z",
       "head_sha":SHA,"actor":{"id":ACTOR,"login":"actor"},
       "triggering_actor":{"id":ACTOR,"login":"actor"},
       "repository":{"id":REPO_ID,"full_name":"owner/resource"},
     }
     env={
       "id":990,"name":ENV,"can_admins_bypass":False,
+      "updated_at":"2026-11-13T02:50:00Z",
       "deployment_branch_policy":{"protected_branches":False,
                                   "custom_branch_policies":True},
       "protection_rules":[
@@ -134,6 +136,31 @@ class TestNativeGithubIndependentApproval(unittest.TestCase):
     def test_invalid_numeric_account_identity_deny(self):
         self.assertIn("GITHUB_RUN_IDENTITY_OR_EXECUTION_UNVERIFIED",
             self.codes(lambda d:d["review_run"]["actor"].update(id="1001")))
+
+    def test_protection_config_changed_after_original_run_deny(self):
+        self.assertIn("POST_HOC_ENVIRONMENT_PROTECTION_CHANGE_OR_UNVERIFIABLE_TIME",
+            self.codes(lambda x:x["review_environment"].update(
+                updated_at="2026-11-13T03:05:00Z")))
+
+    def test_missing_historical_protection_time_deny(self):
+        self.assertIn("POST_HOC_ENVIRONMENT_PROTECTION_CHANGE_OR_UNVERIFIABLE_TIME",
+            self.codes(lambda x:x["review_environment"].pop("updated_at")))
+
+    def test_missing_original_run_start_time_deny(self):
+        self.assertIn("POST_HOC_ENVIRONMENT_PROTECTION_CHANGE_OR_UNVERIFIABLE_TIME",
+            self.codes(lambda x:x["review_run"].pop("run_started_at")))
+
+    def test_retriggered_approval_attempt_without_per_attempt_proof_deny(self):
+        def changed(x):
+            x["review_run"]["run_attempt"]=2
+            x["effect_run"]["run_attempt"]=2
+        self.assertIn("REVIEW_EVENT_NOT_BOUND_TO_SPECIFIC_RETRY_ATTEMPT",
+            self.codes(changed))
+
+    def test_malformed_reviewer_rule_fails_closed_without_crashing(self):
+        self.assertIn("NATIVE_REQUIRED_REVIEWER_PROTECTION_MISSING",
+            self.codes(lambda x:x["review_environment"].update(
+                protection_rules=[None,42,"bad"])))
 
     def test_unprotected_reviewer_metadata_deny(self):
         def change(d):
