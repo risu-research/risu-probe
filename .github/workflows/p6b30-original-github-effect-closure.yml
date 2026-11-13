@@ -1,0 +1,128 @@
+name: RISU B30 original GitHub review-to-effect closure, mutation controls and portable regression
+on:
+  push:
+    branches:
+      - qualification/p6b30-claim-effect-closure-20261113
+    paths:
+      - 'src/risu_mcp_effect_closure.py'
+      - 'src/risu_p5d_cli.py'
+      - 'pyproject.toml'
+      - 'tests/test_p6b30_effect_closure.py'
+      - '.github/workflows/p6b30-original-github-effect-closure.yml'
+      - 'benchmarks/p6b30/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  original-github-immutable-parent-and-exact-effect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    name: Live B25 original approval, commit ancestry, exact before/after and adversarial mutants
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Execute live original source-to-effect mutation benchmark
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RISU_B30_REAL_GITHUB: '1'
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          python -m unittest discover -s tests -p test_p6b30_effect_closure.py -v
+          echo B30_REAL_GITHUB_IMMUTABLE_SOURCE_EFFECT_ADVERSARIAL_BENCHMARK_PASS
+      - name: Run installed CLI live original file effect closure
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .b30-original-result
+          risu-probe verify-mcp-effect-closure \
+            --repo risu-research/risu-verify \
+            --run-id 43355918665 \
+            --environment risu-b25-human-owner-approval \
+            --proposal-path benchmarks/p6b25/OWNER_PROPOSED_REQUEST.json \
+            --effect-commit 26ac7506d27a76290a7a1eb945ef0f9ea6059e09 \
+            --out .b30-original-result/original_b25_effect_closure.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path(".b30-original-result/original_b25_effect_closure.json").read_text())
+          assert result["status"]=="PLATFORM_REVIEW_AND_EXACT_GIT_EFFECT_CLOSED"
+          assert result["supported_claims"]["same_run_source_to_exact_one_file_effect"] is True
+          assert result["supported_claims"]["native_platform_review_history"] is True
+          assert result["supported_claims"]["independent_human_resource_owner"] is False
+          assert result["supported_claims"]["native_github_token_file_path_scope"] is False
+          assert result["source"]["run_head_commit"]=="e9409d8ef4a6a71a3a93705909fe5c777d014bbc"
+          assert result["source"]["effect_commit"]=="26ac7506d27a76290a7a1eb945ef0f9ea6059e09"
+          assert result["source"]["preimage_sha256"]=="fe8092741095803fd70cf7c62e516fa752ba296ed8688fc15bb320db5cc64b18"
+          assert result["source"]["postimage_sha256"]=="1f3d9970b42d3a8b5ebc163c5678328a6b4aacc9a223f3a7119aa28456717bdb"
+          assert result["source"]["initiating_user_id"] in result["source"]["review_user_ids"]
+          assert not result["native_prevent_self_review_enabled"]
+          print("B30_ACTUAL_COMMIT_PARENT_IS_APPROVED_RUN_SOURCE_PASS")
+          print("B30_NATIVE_APPROVAL_PLUS_EXACT_ONE_RESOURCE_PRE_POST_EFFECT_PASS")
+          print("B30_NO_UNFOUNDED_EXTERNAL_OWNER_OR_NATIVE_FILE_TOKEN_SCOPE_CLAIM_PASS")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risu-b30-original-github-b25-immutable-resource-effect-closure
+          retention-days: 30
+          if-no-files-found: warn
+          include-hidden-files: true
+          path: .b30-original-result/original_b25_effect_closure.json
+
+  cross-platform-product:
+    name: RISU installed B30 verifier and full product (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build and install actual RISU wheel
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b30-wheel
+          python -m pip wheel --no-deps -w .b30-wheel .
+          python -m venv .b30-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b30-installed/Scripts/python.exe
+            CLI=.b30-installed/Scripts/risu-probe.exe
+          else
+            PY=.b30-installed/bin/python
+            CLI=.b30-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b30-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          "$PY" -m pip check
+          "$CLI" verify-mcp-effect-closure --help
+          echo B30_INSTALLED_WHEEL_EXACT_EFFECT_CLOSURE_READY
+      - name: Run all product regressions and local evidence mutation controls
+        run: |
+          set -euo pipefail
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b30-installed/Scripts/python.exe
+            CLI=.b30-installed/Scripts/risu-probe.exe
+          else
+            PY=.b30-installed/bin/python
+            CLI=.b30-installed/bin/risu-probe
+          fi
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B30_ALL_EXISTING_RISU_PRODUCT_TESTS_PASS
