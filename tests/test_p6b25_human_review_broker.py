@@ -176,7 +176,7 @@ class B25TrustedBrokerSimulation(unittest.TestCase):
             if method=="GET" and "/contents/"+m.PATH+"?ref=" in route:
                 data=dict(response)
                 raw=response["content"]
-                data["content"]="\\n".join(raw[i:i+60] for i in range(0,len(raw),60))+"\\n"
+                data["content"]="\n".join(raw[i:i+60] for i in range(0,len(raw),60))+"\n"
                 return data
             return response
         with patch.object(m,"api",side_effect=real_transport):
@@ -251,8 +251,8 @@ class B25GitHubContentsBase64Transport(unittest.TestCase):
         spec.loader.exec_module(independent)
         payload=PRE.encode()
         canon=base64.b64encode(payload).decode("ascii")
-        folded="\\n".join(canon[i:i+60] for i in range(0,len(canon),60))+"\\n"
-        crlf=folded.replace("\\n","\\r\\n")
+        folded="\n".join(canon[i:i+60] for i in range(0,len(canon),60))+"\n"
+        crlf=folded.replace("\n","\r\n")
         for example in (canon,folded,crlf):
             self.assertEqual(m.decode_github_contents_base64(example),payload)
             self.assertEqual(independent.decode_github_contents_base64(example),payload)
@@ -265,7 +265,7 @@ class B25GitHubContentsBase64Transport(unittest.TestCase):
         spec.loader.exec_module(independent)
         canonical=base64.b64encode(PRE.encode()).decode()
         variants=("",canonical[:7]+" "+canonical[7:],
-                  canonical[:7]+"\\t"+canonical[7:],
+                  canonical[:7]+"\t"+canonical[7:],
                   canonical[:7]+"#"+canonical[7:],
                   canonical[:-1],canonical+"=",None,42)
         for malformed in variants:
