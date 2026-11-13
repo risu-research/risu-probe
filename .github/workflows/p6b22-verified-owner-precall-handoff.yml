@@ -1,0 +1,136 @@
+name: RISU P6-B22 final two-owner original MCP and pre-spawn permission handoff audit
+on:
+  push:
+    branches: ['qualification/p6b22-*']
+    paths:
+      - 'docs/P6B22_REAL_OS_OWNER_PRECALL_ENFORCEMENT.md'
+      - 'benchmarks/p6b22/HANDOFF_KO.md'
+      - '.github/workflows/p6b22-verified-owner-precall-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  original-owner-signature-two-ci-syscall-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download full original two-account source-native signed-grant firstpass
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43332919600
+          github-token: ${{ github.token }}
+          name: risu-b22-firstpass-real-separate-os-owner-actual-precall
+          path: .b22-bundle/first-external-native
+      - name: Download second independent VM's owner key, source-native execution and audit
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43333559961
+          github-token: ${{ github.token }}
+          name: risu-b22-second-independent-real-os-owner-native-precall-audit
+          path: .b22-bundle/second-independent-native
+      - name: Verify unchanged frozen product and old RISU code source plus public CI policy
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+      - name: Independent third independent auditor reruns cryptographic owner signature checks, original raw JSON RPC, execve and literal target bytes
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b22/independent_os_owner_preflight_audit.py \
+            --evidence-root .b22-bundle/first-external-native/.b22-firstpass \
+            --original-package .b22-bundle/first-external-native/.b22-package \
+            --out .b22-bundle/FINAL_FIRST_REAL_OWNER_AND_EXECVE_AUDIT.json
+          python benchmarks/p6b22/independent_os_owner_preflight_audit.py \
+            --evidence-root .b22-bundle/second-independent-native/.b22-second-native-owner \
+            --original-package .b22-bundle/first-external-native/.b22-package \
+            --out .b22-bundle/FINAL_SECOND_REAL_OWNER_AND_EXECVE_AUDIT.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path('.b22-bundle')
+          a=json.load(open(root/'FINAL_FIRST_REAL_OWNER_AND_EXECVE_AUDIT.json'))
+          b=json.load(open(root/'FINAL_SECOND_REAL_OWNER_AND_EXECVE_AUDIT.json'))
+          assert a['issuer_public_key_sha256']!=b['issuer_public_key_sha256']
+          for r in (a,b):
+              assert r['authorized_native_upstream_calls']==3
+              assert r['denied_before_original_server_execve']==7
+              assert r['all_denied_original_target_bytes_preserved'] is True
+              assert r['separate_posix_resource_owner_signed_before_after_observations']==20
+              assert r['new_external_upstream_vulnerabilities']==0
+              assert r['independent_natural_person_consent']=='NOT_OBTAINED'
+          assert a['original_denial_reasons']==b['original_denial_reasons']
+          print('B22_FINAL_TWO_INDEPENDENT_VMS_REAL_OWNER_SIGNED_PHYSICAL_EFFECTS_AND_SYSCALLS_PASS')
+          PY
+      - name: Preserve entire source and human-readable Korean/English research handoff
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output=.b22-bundle/COMPLETE_B22_RESEARCH_SOURCE.zip HEAD
+          cp benchmarks/p6b22/HANDOFF_KO.md .b22-bundle/README_KO.md
+          cp docs/P6B22_REAL_OS_OWNER_PRECALL_ENFORCEMENT.md .b22-bundle/TECHNICAL_REPORT.md
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path('.b22-bundle')
+          files=sorted(p for p in root.rglob('*') if p.is_file() and not p.is_symlink())
+          forbidden={'.pem','.key','.p12','.pfx'}
+          assert not any(p.suffix.lower() in forbidden for p in files),'Private key should not be exported'
+          assert not any('private-owner-ed25519' in p.name for p in files)
+          source=Path('src/risu_mcp_preflight.py')
+          # Original research releases and both original native runs are
+          # preserved; no previously failed CI source evidence is overwritten.
+          checksums=[{
+            'path':p.relative_to(root).as_posix(),
+            'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+            'bytes':p.stat().st_size
+          } for p in files]
+          obj={
+            'schema':'risu-b22-two-posix-os-principals-source-native-execve-complete-handoff-v1',
+            'branch_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'frozen_product_blob':'651af884c3303bbe6729a751a89b57d939e9eb6d',
+            'original_precommit_and_amended_precommit':[
+              'benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION.json',
+              'benchmarks/p6b22/FROZEN_PRECALL_OS_OWNER_EVALUATION_V2.json'],
+            'first_actual_source_native_os_account_ci':43332919600,
+            'independent_second_os_account_source_native_ci':43333559961,
+            'whole_previous_RISU_471_tests_each_three_OS_ci':43332643910,
+            'distinct_os_owner_and_executor_uids':[33,65534],
+            'independent_owner_public_keys':2,
+            'actual_unmodified_upstream_original_native_MCP_calls':6,
+            'genuine_preexec_denials_confirmed_by_original_linux_execve':14,
+            'actual_owner_signed_before_after_physical_file_observations':40,
+            'new_external_unknown_vulnerabilities':0,
+            'independent_external_human_user_consent':'NOT_OBTAINED',
+            'original_upstream_wheel_publisher_attested':False,
+            'owner_private_keys_exported':False,
+            'files':checksums}
+          (root/'B22_SHA256_EVIDENCE_LEDGER.json').write_text(
+              json.dumps(obj,sort_keys=True,indent=2,ensure_ascii=False)+'\n')
+          print('B22_FINAL_VERIFIED_HANDOFF_FILE_SHA256_COUNT',len(checksums))
+          PY
+      - name: Store immutable complete source, real os audit, original signed grants, syscall and literal target bytes
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b22-verified-independent-owner-precall-handoff
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b22-bundle/
