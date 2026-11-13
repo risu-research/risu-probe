@@ -48,6 +48,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -uo pipefail
+          set +e
           gh attestation verify .b32-original/hdf_3.5.1_linux_amd64.tar.gz \
             --repo mitre/hdf-libs --format json > .b32-native/hdf.json
           echo "B32_NATIVE_H1_EXIT:$?"
