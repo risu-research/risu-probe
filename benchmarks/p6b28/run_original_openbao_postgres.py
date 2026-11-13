@@ -157,23 +157,19 @@ def configure_issuer(binary,root_token,issuer_password):
        "revocation_statements="+revocation,
        "default_ttl=5m","max_ttl=10m",
     ])
-    policy='path "database/creds/b28-write" { capabilities = ["read"] }\n'
-    policy_path=Path(tempfile.mkstemp(prefix="b28-owner-policy-",suffix=".hcl")[1])
-    try:
-        policy_path.write_text(policy)
-        policy_path.chmod(0o600)
-        issuer_cmd(binary,root_token,["policy","write","b28_actor_only",str(policy_path)])
-    finally:
-        policy_path.unlink()
-    def issue_one_use(use_limit):
-        j=json.loads(issuer_cmd(binary,root_token,[
-          "token","create","-policy=b28_actor_only","-no-default-policy",
-          "-use-limit="+str(use_limit),"-ttl=5m","-format=json"
-        ]))
-        token=j["auth"]["client_token"]
-        must(len(token)>15,"Original OpenBao issued implausible short token")
-        return token
-    return issue_one_use(1),issue_one_use(0)
+    # Original one-use OpenBao service tokens cannot safely own child
+    # database leases: the exhausted token revokes its leased credential.
+    # OpenBao's response wrapping separates ONE-TIME DELIVERY of an already
+    # generated leased DB credential from the lifetime of that DB lease.
+    wrapped=json.loads(issuer_cmd(binary,root_token,[
+        "read","-wrap-ttl=5m","-format=json","database/creds/b28-write"
+    ]))
+    token=wrapped.get("wrap_info",{}).get("token")
+    must(type(token) is str and len(token)>20,
+         "Original OpenBao response wrapping token was not issued")
+    must("data" not in wrapped or wrapped["data"] is None,
+         "Wrapped credential was disclosed to trusted orchestrator")
+    return token
 
 def materialize_actor():
     trusted=Path(__file__).with_name("untrusted_openbao_pg_actor.py")
@@ -188,7 +184,7 @@ def materialize_actor():
     return target_dir,target
 
 def live_report(out,script,bao_process,root_token,bao_binary,
-                actor_token,prober_token):
+                one_time_wrapped_secret):
     actor_user=pwd.getpwnam("nobody")
     clean_env={"PATH":"/usr/bin:/bin","HOME":"/tmp","LANG":"C.UTF-8",
                "PYTHONUNBUFFERED":"1","PYTHONDONTWRITEBYTECODE":"1"}
@@ -209,8 +205,7 @@ def live_report(out,script,bao_process,root_token,bao_binary,
         must(data.get("phase")==label,"Native agent phase discrepancy")
         return data
     try:
-        send({"restricted_bao_token":actor_token,
-              "other_role_token":prober_token,
+        send({"one_time_wrapped_secret":one_time_wrapped_secret,
               "issuer_launcher_pid":os.getpid(),
               "bao_server_pid":bao_process.pid})
         first=phase("pre_authorized_effect")
@@ -306,10 +301,10 @@ def main():
     try:
         server,root=boot_issuer(bao,out/"private")
         try:
-            authorized_token,probe_token=configure_issuer(bao,root,original_pg)
+            wrapped_secret=configure_issuer(bao,root,original_pg)
             temp_dir,untrusted_script=materialize_actor()
             record=live_report(out,untrusted_script,server,root,bao,
-                               authorized_token,probe_token)
+                               wrapped_secret)
             # Independent script independently queries original PostgreSQL
             # system catalogs and original OpenBao HTTP service. It imports
             # no orchestration or agent modules and receives no actor creds.
