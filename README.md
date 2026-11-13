@@ -291,3 +291,47 @@ alone cannot prove legal or production resource ownership. The tool is
 post-hoc and does not block an action before the MCP server runs.
 
 [Complete B21 research and trust-boundary report](docs/P6B21_OWNER_SIGNED_DIRECTIONAL_EFFECTS.md).
+
+## P6-B22 · Execute original MCP only after independently scoped owner approval
+
+`enforce-mcp-preflight` is a narrow opt-in **pre-execution** gate for
+source-original local MCP `write_file`. A separate POSIX resource-owner
+principal issues an Ed25519-signed exact request grant; an unprivileged
+executor checks the pinned owner root, actual file/directory OS DAC,
+original vendor artifact hash, precondition state, signed directional scope,
+revocation epoch and atomic one-time nonce **before** it starts the original
+MCP server process.
+
+```sh
+pip install '.[effect-authority]'
+risu-probe enforce-mcp-preflight \
+  --request ORIGINAL_CALL.json \
+  --grant OWNER_SIGNED_PRECALL_GRANT.json \
+  --trust-root OWNER_PUBLIC_ROOT.json \
+  --trusted-root-sha256 PINNED_ROOT_SHA \
+  --revocations LATEST_OWNER_SIGNED_REVOCATIONS.json \
+  --revocations-sha256 PINNED_REVOCATION_SHA \
+  --original-wheel PINNED_ORIGINAL_WHEEL.whl \
+  --ledger EXECUTOR_PRIVATE_NONCE_LEDGER \
+  --server-python ORIGINAL_ISOLATED_SERVER_PYTHON \
+  --out VERDICT.json
+```
+
+In two fresh GitHub-hosted Ubuntu VMs, the unmodified third-party
+`filesystem-mcp==1.0.2` server ran **only** for 3 separately approved
+operations per VM; **7 operations per VM were rejected before server
+`execve`**, with no changed file bytes, checked against actual Linux
+syscall traces. File existence, bytes and SHA-256 before/after were
+**separately signed by the OS owner principal** using its unreadable-to-
+executor private Ed25519 key. Independent audit read both runs without
+importing RISU's product code.
+
+The two principals are real separate unprivileged POSIX identities, **not
+independent natural-person participants**. GitHub's privileged CI operator
+controls the synthetic test identities and could impersonate them. A
+verified external human consent, OAuth provider, production resource-owner
+registry, and comprehensive race-free filesystem sandbox are outside this
+qualification. The module deliberately supports a bounded original file
+writer, rather than arbitrary external actions.
+
+[Detailed B22 source and authorization audit](docs/P6B22_REAL_OS_OWNER_PRECALL_ENFORCEMENT.md).
