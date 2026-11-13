@@ -148,13 +148,13 @@ class OfflineBoundaries(unittest.TestCase):
             command=commands[0]
             for flag,expected in (
               ("--repo","UpCloudLtd/upcloud-cli"),
-              ("--signer-repo","UpCloudLtd/workflows"),
               ("--cert-identity",x["signer_identity"]),
               ("--source-ref","refs/tags/v3.37.0"),
               ("--cert-oidc-issuer",m.ISSUER),
               ("--predicate-type",m.PREDICATE)):
                 self.assertIn(flag,command)
                 self.assertEqual(command[command.index(flag)+1],expected)
+            self.assertNotIn("--signer-repo",command)
             self.assertNotIn("--bundle",command)
 
     def test_wrong_signer_or_source_ref_blocked_before_network(self):
