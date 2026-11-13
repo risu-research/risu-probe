@@ -149,8 +149,11 @@ def verify_original(asset,source_repo,signer_identity,source_ref,expected_sha256
         asset,source_repo,signer_identity,source_ref,expected_sha256,allow_delegated)
     need(shutil.which("gh") is not None,
          "OFFICIAL_GITHUB_SIGSTORE_CRYPTOGRAPHIC_VERIFIER_MISSING")
+    # gh treats --cert-identity and --signer-repo as mutually exclusive.
+    # Exact certificate identity is the stricter trust policy: it fixes
+    # signer repository, workflow path AND signing Git ref in one string.
     command=["gh","attestation","verify",str(p),"--repo",source_repo,
-             "--signer-repo",signer_repo,"--cert-identity",signer_identity,
+             "--cert-identity",signer_identity,
              "--cert-oidc-issuer",ISSUER,"--source-ref",source_ref,
              "--predicate-type",PREDICATE,"--format","json"]
     try:
