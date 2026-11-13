@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           python tools/public_ci_audit.py
-          test "$(git hash-object src/risu_mcp_human_review_broker.py)" = d94b7c4a05db806a0aac143c12a0c10e10899a49
+          test "$(git hash-object src/risu_mcp_human_review_broker.py)" = 2ae1e43850d15fb22601ce666aec99dc330a2374
           test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
           test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
           python -m py_compile src/risu_mcp_human_review_broker.py benchmarks/p6b25/independent_human_review_audit.py
