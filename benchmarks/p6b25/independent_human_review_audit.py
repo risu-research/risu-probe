@@ -24,6 +24,19 @@ def demand(x,msg):
     if not x:raise ValueError(msg)
 def sha(b):return hashlib.sha256(b).hexdigest()
 def load(f):return json.loads(Path(f).read_text())
+def decode_github_contents_base64(value):
+    """Independently parse GitHub REST's CR/LF-folded base64 strictly."""
+    demand(type(value) is str and 0<len(value)<2000000,
+           "GitHub API base64 value missing or oversized")
+    clean=value.replace("\r","").replace("\n","")
+    demand(len(clean)>0 and len(clean)%4==0,
+           "GitHub API base64 length invalid")
+    try: decoded=base64.b64decode(clean,validate=True)
+    except (ValueError,base64.binascii.Error):
+        raise ValueError("GitHub API base64 includes forbidden characters")
+    demand(base64.b64encode(decoded).decode("ascii")==clean,
+           "GitHub API base64 is noncanonical")
+    return decoded
 def api(token,url):
     assert url.startswith("https://api.github.com/repos/"+REPO)
     r=urllib.request.Request(url,headers={
@@ -75,7 +88,7 @@ def audit(source,proposal,token):
            result["review"]["run_attempt"]==1,
            "Original write not bound to the same named human reviewer")
     pre=api(token,root+"/git/blobs/"+p["expected_prior_git_blob"])
-    before=base64.b64decode(pre["content"])
+    before=decode_github_contents_base64(pre["content"])
     demand(sha(before)==p["expected_prior_content_sha256"] and
            pre["sha"]==p["expected_prior_git_blob"],
            "Immutable actual original GitHub file bytes disagree with owner")
@@ -87,7 +100,7 @@ def audit(source,proposal,token):
            commit["files"][0]["status"]=="modified",
            "Actual GitHub commit did not restrict change to exact file")
     after_file=api(token,root+"/contents/"+FILE+"?ref="+after_id)
-    after=base64.b64decode(after_file["content"])
+    after=decode_github_contents_base64(after_file["content"])
     demand(sha(after)==p["desired_content_sha256"]==
            result["real_github_post_sha256"] and
            after==p["desired_content"].encode() and
