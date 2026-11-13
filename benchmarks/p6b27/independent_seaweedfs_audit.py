@@ -91,6 +91,18 @@ def audit(data):
     demand("4.53" in data.get("original_binary_version",""),
            "Original server binary version mismatch")
     requested=data["cases"]
+    demand(data.get("actor_separate_posix_uid")==65534 and
+           data.get("native_s3_actor_calls_in_distinct_os_processes")==len(requested) and
+           data.get("owner_admin_credential_not_forwarded_to_actor") is True and
+           data.get("root_fixture_administrator_trusted") is True,
+           "Independent issuer/actor OS principal boundary not recorded")
+    for case in requested:
+        demand(case.get("agent_os_uid")==65534 and
+               case.get("trusted_publisher_server_environment_readable") is False and
+               case.get("trusted_owner_issuer_environment_readable") is False and
+               case.get("native_issuer_key_only") is True and
+               case.get("direct_original_upstream_s3") is True,
+               "Missing original S3 separate-UID and inaccessible issuer evidence")
     names=[c["case"] for c in requested]
     expected=BASE_ORDER+(AFTER_ORDER if
         requested[1]["native_http_status"]==200 else [])+[LAST]
@@ -159,6 +171,10 @@ def audit(data):
         "native_issuer_exact_policy":native_exact,
         "native_issuer_coarse_control_policy":native_coarse,
         "native_actor_key_revoked":True,
+        "native_actor_os_uid":65534,
+        "native_os_separated_original_s3_calls":len(requested),
+        "trusted_issuer_process_and_server_environments_not_readable_by_actor":True,
+        "limited_observation_of_kernel_boundary":"Actual child tested /proc environment access; report checked by independent S3 auditor",
         "native_exact_key_write_allowed":exact_allowed,
         "direct_scope_bypass_cases":out_of_scope,
         "cross_object_list_exposed":list_exposed,
