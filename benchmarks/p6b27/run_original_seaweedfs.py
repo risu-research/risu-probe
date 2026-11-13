@@ -92,7 +92,7 @@ def run(binary,out):
         for name,body in PRESET.items():
             admin.put_object(Bucket=BUCKET,Key=name,Body=body)
         before=state(admin)
-        assert_true(before=={k:hash_bytes(v) for k,v in PRESET},
+        assert_true(before=={k:hash_bytes(v) for k,v in PRESET.items()},
                     "Owner could not establish original-byte controls")
         iam=client("iam",key,secret)
         # Only upstream publisher's IAM methods mint the credentials.
