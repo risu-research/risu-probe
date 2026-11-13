@@ -1,0 +1,193 @@
+name: RISU B32 original delegated Signer trust-boundary and regression
+on:
+  push:
+    branches: [qualification/p6b32-original-delegated-signature-closure-20261113]
+    paths:
+      - src/risu_delegated_signer.py
+      - src/risu_p5d_cli.py
+      - pyproject.toml
+      - tests/test_p6b32_original_delegated_signer.py
+      - .github/workflows/p6b32-original-delegated-signer-product.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  attestations: read
+jobs:
+  verified-native-original-signed-releases:
+    name: Three distinct original signed publishers and one verified unavailability
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-probe
+          run-id: 43450828852
+          name: risu-b32-frozen-four-original-publisher-native-verified-statements
+          github-token: ${{ github.token }}
+          path: .b32-observed
+      - name: Download exact release assets fixed before B32 source implementation; never execute
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .b32-original .b32-results
+          curl --fail --silent --show-error -L --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/mitre/hdf-libs/releases/download/v3.5.1/hdf_3.5.1_linux_amd64.tar.gz \
+            -o .b32-original/hdf_3.5.1_linux_amd64.tar.gz
+          curl --fail --silent --show-error -L --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/txn2/kubefwd/releases/download/v1.25.17/kubefwd_Linux_x86_64.tar.gz \
+            -o .b32-original/kubefwd_Linux_x86_64.tar.gz
+          curl --fail --silent --show-error -L --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/UpCloudLtd/upcloud-cli/releases/download/v3.37.0/upcloud-cli_3.37.0_linux_x86_64.tar.gz \
+            -o .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz
+          curl --fail --silent --show-error -L --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/axonops/audit/releases/download/v0.2.5/audit_0.2.5_linux_amd64.tar.gz \
+            -o .b32-original/audit_0.2.5_linux_amd64.tar.gz
+          echo '482bc0e3a92a508d141e9285eba9985965c0d6bc67e922903359d70e06c3ae7a  .b32-original/hdf_3.5.1_linux_amd64.tar.gz' | sha256sum -c -
+          echo 'f9a2986f26d219713429477511f5f570df12c811e0f79d42b244569746e8eba1  .b32-original/kubefwd_Linux_x86_64.tar.gz' | sha256sum -c -
+          echo 'ce2d381bdf49ce74a74582f390490542c49957079d7e606303e1426138b7e3d6  .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz' | sha256sum -c -
+          echo 'e0b075569683a2614656f7923271b8b302dd167950bb3480f0021f2bf12c3f2a  .b32-original/audit_0.2.5_linux_amd64.tar.gz' | sha256sum -c -
+      - name: Install actual experimental RISU wheel and check live crypto + original-source tampering
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RISU_B32_ORIGINAL_RELEASE_DIR: .b32-original
+          RISU_B32_NATIVE_VERIFIED_STATEMENTS_DIR: .b32-observed
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          risu-probe verify-delegated-signed-provenance --help
+          python -m unittest discover -s tests -p test_p6b32_original_delegated_signer.py -v
+          echo B32_THREE_PUBLISHER_REAL_CRYPTO_AND_ATTACK_TESTS_PASS
+      - name: Produce actual positive witnessed original-signature verdict for each case
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/kubefwd_Linux_x86_64.tar.gz \
+            --source-repo txn2/kubefwd \
+            --signer-identity 'https://github.com/txn2/kubefwd/.github/workflows/release.yml@refs/tags/v1.25.17' \
+            --source-ref refs/tags/v1.25.17 \
+            --sha256 f9a2986f26d219713429477511f5f570df12c811e0f79d42b244569746e8eba1 \
+            --out .b32-results/kubefwd_exact_source.json
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz \
+            --source-repo UpCloudLtd/upcloud-cli \
+            --signer-identity 'https://github.com/UpCloudLtd/workflows/.github/workflows/build-provenance.yaml@refs/heads/main' \
+            --source-ref refs/tags/v3.37.0 \
+            --allow-delegated \
+            --sha256 ce2d381bdf49ce74a74582f390490542c49957079d7e606303e1426138b7e3d6 \
+            --out .b32-results/upcloud_explicit_delegation.json
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/audit_0.2.5_linux_amd64.tar.gz \
+            --source-repo axonops/audit \
+            --signer-identity 'https://github.com/axonops/audit/.github/workflows/goreleaser.yml@refs/heads/main' \
+            --source-ref refs/heads/main \
+            --sha256 e0b075569683a2614656f7923271b8b302dd167950bb3480f0021f2bf12c3f2a \
+            --out .b32-results/axonops_original_source.json
+      - name: Missing HDF attestation must fail closed and must not turn an absent verification into a negative safety conclusion
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/hdf_3.5.1_linux_amd64.tar.gz \
+            --source-repo mitre/hdf-libs \
+            --signer-identity 'https://github.com/mitre/hdf-libs/.github/workflows/release.yml@refs/tags/v3.5.1' \
+            --source-ref refs/tags/v3.5.1 \
+            --sha256 482bc0e3a92a508d141e9285eba9985965c0d6bc67e922903359d70e06c3ae7a \
+            --out .b32-results/hdf_unavailable_result.json 2>.b32-results/hdf_refusal.stderr
+          status=$?
+          set -e
+          test "$status" -eq 2
+          test ! -f .b32-results/hdf_unavailable_result.json
+          grep 'ORIGINAL_GH_SIGSTORE_ATTESTATION_NOT_VERIFIED' .b32-results/hdf_refusal.stderr
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=Path(".b32-results")
+          verified=[]
+          for case in ("kubefwd_exact_source","upcloud_explicit_delegation","axonops_original_source"):
+              x=json.loads((d/(case+".json")).read_text())
+              assert x["status"]=="ORIGINAL_SIGNED_SOURCE_VERIFIED_WITH_EXPLICIT_SIGNER_IDENTITY"
+              assert x["claim_states"]["separate_resource_owner_approval"]=="UNVERIFIED"
+              assert x["claim_states"]["same_operation_remote_effect"]=="UNVERIFIED"
+              assert x["grants_authority_over_unrelated_resource"] is False
+              verified.append(x)
+          assert verified[1]["source_repository"]=="UpCloudLtd/upcloud-cli"
+          assert verified[1]["signer_repository"]=="UpCloudLtd/workflows"
+          assert verified[1]["delegation_explicitly_accepted"] is True
+          assert verified[0]["normalized_single_dot_slash_prefix"] is True
+          assert verified[2]["source_ref"]=="refs/heads/main"
+          (d/"original_corpus_summary.json").write_text(json.dumps({
+             "schema":"risu-b32-locked-four-original-publisher-evaluation-v1",
+             "cryptographically_verified_actors":3,
+             "original_source_unverifiable":1,
+             "original_cases":["mitre/hdf-libs","txn2/kubefwd","UpCloudLtd/upcloud-cli","axonops/audit"],
+             "one_legitimate_reusable_delegation_verified":True,
+             "one_legitimate_dotslash_name_alias_verified":True,
+             "no_independent_owner_authorization_concluded":True,
+             "baseline":"official gh attestation verify with exact repo and signer",
+             "inference":"No claim of outperforming the native gh verifier",
+          },indent=2,sort_keys=True)+"\n")
+          print("B32_ORIGINAL_FOUR_PUBLISHER_COHORT_3_PASS_1_UNVERIFIED_NO_REPLACEMENT_PASS")
+          print("B32_ACTUAL_REUSABLE_WORKFLOW_SIGNER_BOUND_TO_DIFFERENT_PRODUCER_PASS")
+          print("B32_NO_FALSE_OWNER_AUTHORIZATION_FROM_SIGNED_RELEASE_PASS")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b32-original-four-publisher-delegation-and-evidence-status
+          retention-days: 30
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .b32-results/*.json
+            .b32-results/hdf_refusal.stderr
+  installed-wheel-three-os:
+    name: Stable main-based B32 installed-wheel compatibility (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install actual wheel and run entire original stable product regression plus new B32 controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b32-wheel
+          python -m pip wheel --no-deps -w .b32-wheel .
+          python -m venv .b32-venv
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b32-venv/Scripts/python.exe
+            CLI=.b32-venv/Scripts/risu-probe.exe
+          else
+            PY=.b32-venv/bin/python
+            CLI=.b32-venv/bin/risu-probe
+          fi
+          "$PY" -m pip install .b32-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" verify-delegated-signed-provenance --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B32_INSTALLED_ORIGINAL_STABLE_PLUS_DELEGATION_REGRESSION_PASS
