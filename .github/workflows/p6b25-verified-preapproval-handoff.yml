@@ -1,0 +1,115 @@
+name: RISU B25 verified source and actual no-human-consent GitHub 403 preapproval evidence handoff
+on:
+  push:
+    branches: ['qualification/p6b25-real-review-credential-isolation-20261112']
+    paths:
+      - 'docs/P6B25_REAL_HUMAN_REVIEW_AND_TRUSTED_ONE_FILE_BROKER.md'
+      - 'benchmarks/p6b25/HANDOFF_KO.md'
+      - 'README.md'
+      - '.github/workflows/p6b25-verified-preapproval-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  immutable-negative-evidence-and-full-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve B20-B24 frozen source and actual B25 trusted code
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_human_review_broker.py)" = d94b7c4a05db806a0aac143c12a0c10e10899a49
+          test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          python -m py_compile src/risu_mcp_human_review_broker.py benchmarks/p6b25/independent_human_review_audit.py
+          test ! -f benchmarks/p6b25/REQUEST_HUMAN_REVIEW.txt
+      - name: Obtain original external GitHub real unreviewed authorization source and actual unchanged file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .b25-verified-evidence
+          gh api 'repos/risu-research/risu-verify/contents/benchmarks/p6b25/OWNER_PROPOSED_REQUEST.json?ref=qualification/p6b25-real-review-credential-isolation-20261112' \
+            --jq .content | base64 -d > .b25-verified-evidence/OWNER_PROPOSED_REQUEST.json
+          test "$(git hash-object .b25-verified-evidence/OWNER_PROPOSED_REQUEST.json)" = c66e2630c0c4edf15ee467fb758f601de6370ede
+          test "$(gh api 'repos/risu-research/risu-verify/contents/benchmarks/p6b25/owner_only_resource.txt?ref=qualification/p6b25-real-review-credential-isolation-20261112' -q .sha)" = c84690efad2ac44fa96605a4d1b7c34efbff52de
+          echo B25_EXTERNAL_OWNER_PROPOSAL_UNAPPROVED_AND_TARGET_UNCHANGED_CONFIRMED
+      - name: Retrieve original external GitHub real read-only token 403 and empty human review history
+        uses: actions/download-artifact@v4
+        with:
+          repository: risu-research/risu-verify
+          run-id: 43351968519
+          name: b25-independent-preapproval-source-and-no-human-review-evidence
+          github-token: ${{ github.token }}
+          path: .b25-verified-evidence/external-original-no-approval
+      - name: Validate exact real GitHub HTTP denial with empty approval record and preserved target
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('.b25-verified-evidence/external-original-no-approval')
+          assert json.load(open(p/'.b25-actual-no-human-review.json'))==[]
+          x=json.load(open(p/'.b25-actual-unreviewed-no-write-token-proof.json'))
+          assert x['actual_external_github_put_http_status']==403
+          assert x['actual_unauthorized_remote_file_exists'] is False
+          assert x['human_reviewer_approval_record_exists'] is False
+          assert x['credential_class']=='GITHUB_ACTIONS_CONTENTS_READ_ONLY'
+          proposal=json.load(open('.b25-verified-evidence/OWNER_PROPOSED_REQUEST.json'))
+          assert proposal['proposal_status']=='UNAPPROVED_UNTIL_GITHUB_ENVIRONMENT_REVIEW_EVENT'
+          assert proposal['review_environment']=='risu-b25-human-owner-approval'
+          print('B25_EXTERNAL_REAL_UNREVIEWED_AGENT_WRITE_DENIAL_AND_NO_REMOTE_RESOURCE_VERIFIED')
+          PY
+      - name: Preserve complete research Git source, evidence, Korean handoff and SHA ledger
+        run: |
+          set -euo pipefail
+          git archive --format=zip --output=.b25-verified-evidence/COMPLETE_B25_RESEARCH_SOURCE.zip HEAD
+          cp benchmarks/p6b25/HANDOFF_KO.md .b25-verified-evidence/README_KO.md
+          cp docs/P6B25_REAL_HUMAN_REVIEW_AND_TRUSTED_ONE_FILE_BROKER.md .b25-verified-evidence/TECHNICAL_REPORT.md
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path('.b25-verified-evidence')
+          files=sorted(p for p in root.rglob('*') if p.is_file() and not p.is_symlink())
+          assert not any(p.suffix.lower() in ('.pem','.key','.p12','.pfx') for p in files)
+          obj={
+             'schema':'risu-b25-preapproval-only-github-human-pending-real-403-handoff-v1',
+             'current_status':'ENGINEERING_TESTS_AND_REAL_NO_APPROVAL_403_PASS_HUMAN_APPROVAL_NOT_PERFORMED',
+             'owner_repository':'risu-research/risu-verify',
+             'owner_branch':'qualification/p6b25-real-review-credential-isolation-20261112',
+             'code_branch':'qualification/p6b25-real-review-credential-isolation-20261112',
+             'final_source_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+             'trusted_writer_source_git_blob':'d94b7c4a05db806a0aac143c12a0c10e10899a49',
+             'pinned_owner_unapproved_policy_blob':'c66e2630c0c4edf15ee467fb758f601de6370ede',
+             'real_owner_unapproved_file_blob':'c84690efad2ac44fa96605a4d1b7c34efbff52de',
+             'external_actual_no_human_review_and_HTTP403_run':43351968519,
+             'full_538_tests_each_three_OS_run':43351520641,
+             'externally_approved_real_human_workflow_run':None,
+             'human_approved_remote_writes':0,
+             'owner_main_changed':False,
+             'probe_main_changed':False,
+             'files':[{'path':p.relative_to(root).as_posix(),
+                'bytes':p.stat().st_size,'sha256':hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]
+          }
+          (root/'B25_SHA256_EVIDENCE_LEDGER.json').write_text(
+              json.dumps(obj,sort_keys=True,indent=2,ensure_ascii=False)+'\n')
+          print('B25_FINAL_PREAPPROVAL_SOURCE_AND_EVIDENCE_SHA256_FILES',len(files))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: risu-b25-verified-source-human-consent-pending-and-real-no-review-403-handoff
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b25-verified-evidence/
