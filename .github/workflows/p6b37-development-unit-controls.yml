@@ -1,0 +1,35 @@
+name: "P6-B37 development unit controls without any sealed B37 upstream source"
+on:
+  push:
+    branches:
+      - qualification/p6b37-development-robust-semantic-20261113
+    paths:
+      - research/b37_semantic_preservation.py
+      - research/test_b37_semantic_preservation.py
+      - .github/workflows/p6b37-development-unit-controls.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  conservative-source-controls:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Verify inherited 0.9.23 source detector remains pinned
+        shell: bash
+        run: |
+          python -c "import subprocess; value=subprocess.check_output(['git','hash-object','research/b34_channel_projection.py'],text=True).strip(); assert value=='79c8b45901766179c7e39b17969c726a276e543d',value"
+      - name: Run B37 research-only normal, error, JSON-shape and partial-source tests
+        shell: bash
+        run: |
+          python -m unittest discover -s research -p test_b37_semantic_preservation.py -v
