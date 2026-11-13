@@ -184,14 +184,34 @@ def require_human_review(token,run_id,workflow_sha):
     proof["reviewed_run_age_seconds_at_writer"]=int(review_age.total_seconds())
     return proof
 
+def decode_github_contents_base64(content):
+    """GitHub Contents API inserts CR/LF line folds into the base64 payload.
+
+    Permit only CR/LF transport folds, then retain strict base64 validation.
+    Spaces, tabs, extra symbols, invalid padding and noncanonical encodings
+    must fail closed before an authorized write.
+    """
+    enforce(type(content) is str and 0 < len(content) < 2000000,
+            "MALFORMED_GITHUB_CONTENTS_BASE64")
+    folded=content.replace("\r","").replace("\n","")
+    enforce(len(folded)>0 and len(folded)%4==0,
+            "MALFORMED_GITHUB_CONTENTS_BASE64")
+    try: raw=base64.b64decode(folded,validate=True)
+    except (ValueError,base64.binascii.Error):
+        raise PolicyDenied("MALFORMED_GITHUB_CONTENTS_BASE64")
+    enforce(base64.b64encode(raw).decode("ascii")==folded,
+            "NONCANONICAL_GITHUB_CONTENTS_BASE64")
+    return raw
+
 def original_resource_before(token,policy):
     root="https://api.github.com/repos/"+OWNER+"/"+REPO
     item=api(token,root+"/contents/"+PATH+"?ref="+BRANCH)
     enforce(item.get("type")=="file" and
             item.get("sha")==policy["expected_prior_git_blob"],
             "GITHUB_OWNER_FILE_GIT_PRECONDITION_ALREADY_CHANGED")
-    try:raw=base64.b64decode(item["content"],validate=True)
-    except Exception:raise PolicyDenied("MALFORMED_GITHUB_OWNER_ORIGINAL_FILE")
+    try: raw=decode_github_contents_base64(item["content"])
+    except (KeyError,TypeError,PolicyDenied):
+        raise PolicyDenied("MALFORMED_GITHUB_OWNER_ORIGINAL_FILE")
     enforce(digest(raw)==policy["expected_prior_content_sha256"],
             "GITHUB_REAL_PRESTATE_BYTES_NOT_AUTHORIZED")
     return {"sha":item["sha"],"content_sha256":digest(raw),"len":len(raw)}
@@ -293,7 +313,7 @@ def execute(policy_path,ledger,out,run_id,workflow_sha,token,child_probe=True):
         evidence["after_git_blob"]=response["content"]["sha"]
         final=api(token,"https://api.github.com/repos/"+OWNER+"/"+REPO+
                   "/contents/"+PATH+"?ref="+response["commit"]["sha"])
-        real=base64.b64decode(final["content"],validate=True)
+        real=decode_github_contents_base64(final["content"])
         enforce(digest(real)==p["desired_content_sha256"],
                 "REMOTE_GITHUB_FILE_EFFECT_NOT_OWNER_APPROVED")
         commit=api(token,"https://api.github.com/repos/"+OWNER+"/"+REPO+
