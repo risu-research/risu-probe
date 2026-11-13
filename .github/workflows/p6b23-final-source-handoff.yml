@@ -1,0 +1,86 @@
+name: RISU P6-B23 real GitHub owner Sigstore preflight source and research handoff
+on:
+  push:
+    branches: ['qualification/p6b23-*']
+    paths:
+      - 'docs/P6B23_REAL_GITHUB_ADMIN_ATTESTED_OWNER_PRECALL.md'
+      - 'benchmarks/p6b23/HANDOFF_KO.md'
+      - 'README.md'
+      - '.github/workflows/p6b23-final-source-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect-source-and-build-frozen-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Verify no previous frozen core or previously certified B22 changed
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          python -m py_compile \
+             src/risu_mcp_github_owner.py \
+             benchmarks/p6b23/run_owner_attested_github_mcp.py \
+             benchmarks/p6b23/independent_github_owner_audit.py \
+             tests/test_p6b23_real_github_owner_preflight.py
+      - name: Create exact entire source snapshot, distinct research handoff and independently hash every source file
+        run: |
+          set -euo pipefail
+          mkdir -p .b23-final-source
+          git archive --format=zip --output=.b23-final-source/COMPLETE_P6B23_RESEARCH_SOURCE.zip HEAD
+          cp docs/P6B23_REAL_GITHUB_ADMIN_ATTESTED_OWNER_PRECALL.md .b23-final-source/TECHNICAL_REPORT.md
+          cp benchmarks/p6b23/HANDOFF_KO.md .b23-final-source/README_KO.md
+          python - <<'PY'
+          import json,hashlib,subprocess
+          from pathlib import Path
+          base=Path('.b23-final-source')
+          a=[p for p in base.rglob('*') if p.is_file()]
+          o={
+           'schema':'risu-b23-owner-github-grant-original-mcp-source-handoff-v1',
+           'branch_commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+           'owner_org':'risu-research',
+           'owner_org_id':316025762,
+           'owner_repo':'risu-research/risu-verify',
+           'owner_repo_id':1350184511,
+           'actual_owner_admin_actor':'moon10021017',
+           'owner_grant_git_commit':'4eab2daf0b705df27658f6159f02165da910bcf1',
+           'original_owner_workflow_and_external_execution_ci':43336892730,
+           'original_source_native_github_mcp_effect_commit':'6e7d3e80a3e2bf327a5a1d394010f6cba99c0467',
+           'independent_readonly_audit_ci':43337547529,
+           'immutable_git_commit_based_audit_ci':43338759795,
+           'original_github_publisher_release':'v2.1.0',
+           'original_github_mcp_release_sha256':'a442f9db287cea01008bcb55fe6bc0292270301046c3edbd1a8b22d6e4157b2b',
+           'original_real_native_mcp_tool_calls':1,
+           'original_preflight_denials':6,
+           'independent_audit_negative_tampers_rejected':3,
+           'previous_and_b23_installed_490_tests_each_three_OS_ci':43338260387,
+           'external_human_direct_manual_approval':'NOT_PERFORMED',
+           'original_owner_auth_class':'DELEGATED_REAL_GITHUB_ADMIN_ACCOUNT_VIA_CONNECTED_APP',
+           'upstream_new_software_defects_found':0,
+           'files':[{
+             'path':p.relative_to(base).as_posix(),
+             'sha256':hashlib.sha256(p.read_bytes()).hexdigest(),
+             'bytes':p.stat().st_size} for p in sorted(a)]
+          }
+          (base/'SOURCE_SHA256_EVIDENCE_LEDGER.json').write_text(
+            json.dumps(o,sort_keys=True,indent=2)+'\n')
+          print('B23_FINAL_OWNER_GITHUB_GRANT_SOURCE_SHA256_LEDGER_FILES',len(a))
+          PY
+      - name: Archive full source and human-readable handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b23-complete-actual-github-admin-signed-owner-original-mcp-source-handoff
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b23-final-source/
