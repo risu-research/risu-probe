@@ -1,0 +1,80 @@
+name: RISU B27 independent original PostgreSQL vs SeaweedFS claim-specific effect matrix
+on:
+  push:
+    branches:
+      - qualification/p6b27-external-resource-enforcement-20261112
+    paths:
+      - 'benchmarks/p6b27/compare_external_backends.py'
+      - '.github/workflows/p6b27-independent-two-backend-matrix.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  external-publisher-independent-capability-matrix:
+    name: Pin two original GitHub run artifacts; audit native effects and disprove overbroad consent claims
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: risu-b27-original-postgresql-direct-enforcement
+          repository: risu-research/risu-probe
+          run-id: 43363316209
+          github-token: ${{ github.token }}
+          path: .b27-original-postgres
+      - uses: actions/download-artifact@v4
+        with:
+          name: risu-b27-original-seaweedfs-453-external-heldout
+          repository: risu-research/risu-probe
+          run-id: 43364477477
+          github-token: ${{ github.token }}
+          path: .b27-original-s3
+      - name: Verify exact original artifact schemas, policies and independent native audits
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .b27-aggregate
+          python3 -m py_compile benchmarks/p6b27/compare_external_backends.py
+          python3 benchmarks/p6b27/compare_external_backends.py \
+            --postgres .b27-original-postgres/original_external_postgres_result.json \
+            --postgres-audit .b27-original-postgres/independent_external_postgres_audit.json \
+            --postgres-package .b27-original-postgres/postgres_original_package_identity.json \
+            --seaweedfs .b27-original-s3/seaweedfs_live_observation.json \
+            --seaweedfs-audit .b27-original-s3/seaweedfs_independent_audit.json \
+            --out .b27-aggregate/independent_capability_matrix.json
+          echo B27_PINNED_TWO_EXTERNAL_IMPLEMENTATIONS_CLAIM_SPECIFIC_MATRIX_PASS
+      - name: Independently refuse altered S3 permission outcome
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          raw=json.loads(Path(".b27-original-s3/seaweedfs_live_observation.json").read_text())
+          raw["cases"][2]["native_http_status"]=200
+          Path(".b27-aggregate/altered_original_s3_record.json").write_text(json.dumps(raw))
+          PY
+          if python3 benchmarks/p6b27/compare_external_backends.py \
+            --postgres .b27-original-postgres/original_external_postgres_result.json \
+            --postgres-audit .b27-original-postgres/independent_external_postgres_audit.json \
+            --postgres-package .b27-original-postgres/postgres_original_package_identity.json \
+            --seaweedfs .b27-aggregate/altered_original_s3_record.json \
+            --seaweedfs-audit .b27-original-s3/seaweedfs_independent_audit.json \
+            --out .b27-aggregate/INVALID_SHOULD_NOT_EXIST.json; then
+             echo 'B27 original evaluator accepted tampered direct-effect outcome' >&2
+             exit 1
+          fi
+          test ! -e .b27-aggregate/INVALID_SHOULD_NOT_EXIST.json
+          echo B27_TWO_EXTERNAL_ORIGINAL_PUBLISHERS_TAMPER_NEGATIVE_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risu-b27-two-external-implementations-native-effect-comparison
+          retention-days: 30
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: .b27-aggregate/independent_capability_matrix.json
