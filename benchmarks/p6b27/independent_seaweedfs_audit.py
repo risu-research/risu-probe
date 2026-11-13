@@ -107,7 +107,7 @@ def audit(data):
         UserName="risu_b27_exact",PolicyName="exact_object_only"))
     native_coarse=parse_policy(iam.get_user_policy(
         UserName="risu_b27_coarse",PolicyName="coarse_control"))
-    demand(native_exact==data["exact_policy"],"Native issued exact scope differs")
+    demand(native_exact==data["exact_policy"],"Native issued exact scope differs: actual="+json.dumps(native_exact,sort_keys=True)+" expected="+json.dumps(data["exact_policy"],sort_keys=True))
     demand(native_coarse==data["coarse_policy"],"Native coarse control differs")
     require_resource="arn:aws:s3:::"+BUCKET+"/approved/report.txt"
     demand(native_exact["Statement"][0]["Resource"]==[require_resource],
