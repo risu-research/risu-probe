@@ -1,0 +1,101 @@
+{
+  "schema": "risu-p6b34-independent-upstream-fixed-source-holdout-v1",
+  "prereg_commit": "bf9fc4cb34c1f03facc5e76bfc5c577ae55560d5",
+  "frozen_product_sha": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "product_version": "0.9.23.dev0",
+  "created_before_scan": true,
+  "primary_measured_surface": "repository source at before/fix commits; frozen risu-probe check --format json --strict-incomplete",
+  "candidates_considered": 8,
+  "excluded": [
+    {
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3644",
+      "reason": "marked duplicate and proposed PR #3650 unmerged; no canonical fixed positive/negative pair"
+    },
+    {
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3385",
+      "reason": "not planned and PR #3429 unmerged; no merged fixed control"
+    },
+    {
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3843",
+      "reason": "open as of selection, binary HTTP-to-MCP case with no merged repair control"
+    }
+  ],
+  "cases": [
+    {
+      "id": "H1",
+      "org_cluster": "agentscope-ai",
+      "repo": "agentscope-ai/agentscope",
+      "language": "python",
+      "mechanism": "MCP structuredContent dropped when content has no text",
+      "issue": "https://github.com/agentscope-ai/agentscope/issues/3388",
+      "fix_pr": "https://github.com/agentscope-ai/agentscope/pull/3389",
+      "pre": "430fbc7898e5ba225bfe7e5afd26e0d83b622a0e",
+      "post": "7c198c5f1e68b6b9ee1dade94db254038c645907",
+      "source_path": "src/agentscope/tool/_adapters.py",
+      "pre_git_blob": "798f8bada4ddd93bb46fdfe54512ee36477b6f77",
+      "post_git_blob": "72a39190a40d7ba892060b0c66ae650df7e0cf88",
+      "expected_fix": "Preserve structured_content when converted content has no text block"
+    },
+    {
+      "id": "H2",
+      "org_cluster": "NousResearch",
+      "repo": "NousResearch/hermes-agent",
+      "language": "python",
+      "mechanism": "MCP ImageContent silently discarded by text-only tool handler",
+      "issue": "https://github.com/NousResearch/hermes-agent/issues/21559",
+      "fix_pr": "https://github.com/NousResearch/hermes-agent/pull/21328",
+      "pre": "dd2dc2bddf43d72e24e61fd306206c696298df47",
+      "post": "c8e3e3918509d4c43432ec2cf19ef6a1cfe9cd9c",
+      "source_path": "tools/mcp_tool.py",
+      "pre_git_blob": "fcfc5dbadc99bb6a44d5ca74f79ab5e876f9a767",
+      "post_git_blob": "95ac400fdb9a07fee9c2047acedcd96477a04d9b",
+      "expected_fix": "Preserve image blocks with MEDIA tags from signed image data"
+    },
+    {
+      "id": "H3",
+      "org_cluster": "modelcontextprotocol",
+      "repo": "modelcontextprotocol/python-sdk",
+      "language": "python",
+      "mechanism": "typing.Dict return wrapped while built-in dict remains unwrapped",
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3745",
+      "fix_pr": "https://github.com/modelcontextprotocol/python-sdk/pull/3756",
+      "pre": "72ff38cb5cb7c0f6d5024d1b185e5bf0c05f0cb0",
+      "post": "5a3a23af65def4d636864d55701ff9395cad92d0",
+      "source_path": "src/mcp/server/mcpserver/utilities/func_metadata.py",
+      "pre_git_blob": "995b89a0a17db3d15b66553eb2cf55627a14aa9a",
+      "post_git_blob": "5ef417317403466668f91f53ed93f7c42636fc3f",
+      "expected_fix": "Generic typing.Dict and builtin dict produce matching structured output"
+    },
+    {
+      "id": "H4",
+      "org_cluster": "modelcontextprotocol",
+      "repo": "modelcontextprotocol/python-sdk",
+      "language": "python",
+      "mechanism": "Bare dict annotation silently suppresses structured output",
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3725",
+      "fix_pr": "https://github.com/modelcontextprotocol/python-sdk/pull/3758",
+      "pre": "5a3a23af65def4d636864d55701ff9395cad92d0",
+      "post": "a525a3d9bece967d91534b746a6c842931b7b4ec",
+      "source_path": "src/mcp/server/mcpserver/utilities/func_metadata.py",
+      "pre_git_blob": "5ef417317403466668f91f53ed93f7c42636fc3f",
+      "post_git_blob": "e5721488f5ab2783e550d9d2d752f11db7869642",
+      "expected_fix": "Bare dict only gets structured output; bare list and tuple remained deliberately unstructured"
+    },
+    {
+      "id": "H5",
+      "org_cluster": "modelcontextprotocol",
+      "repo": "modelcontextprotocol/python-sdk",
+      "language": "python",
+      "mechanism": "Unmodelled MCP client/server capability keys dropped by schema model",
+      "issue": "https://github.com/modelcontextprotocol/python-sdk/issues/3640",
+      "fix_pr": "https://github.com/modelcontextprotocol/python-sdk/pull/3812",
+      "pre": "af4c6f4db2cd207f44374cd324a12cfbee8d2da6",
+      "post": "82adc272e85c12f620df21db34b6086ed7619548",
+      "source_path": "src/mcp-types/mcp_types/_types.py",
+      "pre_git_blob": "e91fdcc3b970cf43508f6734b48fcc57977882a7",
+      "post_git_blob": "c00eb8e0615826f4df3e4a3e6d620982493fc668",
+      "expected_fix": "Extra client/server capability keys survive public typed models; multi-file patch, focused file is not whole mechanism"
+    }
+  ],
+  "note": "Five external fault instances but only three upstream maintainer organizations; H3/H4 share the same Python SDK file and are correlated. No independent runtime execution claimed. Source-level scope and suitability of focused files must be reported as such."
+}
