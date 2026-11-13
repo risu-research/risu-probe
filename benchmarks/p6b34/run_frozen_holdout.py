@@ -61,7 +61,7 @@ def verify_source(case,side):
     require(blob.returncode==0 and blob.stdout.strip()==expected,
             f"{case['id']} {side}: Git original source blob mismatch")
     data=p.read_bytes()
-    require(len(data)>0 and b"\\x00" not in data,
+    require(len(data)>0 and b"\x00" not in data,
             f"{case['id']} {side}: unexpected binary source")
     return {"root":tree,"path":p,"commit":sha,"git_blob":expected,
             "byte_sha256":payload_hash(data),"source_bytes":data}
@@ -184,10 +184,10 @@ def main():
         }
     }
     result_path=root/"B34_FROZEN_BASELINE_RESULTS.json"
-    result_path.write_text(json.dumps(report,indent=2,sort_keys=True,ensure_ascii=False)+"\\n",encoding="utf-8")
+    result_path.write_text(json.dumps(report,indent=2,sort_keys=True,ensure_ascii=False)+"\n",encoding="utf-8")
     summary=report["summary"]
     lines=["# RISU P6-B34 | Pre-registered external holdout baseline verdict","",
-           f"- Frozen public commit: \`{FROZEN}\`",
+           f"- Frozen public commit: `{FROZEN}`",
            f"- Explicit preselected independent cases: {summary['candidate_preselected']} in {summary['external_maintainer_organizations']} external organizations",
            f"- Successfully parsed focused Python source: {summary['eligible_with_parsed_source_and_complete_output']}",
            f"- Localized pre-fix-only STATIC candidates: {summary['localized_static_before_fix_only']}",
@@ -201,7 +201,7 @@ def main():
     for r in records:
         lines.append(f"| {r['id']} | {r['upstream_repo']} | {r['before_total_static_candidates']} | {r['after_total_static_candidates']} | {r['frozen_product_decision']} |")
     lines.extend(["","**Interpretation:** STATIC findings are hypotheses only. No third-party source was executed; the exact upstream source files were parsed read-only. The wider repositories were intentionally not scanned, so no full-repository detection claim follows. Five defect instances include three correlated bugs from the same official SDK. A miss is evidence about the CURRENT frozen CLI, not about all historical RISU prototype algorithms.",""])
-    (root/"B34_FROZEN_BASELINE_REPORT.md").write_text("\\n".join(lines),encoding="utf-8")
+    (root/"B34_FROZEN_BASELINE_REPORT.md").write_text("\n".join(lines),encoding="utf-8")
     print(json.dumps(summary,sort_keys=True))
     print("B34_FIXED_PUBLIC_PRODUCT_BLINDED_AUDIT_FINISHED")
     return 0
