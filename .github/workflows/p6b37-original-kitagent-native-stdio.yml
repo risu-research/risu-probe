@@ -5,6 +5,8 @@ on:
       - qualification/p6b37-native-original-kitagent-20261113
     paths:
       - research/b37_original_kitagent_stdio_*.py
+      - research/b37_protocol_error_effect_auditor.py
+      - research/test_b37_protocol_error_effect_auditor.py
       - .github/workflows/p6b37-original-kitagent-native-stdio.yml
   workflow_dispatch:
 permissions:
@@ -54,6 +56,8 @@ jobs:
         shell: bash
         run: |
           python research/b37_original_kitagent_stdio_replay.py
+          python -m unittest discover -s research -p test_b37_protocol_error_effect_auditor.py -v
+          python research/b37_protocol_error_effect_auditor.py
           python -c "import json; p='research/out/B37_ORIGINAL_KITAGENT_NATIVE_BEFORE_AFTER.json'; r=json.load(open(p,encoding='utf-8')); assert r['summary']['original_external_client_code_executed']; assert r['summary']['before_bad_result_falsely_reported_as_success']; assert r['summary']['after_bad_result_reported_as_tool_error']"
       - name: Retain original native wire messages and signed commit metadata, not upstream source
         uses: actions/upload-artifact@v4
@@ -64,5 +68,6 @@ jobs:
           if-no-files-found: error
           path: |
             research/out/B37_ORIGINAL_KITAGENT_NATIVE_BEFORE_AFTER.json
+            research/out/B37_RUNTIME_ERROR_SEMANTICS_AUDIT.json
             research/out/KITAGENT_BEFORE_ORIGINAL_STDIO.jsonl
             research/out/KITAGENT_AFTER_ORIGINAL_STDIO.jsonl
