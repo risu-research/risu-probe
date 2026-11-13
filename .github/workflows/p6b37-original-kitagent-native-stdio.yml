@@ -1,0 +1,68 @@
+name: "B37 original upstream KitAgent pre/post real MCP stdio replay"
+on:
+  push:
+    branches:
+      - qualification/p6b37-native-original-kitagent-20261113
+    paths:
+      - research/b37_original_kitagent_stdio_*.py
+      - .github/workflows/p6b37-original-kitagent-native-stdio.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-kitagent-mcp-client:
+    name: Original KitAgent before/after actual stdio on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Checkout controlled replay and first-party stdio producer
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Checkout exact ORIGINAL upstream pre-fix client, not any rest of project
+        uses: actions/checkout@v5
+        with:
+          repository: zed123214/kitagent
+          ref: 33afd476312db30561f998c1d1dbb46fed9b835c
+          path: original/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agent_runtime/core/mcp/client.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout exact ORIGINAL upstream repaired client
+        uses: actions/checkout@v5
+        with:
+          repository: zed123214/kitagent
+          ref: ddbcca26231bbaef937b8a8823fc982a52f5c1c8
+          path: original/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agent_runtime/core/mcp/client.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Execute original before/after KitAgent through real controlled JSON-RPC stdio
+        shell: bash
+        run: |
+          python research/b37_original_kitagent_stdio_replay.py
+          python -c "import json; p='research/out/B37_ORIGINAL_KITAGENT_NATIVE_BEFORE_AFTER.json'; r=json.load(open(p,encoding='utf-8')); assert r['summary']['original_external_client_code_executed']; assert r['summary']['before_bad_result_falsely_reported_as_success']; assert r['summary']['after_bad_result_reported_as_tool_error']"
+      - name: Retain original native wire messages and signed commit metadata, not upstream source
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b37-native-original-kitagent-${{ matrix.os }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            research/out/B37_ORIGINAL_KITAGENT_NATIVE_BEFORE_AFTER.json
+            research/out/KITAGENT_BEFORE_ORIGINAL_STDIO.jsonl
+            research/out/KITAGENT_AFTER_ORIGINAL_STDIO.jsonl
