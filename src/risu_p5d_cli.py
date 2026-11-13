@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='verify-mcp-effect-closure':
+        from risu_mcp_effect_closure import main as verify_closure
+        return verify_closure(args[1:])
     if args and args[0]=='verify-mcp-independent-owner':
         from risu_mcp_independent_owner_evidence import main as verify_independent
         return verify_independent(args[1:])
