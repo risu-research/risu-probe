@@ -1,0 +1,265 @@
+name: "P6-B36 independent eight-upstream original source first look"
+on:
+  push:
+    branches:
+      - qualification/p6b36-independent-seal-20261113
+    paths:
+      - benchmarks/p6b36/**
+      - .github/workflows/p6b36-sealed-first-look.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  frozen-first-look:
+    name: Original eight upstream repairs; frozen source detector; no foreign execution
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout B36 pre-sealed evaluator and manifest
+        uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - name: Checkout B34-trained algorithm before B36 source inspection
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: c34def4a25b66cbc89df039ca235d6c1df2094f0
+          path: development
+          persist-credentials: false
+      - name: Checkout immutable original public product
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 8d622b792b4ae58b7157fd81ee5f95d6febcfd53
+          path: frozen
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Checkout B36A genuine before fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: agentarea/agentarea
+          ref: 0ccc32d1438f58b11619e2dd83e3518bda338198
+          path: holdout/upstream/B36A/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            agentarea-platform/libs/execution/agentarea_execution/workflows/helpers.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36A genuine after fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: agentarea/agentarea
+          ref: 43af5b172b5255e6c61d253fd456b4d59797d225
+          path: holdout/upstream/B36A/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            agentarea-platform/libs/execution/agentarea_execution/workflows/helpers.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36B genuine before fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: pymc-labs/daimon
+          ref: d0ab8001036b8009db35baf6c170d529a7d2c1de
+          path: holdout/upstream/B36B/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            apps/harness/src/daimon_harness/model_adapter.py
+            apps/harness/src/daimon_harness/runtime.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36B genuine after fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: pymc-labs/daimon
+          ref: 3825b6865c160ddf950f438dc6f8cbcaba61c660
+          path: holdout/upstream/B36B/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            apps/harness/src/daimon_harness/model_adapter.py
+            apps/harness/src/daimon_harness/runtime.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36C genuine before fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: microsoft/agent-framework
+          ref: fd1230844b890b8986813a5461ff0d6690e74631
+          path: holdout/upstream/B36C/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            python/packages/anthropic/agent_framework_anthropic/_chat_client.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36C genuine after fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: microsoft/agent-framework
+          ref: f6a7335697bd3b770d7968c1660a441b21dc26e9
+          path: holdout/upstream/B36C/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            python/packages/anthropic/agent_framework_anthropic/_chat_client.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36D genuine before fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: StitchWB/Stitch-Manager
+          ref: 7325b78af73e633978566a9d4298f5fbacb149da
+          path: holdout/upstream/B36D/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            python/stitch_backend/mcp_server/tools.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36D genuine after fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: StitchWB/Stitch-Manager
+          ref: 62f6fdee0eef20000d3b09b039fa106f8ccebb1d
+          path: holdout/upstream/B36D/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            python/stitch_backend/mcp_server/tools.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36E genuine before fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: meyergru/opnsense-mcp-server
+          ref: 222b317845e80a11b8f37ce0a3bac29ef557eec3
+          path: holdout/upstream/B36E/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/opnsense_mcp/tools/dhcp.py
+            src/opnsense_mcp/tools/network.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36E genuine after fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: meyergru/opnsense-mcp-server
+          ref: cc7b5d9460271e8a7315cf14883c3a820289d672
+          path: holdout/upstream/B36E/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/opnsense_mcp/tools/dhcp.py
+            src/opnsense_mcp/tools/network.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36F genuine before fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: data-fair/agents
+          ref: 143f8ec491deaccb925e2b93194bd87e491a84f0
+          path: holdout/upstream/B36F/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            shared/tool-result.ts
+            api/src/code-mode/code-tools.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36F genuine after fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: data-fair/agents
+          ref: 3fe020d1cdc75304423acf3684b7758e01d3aa8e
+          path: holdout/upstream/B36F/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            shared/tool-result.ts
+            api/src/code-mode/code-tools.ts
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36G genuine before fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: arcships/dim
+          ref: de151ef83b25dd4df98c32f245bd1284e5be4ebd
+          path: holdout/upstream/B36G/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            crates/dim-codemode/src/interpreter.rs
+            crates/dim-codemode/src/session.rs
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36G genuine after fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: arcships/dim
+          ref: 1e4d11144d013e0959685d6d38db4f94e460bb8b
+          path: holdout/upstream/B36G/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            crates/dim-codemode/src/interpreter.rs
+            crates/dim-codemode/src/session.rs
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36H genuine before fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: codeready-toolchain/tarsy
+          ref: fab8e339bd5252f9ef36a1a305730877295ba0d5
+          path: holdout/upstream/B36H/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            pkg/mcp/executor.go
+          sparse-checkout-cone-mode: false
+      - name: Checkout B36H genuine after fix-side Git parent
+        uses: actions/checkout@v5
+        with:
+          repository: codeready-toolchain/tarsy
+          ref: e623b8e56bbfb253e30bdffb488a071c586a2176
+          path: holdout/upstream/B36H/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            pkg/mcp/executor.go
+          sparse-checkout-cone-mode: false
+      - name: Install exact frozen public product with isolated interpreter
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen rev-parse HEAD)" = 8d622b792b4ae58b7157fd81ee5f95d6febcfd53
+          test "$(git -C development rev-parse HEAD)" = c34def4a25b66cbc89df039ca235d6c1df2094f0
+          python -m venv .b36-python
+          .b36-python/bin/python -m pip install --disable-pip-version-check ./frozen
+          .b36-python/bin/risu-probe doctor --format json
+      - name: Run first frozen B36 source audit without changing rule code or executing upstream
+        shell: bash
+        run: |
+          set -euo pipefail
+          .b36-python/bin/python holdout/benchmarks/p6b36/run_sealed_once.py .b36-python/bin/risu-probe
+          sha256sum holdout/out/B36_FIRST_LOOK_RESULTS.json
+          cat holdout/out/B36_FIRST_LOOK_REPORT.md
+      - name: Preserve only derived audit records, not third-party repositories
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b36-eight-original-merged-fixes-first-look
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            holdout/out/B36_FIRST_LOOK_RESULTS.json
+            holdout/out/B36_FIRST_LOOK_REPORT.md
