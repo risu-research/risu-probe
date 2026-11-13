@@ -200,6 +200,18 @@ def preflight(grant_path,tar_path,run_id,actor,approval_mode,token,
     require((run["event"]=="workflow_dispatch")==
               (approval_mode=="DIRECT_AUTHENTICATED_OWNER_ACCOUNT_DISPATCH"),
             "WRONG_OWNER_APPROVAL_EVENT_CLASSIFICATION")
+    # Independently classify a consumed grant BEFORE comparing current
+    # remote state: post-execution replay must not be mislabeled merely as
+    # a stale Git blob. A persistent distributed ledger is still required
+    # for cross-machine replay defense; this is executor-local.
+    led=Path(nonce_dir)
+    require(led.is_dir() and not led.is_symlink() and
+            os.stat(led).st_uid==os.geteuid() and
+            os.stat(led).st_mode&0o077==0,
+            "NONCE_LEDGER_NOT_PRIVATELY_OWNED_BY_EXECUTOR")
+    if (led/grant["nonce"]).exists():
+        raise Refused("OWNER_GRANT_ALREADY_CONSUMED")
+
     # For the first B23 baseline, require the real owner-authored commit
     # before taking actions that would destroy its original precondition.
     branch=github_api("https://api.github.com/repos/"+ISSUER_REPO+
