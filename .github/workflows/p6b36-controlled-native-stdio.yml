@@ -1,0 +1,43 @@
+name: "P6-B36 controlled native MCP stdio multi-channel witness"
+on:
+  push:
+    branches:
+      - qualification/p6b36-real-stdio-evidence-20261113
+    paths:
+      - research/b36_native_stdio_*.py
+      - .github/workflows/p6b36-controlled-native-stdio.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-stdio-no-external-upstream:
+    name: MCP SDK 2.3.0 real subprocess stdio on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install pinned original MCP Python SDK
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check "mcp==2.3.0"
+      - name: Run actual controlled stdio JSON-RPC 2025-11-25 tool protocol
+        shell: bash
+        run: |
+          python research/b36_native_stdio_client.py
+      - name: Archive native wire evidence only
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b36-original-controlled-mcp-stdio-${{ matrix.os }}
+          path: research/out/B36_CONTROLLED_NATIVE_STDIO_WIRE.json
+          retention-days: 90
+          if-no-files-found: error
