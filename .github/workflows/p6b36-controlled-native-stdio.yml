@@ -5,6 +5,7 @@ on:
       - qualification/p6b36-real-stdio-evidence-20261113
     paths:
       - research/b36_native_stdio_*.py
+      - research/b36_typed_client_witness.py
       - .github/workflows/p6b36-controlled-native-stdio.yml
   workflow_dispatch:
 permissions:
@@ -22,6 +23,13 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+      - name: Checkout immutable B34 source detector (research only)
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: c34def4a25b66cbc89df039ca235d6c1df2094f0
+          path: b34-static
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
@@ -33,11 +41,14 @@ jobs:
         shell: bash
         run: |
           python research/b36_native_stdio_client.py
+          python research/b36_typed_client_witness.py b34-static
       - name: Archive native wire evidence only
         uses: actions/upload-artifact@v4
         if: success()
         with:
           name: b36-original-controlled-mcp-stdio-${{ matrix.os }}
-          path: research/out/B36_CONTROLLED_NATIVE_STDIO_WIRE.json
+          path: |
+            research/out/B36_CONTROLLED_NATIVE_STDIO_WIRE.json
+            research/out/B36_STATIC_TO_NATIVE_STDIO_CONTROLLED_EFFECT.json
           retention-days: 90
           if-no-files-found: error
