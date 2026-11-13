@@ -217,6 +217,8 @@ def normalize(e):
          "INCOMPLETE_ORIGINAL_SOURCE_OBLIGATIONS")
     need(set(sig)=={"candidate","broker","receipt"},
          "THREE_ORIGINAL_SIGNED_SUBJECTS_REQUIRED")
+    need(valid_path(e.get("intent_path")),
+         "ORIGINAL_INTENT_SOURCE_PATH_NOT_BOUND")
     repo=run.get("repository")
     source_sha=run.get("head_sha")
     source_ref=run.get("source_ref")
@@ -352,6 +354,7 @@ def normalize(e):
        "verification_mode":"STRUCTURAL_ONLY_ORIGINAL_SIGSTORE_GITHUB_FACTS_NEED_FRESH_VERIFICATION",
        "original_run_id":run_id,
        "original_actor":native_actor,
+       "original_intent_path":e["intent_path"],
        "source_repository":repo,
        "original_source_sha":source_sha,
        "original_source_ref":source_ref,
@@ -519,6 +522,7 @@ def collect_live(repo,run_id,artifact_name,workflow_path,token,
         changes=effect.get("files",[])
         result={
           "schema":SOURCE_SCHEMA,
+          "intent_path":intent_path,
           "verification_origin":"LIVE_GITHUB_REST_AND_OFFICIAL_GH_SIGSTORE",
           "run":{
             "repository":repo,"id":run_id,
