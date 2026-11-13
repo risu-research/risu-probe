@@ -56,3 +56,23 @@ jobs:
           "$PY" -m risu_p5d_cli enforce-mcp-human-reviewed-write --help
           RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
           echo B25_PRIOR_ALL_RISU_AND_NO_HUMAN_APPROVAL_NEVER_WRITES_PASS
+
+  github-api-python314-transport:
+    name: Exact GitHub REST base64 compatibility and denial tests (Python 3.14)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Run actual folded transport and malicious negative cases under runner Python 3.14
+        run: |
+          set -euo pipefail
+          python --version
+          PYTHONPATH=src python -m unittest discover -s tests -p 'test_p6b25_human_review_broker.py' -v
+          echo B25_GITHUB_ACTUAL_LINEFOLDED_BASE64_PY314_STRICT_AND_POSITIVE_PASS
