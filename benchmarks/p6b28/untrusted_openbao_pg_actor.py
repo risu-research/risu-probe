@@ -33,7 +33,27 @@ def issuer_get(path,token=None):
         with urllib.request.urlopen(req,timeout=25) as r:
             return r.status,json.loads(r.read())
     except urllib.error.HTTPError as err:
-        return err.code,{}
+        # Never print raw OpenBao/DB error: a plugin may echo SQL or secrets.
+        # Only export a small, fixed allowlist of diagnostic classifications.
+        try: diagnostic=err.read(7000).decode("utf-8","replace").lower()
+        except Exception:diagnostic=""
+        categories={
+           "password_auth_failed":"password authentication failed" in diagnostic,
+           "postgres_permission_denied":"permission denied" in diagnostic,
+           "postgres_grant_denied":"permission denied to grant role" in diagnostic,
+           "postgres_role_nonmember":"must be member of role" in diagnostic,
+           "postgres_role_already_exists":"already exists" in diagnostic,
+           "postgres_syntax_error":"syntax error" in diagnostic,
+           "postgres_role_missing":"does not exist" in diagnostic,
+           "database_connection_error":"failed to connect" in diagnostic,
+           "pg_hba_auth":"pg_hba.conf" in diagnostic,
+           "database_user_creation_error":"failed to create user" in diagnostic,
+           "database_statement_error":"failed to execute" in diagnostic,
+           "database_lease_error":"failed to lease" in diagnostic,
+           "openbao_permission_denied":"permission denied" in diagnostic,
+           "no_handler_for_route":"no handler for route" in diagnostic,
+        }
+        return err.code,{"native_error_classes":[k for k,v in categories.items() if v]}
 
 def actor_sql(username,password,sql):
     env={"PATH":"/usr/bin:/bin","HOME":"/tmp","LANG":"C.UTF-8",
@@ -83,7 +103,7 @@ def main():
                                 launch["restricted_bao_token"])
     require(issue_code==200 and "data" in issued
         and issued.get("lease_id","").startswith("database/creds/b28-write/"),
-        "Original OpenBao PostgreSQL engine did not issue native leased credentials; status="+str(issue_code)+" response_fields="+str(sorted(issued.keys()))+" lease_prefix_ok="+str(issued.get("lease_id","").startswith("database/creds/b28-write/")))
+        "Original OpenBao PostgreSQL engine did not issue native leased credentials; status="+str(issue_code)+" response_fields="+str(sorted(issued.keys()))+" native_classes="+str(issued.get("native_error_classes",[]))+" lease_prefix_ok="+str(issued.get("lease_id","").startswith("database/creds/b28-write/")))
     username=issued["data"]["username"]
     password=issued["data"]["password"]
     require(type(username) is str and 3<len(username)<120
