@@ -438,7 +438,7 @@ its privileged credential.
 **Important current status:** B25's real human approval and post-approval
 remote update are *pending user action*. In separate real owner-repository
 CI, GitHub reported an empty review history, the unreviewed agent's actual
-write returned HTTP 403 and the owner resource was unchanged. All 538
+write returned HTTP 403 and the owner resource was unchanged. All 539
 installed tests (including earlier RISU features) passed on Ubuntu,
 macOS and Windows. A mocked reviewer approval in tests is **never**
 reported as real human consent.
