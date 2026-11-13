@@ -54,6 +54,20 @@ jobs:
                   print("B31_SIGNED_INNER",case,"shape",{
                     k:sorted(v.keys()) if isinstance(v,dict) else type(v).__name__
                     for k,v in value[0].items()})
+                  vr=value[0].get("verificationResult",{})
+                  identity=vr.get("verifiedIdentity",{})
+                  statement=vr.get("statement",{})
+                  subjects=statement.get("subject") if isinstance(statement,dict) else None
+                  print("B31_IDENTITY",case,json.dumps(identity,sort_keys=True)[:700])
+                  print("B31_STATEMENT",case,
+                        "type",statement.get("_type") if isinstance(statement,dict) else None,
+                        "predicateType",statement.get("predicateType") if isinstance(statement,dict) else None,
+                        "subject",json.dumps(subjects,sort_keys=True)[:800])
+                  if isinstance(statement,dict):
+                      pred=statement.get("predicate",{})
+                      print("B31_PREDICATE",case,
+                            "fields",sorted(pred) if isinstance(pred,dict) else [],
+                            "source",str(pred.get("buildDefinition",{}).get("externalParameters",{}))[:300] if isinstance(pred,dict) else "")
               print("B31_ASSET_SHA256",case,
                     hashlib.sha256((root/name).read_bytes()).hexdigest())
           PY
