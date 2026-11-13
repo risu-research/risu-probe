@@ -22,7 +22,7 @@ and an adversary able to replace trusted job code could bypass it.
 from __future__ import annotations
 import argparse
 import base64
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 import hashlib
 import json
 import os
@@ -170,7 +170,18 @@ def require_human_review(token,run_id,workflow_sha):
     run=api(token,root+"/actions/runs/"+str(run_id))
     enforce(run.get("head_sha")==workflow_sha,
             "REVIEW_NOT_FOR_EXACT_WORKFLOW_SOURCE_COMMIT")
+    # The grant's 30-minute window begins when this workflow run is
+    # created, not when someone reuses its historic review record.
+    created=run.get("created_at")
+    enforce(type(created) is str and created.endswith("Z"),
+            "NO_TRUSTWORTHY_GITHUB_RUN_CREATION_TIME")
+    try:created_at=datetime.fromisoformat(created.replace("Z","+00:00"))
+    except ValueError:raise PolicyDenied("INVALID_GITHUB_RUN_CREATION_TIME")
+    review_age=datetime.now(timezone.utc)-created_at
+    enforce(timedelta(0)<=review_age<=timedelta(minutes=30),
+            "OWNER_APPROVAL_WORKFLOW_RUN_WINDOW_EXPIRED")
     proof=validate_actual_review(run,reviewers)
+    proof["reviewed_run_age_seconds_at_writer"]=int(review_age.total_seconds())
     return proof
 
 def original_resource_before(token,policy):
