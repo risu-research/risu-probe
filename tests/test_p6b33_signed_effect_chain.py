@@ -76,6 +76,10 @@ class B33ParserAndTrustBoundary(unittest.TestCase):
         with self.assertRaises(m.Refused):
             m.collect_live("risu-research/risu-verify",0,"artifact",
                            ".github/workflows/a.yml","secret")
+        with self.assertRaisesRegex(m.Refused,"UNSAFE_ORIGINAL_INTENT_PATH"):
+            m.collect_live("risu-research/risu-verify",43458536273,"artifact",
+                           ".github/workflows/a.yml","not-a-token",
+                           intent_path="../forged.json")
 
 class B33OriginalVerifiedFactsAdversarial(unittest.TestCase):
     @classmethod
@@ -128,6 +132,8 @@ class B33OriginalVerifiedFactsAdversarial(unittest.TestCase):
             lambda x:x["run"].update(head_sha="b"*40))
         self.refuse("other source ref",
             lambda x:x["run"].update(source_ref="refs/heads/main"))
+        self.refuse("other source policy path",
+            lambda x:x.update(intent_path="../foreign-intent.json"))
         self.refuse("wrong signed signer",
             lambda x:x["signatures"]["candidate"].update(signer_identity="https://github.com/bad/bad/.github/workflows/a.yml@refs/heads/main"))
         self.refuse("other signed source commit",
