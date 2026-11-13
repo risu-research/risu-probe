@@ -1,0 +1,19 @@
+{
+  "schema": "risu-b33-one-time-original-activation-v1",
+  "operator_stage": "H2_DISTINCT_REPOSITORY_PRE_REGISTERED_HOLDOUT",
+  "activation": "RUN_EXACT_SIGNED_CANDIDATE_AND_SEPARATE_CREDENTIAL_ISOLATED_GITHUB_BROKER",
+  "repo": "risu-research/risu-probe",
+  "target_branch": "qualification/p6b33-signed-execution-effect-closure-20261113",
+  "resource": "benchmarks/p6b33/owner_resource.txt",
+  "expected_before_sha256": "3d94021520c4e5cbfe28f22e9a427caafcc8356a551ef54d36ad16c280418870",
+  "expected_after_sha256": "1edde392ee5291509129d34e99b89385edb978c75ef910e6a7b8628bc962f162",
+  "signature_order": [
+    "candidate before execution",
+    "trusted fixed broker before write",
+    "receipt after actual GitHub Contents PUT"
+  ],
+  "separate_read_only_audit": true,
+  "independent_human_owner_approval": false,
+  "source_program_cannot_read_write_token": true,
+  "write_token_scope": "repository contents write in trusted fixed broker job, one-file code gate"
+}
