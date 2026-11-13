@@ -1,0 +1,259 @@
+name: "P6-B37 frozen first-look eight independent original MCP fixes"
+on:
+  push:
+    branches:
+      - qualification/p6b37-sealed-external-20261113
+    paths:
+      - benchmarks/p6b37/**
+      - .github/workflows/p6b37-immutable-first-look.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  first-independent-evidence:
+    name: Original Git trees, pre-frozen B37 algorithm, public product; read only
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout sealed B37 cases and read-only evaluator
+        uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - name: Checkout exact algorithm fixed after prior-B36 only development
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: fd025a31a18d5d1c57f089af19ab8342b25f6cd4
+          path: development
+          persist-credentials: false
+      - name: Checkout public baseline frozen before B34
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 8d622b792b4ae58b7157fd81ee5f95d6febcfd53
+          path: frozen
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Verify original B37A before immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: Eigenwise/atomic-agents
+          ref: 151dadb64814378e82fb7e87ac9c6125c37ae431
+          path: holdout/upstream/B37A/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            atomic-agents/atomic_agents/connectors/mcp/mcp_factory.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37A after immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: Eigenwise/atomic-agents
+          ref: 29c894b2f4dd275e8bcb45083196a5ff281d58d5
+          path: holdout/upstream/B37A/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            atomic-agents/atomic_agents/connectors/mcp/mcp_factory.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37B before immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: zed123214/kitagent
+          ref: 33afd476312db30561f998c1d1dbb46fed9b835c
+          path: holdout/upstream/B37B/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agent_runtime/core/mcp/client.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37B after immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: zed123214/kitagent
+          ref: ddbcca26231bbaef937b8a8823fc982a52f5c1c8
+          path: holdout/upstream/B37B/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agent_runtime/core/mcp/client.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37C before immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: pvliesdonk/scholar-mcp
+          ref: 59492daac9f92df3986adeb2e49ce001c653215f
+          path: holdout/upstream/B37C/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/scholar_mcp/_tools_books.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37C after immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: pvliesdonk/scholar-mcp
+          ref: 4bb65a93965487d1118692419e94241c4b8f7b7d
+          path: holdout/upstream/B37C/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/scholar_mcp/_tools_books.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37D before immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: rhamenator/ai-scraping-defense
+          ref: 36df0547a05047decf4291e3c9a25b459f78be6c
+          path: holdout/upstream/B37D/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/shared/mcp_client.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37D after immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: rhamenator/ai-scraping-defense
+          ref: aab4d153805be5074b1bfe3eb210f50de7945c02
+          path: holdout/upstream/B37D/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/shared/mcp_client.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37E before immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: LvcidPsyche/auto-browser
+          ref: 829f61ff7785f989a1b49f29e3cba18ba1254381
+          path: holdout/upstream/B37E/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            controller/app/mcp_transport.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37E after immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: LvcidPsyche/auto-browser
+          ref: faf35b9219cc698daf4b78fcae33763b9f16dbb7
+          path: holdout/upstream/B37E/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            controller/app/mcp_transport.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37F before immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: mmarquezs/vouchervault-mcp
+          ref: de6110a3aad59933a12d339d2f5a281b9e3c5df9
+          path: holdout/upstream/B37F/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            vouchervault_mcp/server.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37F after immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: mmarquezs/vouchervault-mcp
+          ref: 46ef8abfb5c7f5158a92999a9fd5448195fb0789
+          path: holdout/upstream/B37F/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            vouchervault_mcp/server.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37G before immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: pete-builds/mcp-unifi
+          ref: aad6eb8351ce4527864d69f301ed6002a08dad88
+          path: holdout/upstream/B37G/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp_unifi/responses.py
+            src/mcp_unifi/server.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37G after immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: pete-builds/mcp-unifi
+          ref: 59b1091c645e81c583f8ca7a83b4d78fd4ad16ac
+          path: holdout/upstream/B37G/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp_unifi/responses.py
+            src/mcp_unifi/server.py
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37H before immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: portofcontext/pctx
+          ref: 4db8d99591d262995aacee7544dd71cf5062e9cd
+          path: holdout/upstream/B37H/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            crates/pctx_registry/src/registry.rs
+          sparse-checkout-cone-mode: false
+      - name: Verify original B37H after immutable upstream commit
+        uses: actions/checkout@v5
+        with:
+          repository: portofcontext/pctx
+          ref: 275f0dadfc215fa780cae7cd7c178b65f6d06dfd
+          path: holdout/upstream/B37H/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            crates/pctx_registry/src/registry.rs
+          sparse-checkout-cone-mode: false
+      - name: Install untouched public CLI and assert original main SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen rev-parse HEAD)" = 8d622b792b4ae58b7157fd81ee5f95d6febcfd53
+          test "$(git -C development rev-parse HEAD)" = fd025a31a18d5d1c57f089af19ab8342b25f6cd4
+          python -m venv .b37-python
+          .b37-python/bin/python -m pip install --disable-pip-version-check ./frozen
+          .b37-python/bin/risu-probe doctor --format json
+      - name: Execute one-time B37 frozen source holdout with no foreign source execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          .b37-python/bin/python holdout/benchmarks/p6b37/run_first_look.py .b37-python/bin/risu-probe
+          sha256sum holdout/out/B37_FIRST_LOOK_RESULTS.json
+          cat holdout/out/B37_FIRST_LOOK_REPORT.md
+      - name: Preserve exact derived report and outputs, excluding original foreign source bytes
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-p6b37-eight-independent-git-originals-first-look
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            holdout/out/B37_FIRST_LOOK_RESULTS.json
+            holdout/out/B37_FIRST_LOOK_REPORT.md
