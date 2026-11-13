@@ -7,6 +7,7 @@ gateway is present in this agent process. The direct SQL client is psql.
 from __future__ import annotations
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -53,7 +54,19 @@ def issuer_get(path,token=None):
            "openbao_permission_denied":"permission denied" in diagnostic,
            "no_handler_for_route":"no handler for route" in diagnostic,
         }
-        return err.code,{"native_error_classes":[k for k,v in categories.items() if v]}
+        allow_words=set(("token uses use limited limit cannot create created creating "
+            "lease leasing revoked revocation revoked expired invalid error request "
+            "operation backend credential credentials database postgres postgresql "
+            "password role roles grant permissions permission denied failed forbidden "
+            "parent child new secret secrets dynamic allowed not supported user "
+            "unable read response return status internal failed to from with and "
+            "write lookup client already entry resource openbao authentication "
+            "issue issuing generated generate path sql expiration").split())
+        safe_words=[w for w in re.findall(r"[a-z]+",diagnostic)
+                    if w in allow_words][:38]
+        return err.code,{"native_error_classes":[k for k,v in categories.items() if v],
+                         "native_error_safe_keywords":safe_words,
+                         "native_error_body_length":len(diagnostic)}
 
 def actor_sql(username,password,sql):
     env={"PATH":"/usr/bin:/bin","HOME":"/tmp","LANG":"C.UTF-8",
@@ -103,7 +116,7 @@ def main():
                                 launch["restricted_bao_token"])
     require(issue_code==200 and "data" in issued
         and issued.get("lease_id","").startswith("database/creds/b28-write/"),
-        "Original OpenBao PostgreSQL engine did not issue native leased credentials; status="+str(issue_code)+" response_fields="+str(sorted(issued.keys()))+" native_classes="+str(issued.get("native_error_classes",[]))+" lease_prefix_ok="+str(issued.get("lease_id","").startswith("database/creds/b28-write/")))
+        "Original OpenBao PostgreSQL engine did not issue native leased credentials; status="+str(issue_code)+" response_fields="+str(sorted(issued.keys()))+" native_classes="+str(issued.get("native_error_classes",[]))+" safe_keywords="+str(issued.get("native_error_safe_keywords",[]))+" length="+str(issued.get("native_error_body_length",-1))+" lease_prefix_ok="+str(issued.get("lease_id","").startswith("database/creds/b28-write/")))
     username=issued["data"]["username"]
     password=issued["data"]["password"]
     require(type(username) is str and 3<len(username)<120
