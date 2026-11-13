@@ -3,7 +3,7 @@
 These are strictly unit tests for the already source-native verified
 repository-owner grant gate. They DO NOT replace the real GitHub OIDC
 signature and original GitHub MCP tool execution demonstrated in owner
-repo CI run 43336892730 and independent read-only run 43337547529.
+repo CI run 43341365204 and independent read-only run 43342185893.
 """
 from __future__ import annotations
 import asyncio
@@ -54,7 +54,7 @@ class TestB24RepoOwnerPreflight(unittest.TestCase):
                 "branch":m.ISSUER_BRANCH,"path":m.EXACT_PATH,
                 "message":"B24 authorized bounded owner repository resource update",
                 "content":self.post,
-                "sha":"de0b72cd177d6f1bb7153a9925bb3a5bf285d521"},
+                "sha":"bd6b674299ba329d871bb05790a85cab3a1f4e5f"},
             "owner_approval_statement":"Mock separate github owner test only",
             "limit":"No human user consent simulated here."}
         self.path=self.p/"grant.json"
@@ -66,9 +66,9 @@ class TestB24RepoOwnerPreflight(unittest.TestCase):
                 "id":m.ISSUER_REPO_ID,"owner":{"id":m.ORG_ID},"private":False},
             "https://api.github.com/repos/"+m.ISSUER_REPO+
                 "/collaborators/"+m.OWNER_ACCOUNT+"/permission":{"permission":"admin"},
-            "https://api.github.com/repos/"+m.ISSUER_REPO+"/actions/runs/43336892730":{
+            "https://api.github.com/repos/"+m.ISSUER_REPO+"/actions/runs/43341365204":{
                 "actor":{"login":m.OWNER_ACCOUNT},"head_branch":m.ISSUER_BRANCH,
-                "path":".github/workflows/p6b24-owner-issued-github-mcp.yml",
+                "path":".github/workflows/p6b24-owner-gated-broker.yml",
                 "event":"push"},
             "https://api.github.com/repos/"+m.ISSUER_REPO+"/branches/"+m.ISSUER_BRANCH:{
                 "commit":{"sha":"0"*40}},
@@ -87,7 +87,7 @@ class TestB24RepoOwnerPreflight(unittest.TestCase):
                 "owner_grant_sha256":m.digest(self.path.read_bytes()),
                 "verified_count":1}),\
              patch.object(m,"github_api",side_effect=lambda url,token:self.api_data[url]):
-            return m.preflight(self.path,self.release,"43336892730",
+            return m.preflight(self.path,self.release,"43341365204",
                 m.OWNER_ACCOUNT,
                 "DELEGATED_OWNER_ACCOUNT_GIT_COMMIT_AUTOMATED_DEVELOPMENT",
                 "test-token-authenticated-by-original-GitHub-CI",self.ledger)
@@ -128,12 +128,12 @@ class TestB24RepoOwnerPreflight(unittest.TestCase):
         with patch.object(m,"gh_attested",side_effect=m.Refused("NO_SIGNATURE")),\
              patch.object(m,"EXPECTED_RELEASE_TAR_SHA",m.digest(b"mock-binary")):
             with self.assertRaises(m.Refused):m.preflight(
-                self.path,self.release,"43336892730",m.OWNER_ACCOUNT,
+                self.path,self.release,"43341365204",m.OWNER_ACCOUNT,
                 "DELEGATED_OWNER_ACCOUNT_GIT_COMMIT_AUTOMATED_DEVELOPMENT",
                 "mock",self.ledger)
 
     def test_actor_account_not_same_actual_github_admin_run(self):
-        u="https://api.github.com/repos/"+m.ISSUER_REPO+"/actions/runs/43336892730"
+        u="https://api.github.com/repos/"+m.ISSUER_REPO+"/actions/runs/43341365204"
         self.api_data[u]["actor"]["login"]="unknown-user"
         self.rejects()
 
@@ -171,7 +171,7 @@ class TestB24RepoOwnerPreflight(unittest.TestCase):
              patch.object(m,"gh_attested",return_value={"owner_grant_sha256":"a"*64}),\
              patch.object(m,"github_api",side_effect=lambda url,token:self.api_data[url]):
             with self.assertRaises(m.Refused):
-                m.preflight(self.path,self.release,"43336892730",m.OWNER_ACCOUNT,
+                m.preflight(self.path,self.release,"43341365204",m.OWNER_ACCOUNT,
                     "DIRECT_AUTHENTICATED_OWNER_ACCOUNT_DISPATCH","mock",self.ledger)
 
     def test_local_atomic_nonce_cannot_run_twice_under_same_prestate(self):
