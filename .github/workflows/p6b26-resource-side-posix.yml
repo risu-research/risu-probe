@@ -1,0 +1,107 @@
+name: RISU B26 resource-side issuer, credential and effect enforcement
+on:
+  push:
+    branches:
+      - qualification/p6b26-resource-side-owner-enforcement-20261112
+    paths:
+      - src/risu_mcp_resource_guard.py
+      - src/risu_p5d_cli.py
+      - pyproject.toml
+      - tests/test_p6b26_resource_guard.py
+      - benchmarks/p6b26/**
+      - .github/workflows/p6b26-resource-side-posix.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  cross-platform-product-regression:
+    name: Installed RISU prior tests + B26 bounded authorization checks
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install packaged B26 reference implementation with crypto extras
+        run: |
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          python -m pip install -e '.[effect-authority]'
+          python -m pip check
+          python -m risu_p5d_cli enforce-mcp-resource-side --help
+      - name: Full previous RISU and B26 negative / positive authorization regression
+        run: |
+          python -m unittest discover -s tests -v
+          echo RISU_B26_FULL_CROSS_PLATFORM_REGRESSION_PASS
+
+  real-os-issuer-resource-service:
+    name: Four real OS users, owner-issued object token, HTTP, atomic SQLite and independent audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install exact test dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+      - name: Actually enforce access in distinct Linux users and original SQLite state
+        run: |
+          set -euo pipefail
+          mkdir -p .b26-out
+          sudo -n "$(command -v python)" benchmarks/p6b26/run_live_posix.py --out .b26-out
+          sudo -n "$(command -v python)" benchmarks/p6b26/independent_audit.py \
+            --result .b26-out/original_live_result.json \
+            --db .b26-out/owner_resources.sqlite3 \
+            --out .b26-out/independent_audit.json
+          sudo -n chown -R "$(id -u):$(id -g)" .b26-out
+      - name: Verify independent audit rejects an altered original result
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          original=json.loads(Path('.b26-out/original_live_result.json').read_text())
+          original['cases'][0]['http_status']=200
+          Path('.b26-out/TAMPERED_INVALID_RESULT.json').write_text(json.dumps(original))
+          PY
+          if python benchmarks/p6b26/independent_audit.py \
+              --result .b26-out/TAMPERED_INVALID_RESULT.json \
+              --db .b26-out/owner_resources.sqlite3 \
+              --out .b26-out/INVALID_SHOULD_NOT_EXIST.json; then
+            echo 'B26 independent auditor accepted tampered case' >&2
+            exit 1
+          fi
+          test ! -e .b26-out/INVALID_SHOULD_NOT_EXIST.json
+          echo RISU_B26_INDEPENDENT_AUDITOR_REJECTED_TAMPERED_RESULT
+      - name: Archive original live nonsecret evidence and independent audit
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risu-b26-live-resource-owner-credential-evidence
+          retention-days: 30
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b26-out/original_live_result.json
+            .b26-out/owner_resources.sqlite3
+            .b26-out/independent_audit.json
+            .b26-out/resource_server.log
