@@ -1,0 +1,58 @@
+name: RISU P6-B23 installed real GitHub owner OIDC preflight prototype and existing regression
+on:
+  push:
+    branches: ['qualification/p6b23-*']
+    paths:
+      - 'src/risu_mcp_github_owner.py'
+      - 'src/risu_p5d_cli.py'
+      - 'tests/test_p6b23_real_github_owner_preflight.py'
+      - 'pyproject.toml'
+      - '.github/workflows/p6b23-full-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  all-original-risu-and-new-owner-gate:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve previous B20-B22 products and CI guard
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+      - name: Build exact installed preview wheel and confirm optional GitHub owner command exists
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' wheel
+          mkdir -p .b23-wheel
+          python -m pip wheel --no-deps -w .b23-wheel .
+          python -m venv .b23-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b23-installed/Scripts/python.exe
+            CLI=.b23-installed/Scripts/risu-probe.exe
+          else
+            PY=.b23-installed/bin/python
+            CLI=.b23-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b23-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli enforce-mcp-github-owner --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B23_PREVIOUS_AND_SIGNED_EXTERNAL_GITHUB_OWNER_PRECALL_TESTS_PASS
