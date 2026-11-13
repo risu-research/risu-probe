@@ -188,7 +188,8 @@ def gh_verified(file_path,repo,signer_identity,source_ref,source_sha,run_id,toke
             if (type(sub) is dict and
                 type(sub.get("name")) is str and
                 type(sub.get("digest")) is dict and
-                sub["digest"].get("sha256")==expected):
+                sub["digest"].get("sha256")==expected and
+                sub["name"] in (p.name,"./"+p.name)):
                 matches.append({
                   "signed_subject_name":sub["name"],
                   "signed_subject_sha256":expected,
@@ -401,7 +402,9 @@ def collect_live(repo,run_id,artifact_name,workflow_path,token):
          run.get("status")=="completed",
          "ACTUAL_ORIGINAL_RUN_NOT_FINISHED_SUCCESS")
     source_ref="refs/heads/"+run.get("head_branch","")
-    need(valid_ref(source_ref),"ORIGINAL_GITHUB_SOURCE_REF_INVALID")
+    need(valid_ref(source_ref) and
+         run.get("path")==workflow_path,
+         "ORIGINAL_GITHUB_SOURCE_REF_OR_RUN_WORKFLOW_PATH_INVALID")
     identity=f"https://github.com/{repo}/{workflow_path}@{source_ref}"
     original_code=source_content(repo,workflow_path,source,token)
     try:
@@ -486,7 +489,8 @@ def collect_live(repo,run_id,artifact_name,workflow_path,token):
         for role,path,data in (("candidate",policy_path,cand_bytes),
                                ("broker",broker_path,broker_bytes)):
             fname=Path(path).name
-            need(fname not in signing_files,"SIGNED_LOCAL_SOURCE_BASENAMES_COLLIDE")
+            need(all(existing.name!=fname for existing in signing_files.values()),
+                 "SIGNED_LOCAL_SOURCE_BASENAMES_COLLIDE")
             file=root/fname
             file.write_bytes(data)
             signing_files[role]=file
