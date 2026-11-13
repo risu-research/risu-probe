@@ -1,0 +1,174 @@
+name: P6-B34 development: generic MCP channel projection on previous training fixes
+on:
+  push:
+    branches:
+      - qualification/p6b34-development-channel-preservation-20261113
+    paths:
+      - research/b34_*
+      - research/test_b34_*
+      - .github/workflows/p6b34-channel-algorithm-development.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-dev:
+    name: Genuine B34 sources and synthetic controls, not B35
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout algorithm development branch
+        uses: actions/checkout@v5
+        with:
+          path: dev
+          persist-credentials: false
+      - name: Checkout pre-existing locked B34 training manifest
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: qualification/p6b34-frozen-public-product-external-holdout-20261113
+          path: b34
+          persist-credentials: false
+          sparse-checkout: |
+            benchmarks/p6b34/LOCKED_HOLDOUT.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Source H1 before pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: agentscope-ai/agentscope
+          ref: 430fbc7898e5ba225bfe7e5afd26e0d83b622a0e
+          path: dev/upstream/H1/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agentscope/tool/_adapters.py
+          sparse-checkout-cone-mode: false
+      - name: Source H1 after pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: agentscope-ai/agentscope
+          ref: 7c198c5f1e68b6b9ee1dade94db254038c645907
+          path: dev/upstream/H1/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agentscope/tool/_adapters.py
+          sparse-checkout-cone-mode: false
+      - name: Source H2 before pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: NousResearch/hermes-agent
+          ref: dd2dc2bddf43d72e24e61fd306206c696298df47
+          path: dev/upstream/H2/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/mcp_tool.py
+          sparse-checkout-cone-mode: false
+      - name: Source H2 after pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: NousResearch/hermes-agent
+          ref: c8e3e3918509d4c43432ec2cf19ef6a1cfe9cd9c
+          path: dev/upstream/H2/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/mcp_tool.py
+          sparse-checkout-cone-mode: false
+      - name: Source H3 before pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: 72ff38cb5cb7c0f6d5024d1b185e5bf0c05f0cb0
+          path: dev/upstream/H3/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp/server/mcpserver/utilities/func_metadata.py
+          sparse-checkout-cone-mode: false
+      - name: Source H3 after pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: 5a3a23af65def4d636864d55701ff9395cad92d0
+          path: dev/upstream/H3/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp/server/mcpserver/utilities/func_metadata.py
+          sparse-checkout-cone-mode: false
+      - name: Source H4 before pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: 5a3a23af65def4d636864d55701ff9395cad92d0
+          path: dev/upstream/H4/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp/server/mcpserver/utilities/func_metadata.py
+          sparse-checkout-cone-mode: false
+      - name: Source H4 after pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: a525a3d9bece967d91534b746a6c842931b7b4ec
+          path: dev/upstream/H4/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp/server/mcpserver/utilities/func_metadata.py
+          sparse-checkout-cone-mode: false
+      - name: Source H5 before pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: af4c6f4db2cd207f44374cd324a12cfbee8d2da6
+          path: dev/upstream/H5/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp-types/mcp_types/_types.py
+          sparse-checkout-cone-mode: false
+      - name: Source H5 after pinned original
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: 82adc272e85c12f620df21db34b6086ed7619548
+          path: dev/upstream/H5/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp-types/mcp_types/_types.py
+          sparse-checkout-cone-mode: false
+      - name: Run narrow source algorithm positive and adversarial unit tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s dev/research -p test_b34_channel_projection.py -v
+      - name: Verify original upstream Git objects and evaluate frozen B34 training set
+        shell: bash
+        run: |
+          set -euo pipefail
+          python dev/research/b34_dev_evaluate.py
+          sha256sum dev/out/B34_CHANNEL_DEVELOPMENT_RESULTS.json
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: p6b34-channel-algorithm-development-source-only
+          path: dev/out/B34_CHANNEL_DEVELOPMENT_RESULTS.json
+          retention-days: 90
+          if-no-files-found: error
