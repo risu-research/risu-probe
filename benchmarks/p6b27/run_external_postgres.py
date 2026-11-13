@@ -72,17 +72,13 @@ def call(cmd,sql=None,env=None,uid=None,timeout=40):
     e=os.environ.copy()
     if env:e.update(env)
     # Cross-process OS boundary: agent never receives issuer password.
-    preexec=None
+    identity={}
     if uid:
         ident=pwd.getpwnam(uid)
-        def preexec():
-            os.setgroups([])
-            os.setgid(ident.pw_gid)
-            os.setuid(ident.pw_uid)
-        preexec_fn=preexec
-    else:preexec_fn=None
+        # No user-controlled shell, fork hook, or credential in argv.
+        identity={"user":ident.pw_uid,"group":ident.pw_gid,"extra_groups":[]}
     return subprocess.run(cmd,input=sql,text=True,capture_output=True,
-                          env=e,preexec_fn=preexec_fn,timeout=timeout)
+                          env=e,timeout=timeout,**identity)
 def privileged(sql,db="postgres"):
     cmd=["runuser","-u","postgres","--","psql","-X","-q",
          "-v","ON_ERROR_STOP=1","-At","-d",db]
