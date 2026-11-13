@@ -175,6 +175,20 @@ class TestB23RepoOwnerPreflight(unittest.TestCase):
 
     def test_local_atomic_nonce_cannot_run_twice_under_same_prestate(self):
         self.check()
+        with self.assertRaises(m.Refused) as caught:
+            self.check()
+        self.assertEqual(str(caught.exception),"OWNER_GRANT_ALREADY_CONSUMED")
+
+    def test_local_atomic_nonce_remains_replay_even_when_remote_content_has_changed(self):
+        self.check()
+        u="https://api.github.com/repos/"+m.ISSUER_REPO+"/contents/"+m.EXACT_PATH+"?ref="+m.ISSUER_BRANCH
+        self.api_data[u]["sha"]="f"*40
+        with self.assertRaises(m.Refused) as caught:
+            self.check()
+        self.assertEqual(str(caught.exception),"OWNER_GRANT_ALREADY_CONSUMED")
+
+    def test_no_trust_in_unowned_or_world_writable_nonce_ledger(self):
+        self.ledger.chmod(0o777)
         self.rejects()
 
     def test_preflight_is_not_a_global_org_user_consent_proof(self):
