@@ -66,15 +66,31 @@ def verify_original(case,side):
         expected=before_blob if side=="before" else after_blob
         file=root/path
         check(file.is_file() and not file.is_symlink(),case["id"]+"_FILE_MISSING_"+side)
-        check(git(root,"hash-object",path)==expected,case["id"]+"_BLOB_CHANGED_"+side)
-        data=file.read_bytes()
-        check(0<len(data)<=MAX_BYTES and b"\x00" not in data,case["id"]+"_UNSUPPORTED_SOURCE_"+side)
+        # Compare the actual pinned Git tree object, not the *materialized*
+        # checkout bytes. Worktree filters/attributes may transform bytes.
+        check(git(root,"rev-parse","HEAD:"+path)==expected,
+              case["id"]+"_PINNED_GIT_TREE_BLOB_CHANGED_"+side)
+        raw=subprocess.run(["git","-C",str(root),"cat-file","blob",expected],
+                           capture_output=True,timeout=60,check=False)
+        check(raw.returncode==0,case["id"]+"_ORIGINAL_GIT_BLOB_UNAVAILABLE_"+side)
+        data=raw.stdout
+        check(0<len(data)<=MAX_BYTES and b"\x00" not in data,
+              case["id"]+"_UNSUPPORTED_SOURCE_"+side)
         try:
             decoded=data.decode("utf-8")
         except UnicodeDecodeError:
             raise RuntimeError("B36_UNVERIFIED_NON_UTF8_"+case["id"]) from None
+        # Feed the scanner materialized *original Git blob bytes*, not a
+        # possibly clean/smudge filtered checkout. No upstream code execution.
+        rel=Path(path)
+        check(not rel.is_absolute() and ".." not in rel.parts,
+              case["id"]+"_UNSAFE_SELECTED_PATH")
+        exact=HOLDOUT/"out"/"original_source"/case["id"]/side/rel
+        exact.parent.mkdir(parents=True,exist_ok=True)
+        exact.write_bytes(data)
         records.append({"path":path,"original_git_blob":expected,
-                        "sha256":sha(data),"text":decoded,"local_file":file})
+                        "sha256":sha(data),"text":decoded,"local_file":exact,
+                        "checkout_bytes_equal_original_git_blob":file.read_bytes()==data})
     return records
 
 
