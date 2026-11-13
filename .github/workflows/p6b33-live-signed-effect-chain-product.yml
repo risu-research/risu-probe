@@ -1,0 +1,120 @@
+name: RISU B33 live signed candidate-to-actual Git effect witness and portable product
+on:
+  push:
+    branches:
+      - qualification/p6b33-signed-execution-effect-closure-20261113
+    paths:
+      - src/risu_signed_effect_chain.py
+      - src/risu_p5d_cli.py
+      - pyproject.toml
+      - tests/test_p6b33_signed_effect_chain.py
+      - .github/workflows/p6b33-live-signed-effect-chain-product.yml
+      - docs/P6B33_ORIGINAL_SIGNED_EXECUTION_EFFECT.md
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  genuine-original-readonly-github-sigstore-verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preflight original and installed Python products before native verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile src/risu_signed_effect_chain.py
+          python -m pip install --disable-pip-version-check .
+          risu-probe verify-signed-effect-chain --help
+          gh version | head -n1
+      - name: Verify original Sigstore signed program, actual native runtime identity and exact Git effect, not cached JSON
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .b33-original
+          risu-probe verify-signed-effect-chain \
+            --repo risu-research/risu-verify \
+            --run-id 43458536273 \
+            --workflow-path .github/workflows/p6b33-signed-execution-effect.yml \
+            --artifact-name risu-b33-original-candidate-and-broker-receipts \
+            --expected-actor moon10021017 \
+            --out .b33-original/B33_LIVE_SIGNED_SOURCE_EXECUTION_EFFECT_VERDICT.json \
+            --snapshot-out .b33-original/B33_ORIGINAL_NORMALIZED_SOURCE_FACTS.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          x=json.loads(Path(".b33-original/B33_LIVE_SIGNED_SOURCE_EXECUTION_EFFECT_VERDICT.json").read_text())
+          assert x["status"]=="LIVE_GITHUB_SIGSTORE_SIGNED_SOURCE_EXECUTION_ONE_GIT_EFFECT_CLOSED"
+          assert x["verification_mode"]=="LIVE_OFFICIAL_GH_SIGSTORE_AND_INDEPENDENT_NATIVE_GITHUB_REST"
+          assert x["original_run_id"]==43458536273
+          assert x["original_source_sha"]=="9b02c07eed9293b3703e484562be322eaec10ac1"
+          assert x["effect_commit"]=="ccd589714359eaefd8a84335d8d4982596dc6a4c"
+          assert x["original_actor"]=="moon10021017"
+          assert x["claim_states"]["independent_human_resource_owner_approval"]=="UNVERIFIED"
+          assert x["claim_states"]["actual_instruction_trace_in_trusted_hardware"]=="UNVERIFIED"
+          assert x["claim_states"]["repository_token_file_scoped_by_github"]=="REFUTED"
+          print("B33_THREE_ORIGINAL_ACTUAL_SIGNED_PROGRAMS_RECEIPT_AND_NATIVE_GIT_PASS")
+          PY
+      - name: Actual original normalizations and adversarial provenance mismatches
+        env:
+          RISU_B33_ORIGINAL_FACTS_DIR: .b33-original
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s tests -p test_p6b33_signed_effect_chain.py -v
+          echo B33_LIVE_ORIGINAL_SOURCE_MUTATION_TESTS_PASS
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b33-live-original-three-sigstore-signatures-actor-time-exact-resource
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
+          path: .b33-original/*.json
+
+  portable-original-product:
+    name: B33 installed wheel and complete existing RISU product tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build real installed RISU Probe wheel and run all product and B33 offline regressions
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b33-wheel
+          python -m pip wheel --no-deps -w .b33-wheel .
+          python -m venv .b33-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b33-installed/Scripts/python.exe
+            CLI=.b33-installed/Scripts/risu-probe.exe
+          else
+            PY=.b33-installed/bin/python
+            CLI=.b33-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b33-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" verify-signed-effect-chain --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B33_INSTALLED_ALL_PRODUCT_REGRESSIONS_PASS
