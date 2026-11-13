@@ -8,6 +8,8 @@ on:
       - 'src/risu_p5d_cli.py'
       - 'pyproject.toml'
       - 'tests/test_p6b30_effect_closure.py'
+      - 'src/risu_mcp_claim_sufficiency.py'
+      - 'tests/test_p6b30_claim_sufficiency.py'
       - '.github/workflows/p6b30-original-github-effect-closure.yml'
       - 'benchmarks/p6b30/**'
   workflow_dispatch:
