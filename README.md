@@ -1,6 +1,6 @@
 # RISU Probe
 
-**Status: experimental preview (`0.9.20.dev0`).** Official product source migrated from the verified P6-A branch. This is the public developer repository. This is the readable product source for the code that passed P5-E's Windows/Linux qualification. Do not confuse this preview with a PyPI release or MCP standards certification.
+**Status: experimental preview (`0.9.23.dev0`).** Official product source migrated from the verified P6-A branch. This is the public developer repository. This is the readable product source for the code that passed P5-E's Windows/Linux qualification. Do not confuse this preview with a PyPI release or MCP standards certification.
 
 ## Install from this source checkout
 
@@ -34,19 +34,24 @@ risu-probe doctor
 risu-probe schema-compat --help
 risu-probe contract-history --help
 risu-probe reproduce --help
+risu-probe verify-signed-release-provenance --help
+risu-probe verify-delegated-signed-provenance --help
+risu-probe verify-signed-effect-chain --help
 ```
 
 Existing `risu-probe.json` configurations preserve the legacy check route. For existing CI, use the documented nonzero gates (`--fail-on-confirmed`, `--strict-incomplete`); do not treat zero findings with unsupported input as a certified pass.
 
 ## Source layout
 
-- `src/risu_*.py`: **one, checked-in, human-readable, canonical LF source tree**, with the exact 38 modules from the successful P5-E Linux wheel, not a runtime-extracted archive.
+- `src/risu_*.py`: **one, checked-in, human-readable, canonical LF source tree**, preserving the original 38 P5-E modules plus separately qualified provenance verification modules, not a runtime-extracted archive.
 - `pyproject.toml`: one build and installation definition; all existing module import names retained for backward compatibility.
 - `P5E_SOURCE_PROVENANCE.json`: per-module SHA-256 from the exact verified P5-E reference wheel.
 - `tests/`: package fidelity, installed CLI and conservative/safe-default tests.
 - `provenance/` and `benchmarks/`: historic P5-E SHA verification and optional public-only 10-repository comparison tooling.
 
 We deliberately preserve top-level module names to avoid risky import rewrites. Future package namespace refactoring should be separately tested and only undertaken when justified by developer benefits.
+
+The B33 `verify-signed-effect-chain` command is an **explicit read-only live audit**. It uses official GitHub/Sigstore signatures, original workflow and run evidence, native Git source/effect comparisons and conservative actor/time matching. It requires the `gh` CLI and GitHub read access. It cannot prove independent owner consent or hardware-attested instruction execution. See [B33 evidence and trust boundary](docs/P6B33_ORIGINAL_SIGNED_EXECUTION_EFFECT.md).
 
 ## Evidence boundaries
 
