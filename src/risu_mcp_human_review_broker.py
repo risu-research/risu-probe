@@ -43,6 +43,7 @@ ENVIRONMENT="risu-b25-human-owner-approval"
 REVIEWER="moon10021017"
 PATH="benchmarks/p6b25/owner_only_resource.txt"
 SCHEMA="risu-b25-single-repo-file-owner-review-request-v1"
+EXPECTED_OWNER_PROPOSAL_GIT_BLOB="c66e2630c0c4edf15ee467fb758f601de6370ede"
 HEX40=re.compile(r"[a-f0-9]{40}\Z")
 HEX64=re.compile(r"[a-f0-9]{64}\Z")
 
@@ -244,6 +245,12 @@ def execute(policy_path,ledger,out,run_id,workflow_sha,token,child_probe=True):
     """Only trusted code can call this. No user script or original MCP child
     is executed with write credentials. One fixed GitHub Contents endpoint.
     """
+    raw_owner_proposal=Path(policy_path).read_bytes()
+    owner_git_blob=hashlib.sha1(
+        b"blob "+str(len(raw_owner_proposal)).encode()+bytes([0])+
+        raw_owner_proposal).hexdigest()
+    enforce(owner_git_blob==EXPECTED_OWNER_PROPOSAL_GIT_BLOB,
+            "EXACT_OWNER_PROPOSAL_GIT_BLOB_NOT_FIXED_AT_BUILD_TIME")
     p=verify_policy(strict_json(policy_path))
     evidence={"schema":"risu-b25-real-owner-human-reviewed-credential-confined-writer-v1",
       "approval_result":"UNVERIFIED","actual_github_writes":0,
