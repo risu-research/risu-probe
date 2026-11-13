@@ -57,7 +57,6 @@ class TestB30FourRealOriginalCases(unittest.TestCase):
         s3=by["B27_EXTERNAL_SEAWEEDFS_S3"]
         pg=by["B27_EXTERNAL_POSTGRESQL_RLS"]
         self.assertNotEqual(b25["subject"]["kind"],b28["subject"]["kind"])
-        self.assertNotEqual(b25["subject"]["repo_id"],b28["subject"]["database"] if False else None)
         self.assertTrue(b25["obligations"]["exact_approved_result_bytes"])
         self.assertFalse(b25["obligations"]["native_revocation"])
         self.assertTrue(b28["obligations"]["native_revocation"])
@@ -67,6 +66,26 @@ class TestB30FourRealOriginalCases(unittest.TestCase):
         self.assertTrue(pg["obligations"]["replay_refused"])
         self.assertTrue(all("real_independent_owner_approval" in x["missing"]
                             for x in self.report["subjects"]))
+
+    def test_verified_refuted_and_unverified_are_three_distinct_evidence_states(self):
+        by={x["label"]:x for x in self.report["subjects"]}
+        s3=by["B27_EXTERNAL_SEAWEEDFS_S3"]
+        b28=by["B28_EXTERNAL_OPENBAO_POSTGRESQL_LEASE"]
+        b25=by["B25_REAL_GITHUB_OWNER_REVIEWED_ONE_FILE"]
+        self.assertEqual(s3["evidence_states"]["exact_approved_result_bytes"],
+                         "REFUTED")
+        self.assertEqual(s3["evidence_states"]["replay_refused"],"REFUTED")
+        self.assertEqual(s3["evidence_states"]["real_independent_owner_approval"],
+                         "UNVERIFIED")
+        self.assertEqual(b25["evidence_states"]["independent_resource_effect_audit"],
+                         "UNVERIFIED")
+        self.assertEqual(b28["evidence_states"]["native_revocation"],
+                         "VERIFIED")
+        self.assertEqual(b28["refuted"],[])
+        self.assertEqual(b28["unverified"],["real_independent_owner_approval"])
+        self.assertEqual(len(self.report["subjects"]),4)
+        self.assertTrue(self.report["explicit_original_counterexample"]
+                        ["not_an_upstream_security_bug_claim"])
 
     def test_missing_obligations_are_minimal_case_specific(self):
         best=self.report["closest_individual_evidence"]
