@@ -168,6 +168,24 @@ class B25TrustedBrokerSimulation(unittest.TestCase):
         writes=[z for z in self.calls if z[0]=="PUT"]
         self.assertEqual(len(writes),1)
         self.assertTrue(writes[0][1].endswith("/contents/"+m.PATH))
+    def test_github_real_newline_folded_pre_and_post_commit_positive(self):
+        """Regression: GitHub's actual Contents API uses multiline base64."""
+        original=self.api
+        def real_transport(token,route,method="GET",body=None):
+            response=original(token,route,method,body)
+            if method=="GET" and "/contents/"+m.PATH+"?ref=" in route:
+                data=dict(response)
+                raw=response["content"]
+                data["content"]="\\n".join(raw[i:i+60] for i in range(0,len(raw),60))+"\\n"
+                return data
+            return response
+        with patch.object(m,"api",side_effect=real_transport):
+            result=m.execute(self.file,self.ledger,self.root/"evidence.json",
+                "81231","a"*40,"unit-test-real-github-folded-content",
+                child_probe=False)
+        self.assertEqual(result["actual_github_writes"],1)
+        self.assertEqual(sum(method=="PUT" for method,_,_ in self.calls),1)
+
     def test_without_human_review_deny_before_any_remote_write(self):
         with self.assertRaises(m.PolicyDenied):self.invoke(approve=False)
         self.assertFalse(any(z[0]=="PUT" for z in self.calls))
@@ -223,5 +241,38 @@ class B25TrustedBrokerSimulation(unittest.TestCase):
                 m.execute(self.file,self.ledger,self.root/"evidence.json",
                     "81231","a"*40,"unit-test-reused-github-approval",child_probe=False)
         self.assertFalse(any(z[0]=="PUT" for z in self.calls))
+
+class B25GitHubContentsBase64Transport(unittest.TestCase):
+    def test_real_api_linefolds_are_accepted_by_writer_and_independent_auditor(self):
+        import importlib.util
+        path=Path(__file__).resolve().parents[1]/"benchmarks/p6b25/independent_human_review_audit.py"
+        spec=importlib.util.spec_from_file_location("b25_independent_transport_test",path)
+        independent=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(independent)
+        payload=PRE.encode()
+        canon=base64.b64encode(payload).decode("ascii")
+        folded="\\n".join(canon[i:i+60] for i in range(0,len(canon),60))+"\\n"
+        crlf=folded.replace("\\n","\\r\\n")
+        for example in (canon,folded,crlf):
+            self.assertEqual(m.decode_github_contents_base64(example),payload)
+            self.assertEqual(independent.decode_github_contents_base64(example),payload)
+
+    def test_non_github_whitespace_and_malformed_base64_are_denied(self):
+        import importlib.util
+        path=Path(__file__).resolve().parents[1]/"benchmarks/p6b25/independent_human_review_audit.py"
+        spec=importlib.util.spec_from_file_location("b25_independent_strict_test",path)
+        independent=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(independent)
+        canonical=base64.b64encode(PRE.encode()).decode()
+        variants=("",canonical[:7]+" "+canonical[7:],
+                  canonical[:7]+"\\t"+canonical[7:],
+                  canonical[:7]+"#"+canonical[7:],
+                  canonical[:-1],canonical+"=",None,42)
+        for malformed in variants:
+            with self.subTest(sample=str(malformed)[:12]):
+                with self.assertRaises(m.PolicyDenied):
+                    m.decode_github_contents_base64(malformed)
+                with self.assertRaises(ValueError):
+                    independent.decode_github_contents_base64(malformed)
 
 if __name__=="__main__":unittest.main()
