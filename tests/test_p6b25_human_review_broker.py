@@ -6,6 +6,7 @@ deployments. Missing approval is deliberately treated as not confirmed.
 """
 from __future__ import annotations
 import base64,copy,hashlib,json,os,tempfile,unittest
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from unittest.mock import patch
 import risu_mcp_human_review_broker as m
@@ -41,6 +42,7 @@ def grant():
 def run():
     return {"id":81231,"event":"push","run_attempt":1,
             "head_branch":m.BRANCH,"path":m.WORKFLOW,
+            "created_at":datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00","Z"),
             "head_sha":"a"*40}
 
 def approved(reviewer=m.REVIEWER,environment=m.ENVIRONMENT,state="approved"):
@@ -197,6 +199,20 @@ class B25TrustedBrokerSimulation(unittest.TestCase):
                 m.execute(self.file,self.ledger,self.root/"evidence.json",
                    "81231","a"*40,"mock",child_probe=True)
         self.assertFalse(any(z[0]=="PUT" for z in self.calls))
+    def test_stale_historic_approval_not_accepted_after_30_min(self):
+        def old_run(token,route,method="GET",body=None):
+            if route.endswith("/actions/runs/81231"):
+                r=run()
+                r["created_at"]=(datetime.now(timezone.utc)-timedelta(hours=2)).isoformat(
+                    timespec="seconds").replace("+00:00","Z")
+                return r
+            return self.api(token,route,method,body)
+        with patch.object(m,"api",side_effect=old_run):
+            with self.assertRaises(m.PolicyDenied):
+                m.execute(self.file,self.ledger,self.root/"evidence.json",
+                    "81231","a"*40,"unit-test-expired-github-review",child_probe=False)
+        self.assertFalse(any(z[0]=="PUT" for z in self.calls))
+
     def test_rerun_is_never_a_fresh_human_approval(self):
         def replay_run(token,route,method="GET",body=None):
             if route.endswith("/actions/runs/81231"):
