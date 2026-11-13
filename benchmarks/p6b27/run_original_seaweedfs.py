@@ -14,6 +14,8 @@ import secrets
 import subprocess
 import sys
 import time
+import tempfile
+import shutil
 from urllib.parse import unquote
 import boto3
 from botocore.config import Config
@@ -53,7 +55,7 @@ def native_request(service,action,**args):
                 "error_code":e.response["Error"].get("Code","unknown")}
     except EndpointConnectionError:
         return {"status":0,"error_code":"ENDPOINT_UNAVAILABLE"}
-def case(name,actor_credential,action,admin,server_pid,**args):
+def case(name,actor_credential,action,admin,server_pid,client_script,**args):
     """The actor calls original S3 from a different kernel UID.
 
     The issuer's admin secret is in root-only orchestration and root-owned
@@ -79,7 +81,7 @@ def case(name,actor_credential,action,admin,server_pid,**args):
                  "HOME":"/tmp","TMPDIR":"/tmp","LANG":"C.UTF-8",
                  "PYTHONDONTWRITEBYTECODE":"1","PYTHONNOUSERSITE":"1"}
     child=subprocess.run(
-        [sys.executable,str(Path(__file__).with_name("seaweedfs_untrusted_client.py"))],
+        [sys.executable,str(client_script)],
         input=json.dumps(actor_payload),text=True,capture_output=True,
         env=minimal_env,user=nobody.pw_uid,group=nobody.pw_gid,
         extra_groups=[],timeout=40,
@@ -111,6 +113,18 @@ def run(binary,out):
     env=os.environ.copy()
     env.update({"AWS_ACCESS_KEY_ID":key,"AWS_SECRET_ACCESS_KEY":secret,
                 "S3_BUCKET":BUCKET})
+    # GitHub hosted checkout resides under /home/runner, which is not
+    # traversable by UID nobody. Trusted root relocates exact source bytes
+    # into its own world-readable, nonwritable-to-agent /tmp directory.
+    client_dir=Path(tempfile.mkdtemp(prefix="risu-b27-original-s3-",dir="/tmp"))
+    client_dir.chmod(0o755)
+    client_script=client_dir/"seaweedfs_untrusted_client.py"
+    client_script.write_bytes(
+        Path(__file__).with_name("seaweedfs_untrusted_client.py").read_bytes())
+    client_script.chmod(0o644)
+    assert_true(client_script.stat().st_uid==0
+        and (client_script.stat().st_mode & 0o022)==0,
+        "Trusted original S3 actor source file not root-owned and immutable by agent")
     log=open(out/"original_server_private.log","w")
     # Original SeaweedFS 4.53 mini defaults embedded IAM to read-only.
     # This documented native config enables the owner's IAM issuer API.
@@ -162,27 +176,27 @@ def run(binary,out):
         # access keys inside separate unprivileged OS child invocations.
         # This trusted owner/issuer process never executes direct actor S3 calls.
         cases=[]
-        cases.append(case("coarse_issuer_positive",coarse_key,"put_object",admin,process.pid,
+        cases.append(case("coarse_issuer_positive",coarse_key,"put_object",admin,process.pid,client_script,
               Bucket=BUCKET,Key=COARSE,Body=COARSE_AFTER))
         assert_true(cases[-1]["native_http_status"]==200,
                     "Native publisher IAM bucket-wide baseline grant did not work")
-        cases.append(case("exact_object_authorized",exact_key,"put_object",admin,process.pid,
+        cases.append(case("exact_object_authorized",exact_key,"put_object",admin,process.pid,client_script,
               Bucket=BUCKET,Key=EXACT,Body=APPROVED))
-        cases.append(case("same_prefix_neighbor_direct_bypass",exact_key,"put_object",admin,process.pid,
+        cases.append(case("same_prefix_neighbor_direct_bypass",exact_key,"put_object",admin,process.pid,client_script,
               Bucket=BUCKET,Key=NEIGHBOR,Body=b"B27-POSSIBLE-UNAUTHORIZED-NEIGHBOR\n"))
-        cases.append(case("other_object_direct_bypass",exact_key,"put_object",admin,process.pid,
+        cases.append(case("other_object_direct_bypass",exact_key,"put_object",admin,process.pid,client_script,
               Bucket=BUCKET,Key=OTHER,Body=b"B27-POSSIBLE-UNAUTHORIZED-FOREIGN\n"))
-        cases.append(case("agent_bucket_listing",exact_key,"list_objects_v2",admin,process.pid,
+        cases.append(case("agent_bucket_listing",exact_key,"list_objects_v2",admin,process.pid,client_script,
               Bucket=BUCKET))
         if cases[1]["native_http_status"]==200:
-            cases.append(case("approved_object_wrong_value",exact_key,"put_object",admin,process.pid,
+            cases.append(case("approved_object_wrong_value",exact_key,"put_object",admin,process.pid,client_script,
                   Bucket=BUCKET,Key=EXACT,Body=CHANGED))
-            cases.append(case("approved_object_replay",exact_key,"put_object",admin,process.pid,
+            cases.append(case("approved_object_replay",exact_key,"put_object",admin,process.pid,client_script,
                   Bucket=BUCKET,Key=EXACT,Body=APPROVED))
         # Native IAM issuer revokes access after all direct-source attempts.
         iam.update_access_key(UserName="risu_b27_exact",
                               AccessKeyId=exact_key["AccessKeyId"],Status="Inactive")
-        cases.append(case("issuer_native_key_revocation",exact_key,"put_object",admin,process.pid,
+        cases.append(case("issuer_native_key_revocation",exact_key,"put_object",admin,process.pid,client_script,
               Bucket=BUCKET,Key=EXACT,Body=b"AFTER-NATIVE-ISSUER-REVOCATION\n"))
         final=state(admin)
         report={
@@ -245,6 +259,7 @@ def run(binary,out):
         try:process.wait(timeout=12)
         except subprocess.TimeoutExpired:process.kill();process.wait()
         log.close()
+        shutil.rmtree(client_dir)
         # Server logs may include transient credentials; never archive them.
 
 def main():
