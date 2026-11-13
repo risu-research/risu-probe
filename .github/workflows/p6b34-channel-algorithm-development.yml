@@ -1,4 +1,4 @@
-name: P6-B34 development: generic MCP channel projection on previous training fixes
+name: "P6-B34 development: generic MCP channel projection on previous training fixes"
 on:
   push:
     branches:
