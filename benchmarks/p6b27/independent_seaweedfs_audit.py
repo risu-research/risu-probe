@@ -55,6 +55,26 @@ def parse_policy(x):
     if not isinstance(v,dict):
         v=json.loads(unquote(v))
     return v
+def semantically_normalize_single_statement_iam_policy(policy):
+    """S3 IAM permits a scalar or singleton array for Action and Resource."""
+    demand(type(policy) is dict and set(policy)=={"Version","Statement"}
+       and policy["Version"]=="2012-10-17"
+       and type(policy["Statement"]) is list and len(policy["Statement"])==1,
+       "Native IAM policy shape or scope unexpected")
+    statement=policy["Statement"][0]
+    demand(type(statement) is dict and
+           set(statement)=={"Effect","Action","Resource"},
+           "Native IAM contains unapproved policy fields")
+    def singleton(x):
+        if type(x) is str:return [x]
+        demand(type(x) is list and len(x)==1 and type(x[0]) is str,
+               "Native IAM action/resource not a singleton")
+        return x
+    return {"Version":policy["Version"],"Statement":[{
+         "Effect":statement["Effect"],
+         "Action":singleton(statement["Action"]),
+         "Resource":singleton(statement["Resource"])}]}
+
 def audit(data):
     demand(data.get("schema")=="risu-b27-unmodified-seaweedfs-native-s3-holdout-v1",
            "Unexpected external S3 result schema")
@@ -107,10 +127,12 @@ def audit(data):
         UserName="risu_b27_exact",PolicyName="exact_object_only"))
     native_coarse=parse_policy(iam.get_user_policy(
         UserName="risu_b27_coarse",PolicyName="coarse_control"))
-    demand(native_exact==data["exact_policy"],"Native issued exact scope differs: actual="+json.dumps(native_exact,sort_keys=True)+" expected="+json.dumps(data["exact_policy"],sort_keys=True))
-    demand(native_coarse==data["coarse_policy"],"Native coarse control differs")
+    canonical_exact=semantically_normalize_single_statement_iam_policy(native_exact)
+    canonical_coarse=semantically_normalize_single_statement_iam_policy(native_coarse)
+    demand(canonical_exact==data["exact_policy"],"Native issued exact scope differs after strict singleton normalization")
+    demand(canonical_coarse==data["coarse_policy"],"Native coarse control differs after strict singleton normalization")
     require_resource="arn:aws:s3:::"+BUCKET+"/approved/report.txt"
-    demand(native_exact["Statement"][0]["Resource"]==[require_resource],
+    demand(canonical_exact["Statement"][0]["Resource"]==[require_resource],
            "Native IAM authorization expanded beyond one original object")
     keys=iam.list_access_keys(UserName="risu_b27_exact")["AccessKeyMetadata"]
     demand(len(keys)==1 and keys[0]["Status"]=="Inactive",
