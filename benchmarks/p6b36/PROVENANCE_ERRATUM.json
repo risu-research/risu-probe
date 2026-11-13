@@ -1,0 +1,19 @@
+{
+  "schema": "risu-b36-clerical-git-blob-erratum-v1",
+  "status": "POST_FIRST_LOOK_SUPPLEMENTAL_ONLY",
+  "primary_first_look_run": "https://github.com/risu-research/risu-probe/actions/runs/43507574960",
+  "primary_first_look_result_sha256": "4076a879bf1c5de179490f7b14f92636ac75536caa20749b9e3dcd76af342b44",
+  "original_sealed_manifest_commit": "03ba2b9f1b33e2f46eee882dc0b257934ec809fb",
+  "original_sealed_manifest_git_blob": "d73d8a029c78c216f6a0167d891f63299c89798a",
+  "change_type": "Correct invalid 38-character Git object ID to actual original 40-character Git tree blob; original Git source repo, before and after full commits, path, other cases, and detector unchanged.",
+  "case_id": "B36D",
+  "path": "python/stitch_backend/mcp_server/tools.py",
+  "source_repo": "StitchWB/Stitch-Manager",
+  "before_commit": "7325b78af73e633978566a9d4298f5fbacb149da",
+  "source_of_correction": "https://api.github.com/repos/StitchWB/Stitch-Manager/git/trees/6c71fca0255fc20b75a5944d997f9ef4235e47ba?recursive=1",
+  "invalid_presealed_before_blob": "5f0a5daa7d8a5240b964dd5b1548bbdc71dc8d",
+  "correct_before_blob": "5f0a5daa7d8a5240b964dd5f5b1548bbdc71dc8d",
+  "fix_after_commit": "62f6fdee0eef20000d3b09b039fa106f8ccebb1d",
+  "fix_after_blob_remains": "010b6a6a003b5c9bcdce1ab17c09a31ee6b58184",
+  "scientific_treatment": "Original first-look 0/3 eligible, two unverified remains immutable; any rerun applying this correction is labeled supplementary, not a new untouched holdout."
+}
