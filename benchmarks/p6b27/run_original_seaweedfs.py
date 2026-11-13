@@ -53,11 +53,56 @@ def native_request(service,action,**args):
                 "error_code":e.response["Error"].get("Code","unknown")}
     except EndpointConnectionError:
         return {"status":0,"error_code":"ENDPOINT_UNAVAILABLE"}
-def case(name,service,action,admin,**args):
-    decision=native_request(service,action,**args)
-    return {"case":name,"native_http_status":decision["status"],
-            "error_code":decision["error_code"],
-            "actual_remote_sha256":state(admin)}
+def case(name,actor_credential,action,admin,server_pid,**args):
+    """The actor calls original S3 from a different kernel UID.
+
+    The issuer's admin secret is in root-only orchestration and root-owned
+    SeaweedFS env; neither is supplied through argv, stdin or child env.
+    """
+    import base64
+    import pwd
+    assert_true(os.geteuid()==0,
+                "B27 owner/issuer launcher must be privileged and distinct from actor")
+    for k,v in list(args.items()):
+        if k=="Body":
+            assert_true(type(v) is bytes,"S3 witness only permits literal bytes")
+            args[k]=base64.b64encode(v).decode("ascii")
+    actor_payload={
+        "actor_key_id":actor_credential["AccessKeyId"],
+        "actor_secret":actor_credential["SecretAccessKey"],
+        "action":action,"args":args,
+        "owner_launcher_pid":os.getpid(),
+        "publisher_server_pid":server_pid,
+    }
+    nobody=pwd.getpwnam("nobody")
+    minimal_env={"PATH":os.environ.get("PATH","/usr/bin:/bin"),
+                 "HOME":"/tmp","TMPDIR":"/tmp","LANG":"C.UTF-8",
+                 "PYTHONDONTWRITEBYTECODE":"1","PYTHONNOUSERSITE":"1"}
+    child=subprocess.run(
+        [sys.executable,str(Path(__file__).with_name("seaweedfs_untrusted_client.py"))],
+        input=json.dumps(actor_payload),text=True,capture_output=True,
+        env=minimal_env,user=nobody.pw_uid,group=nobody.pw_gid,
+        extra_groups=[],timeout=40,
+    )
+    assert_true(child.returncode==0,
+          "Untrusted separate-UID S3 call failed: "+child.stderr[-600:])
+    decision=json.loads(child.stdout)
+    assert_true(decision["agent_os_uid"]==65534 and
+        decision["trusted_publisher_server_environment_readable"] is False and
+        decision["trusted_owner_issuer_environment_readable"] is False and
+        decision["native_issuer_key_only"] is True and
+        decision["direct_original_upstream_s3"] is True,
+        "B27 kernel process isolation / native S3 boundary did not hold")
+    return {
+        "case":name,"native_http_status":decision["native_http_status"],
+        "error_code":decision["native_error_code"],
+        "agent_os_uid":decision["agent_os_uid"],
+        "trusted_publisher_server_environment_readable":False,
+        "trusted_owner_issuer_environment_readable":False,
+        "native_issuer_key_only":True,
+        "direct_original_upstream_s3":True,
+        "actual_remote_sha256":state(admin),
+    }
 def run(binary,out):
     data=out/"seaweed-original-state"
     data.mkdir(exist_ok=True)
@@ -113,30 +158,31 @@ def run(binary,out):
                             PolicyDocument=json.dumps(coarse_policy))
         exact_key=iam.create_access_key(UserName="risu_b27_exact")["AccessKey"]
         coarse_key=iam.create_access_key(UserName="risu_b27_coarse")["AccessKey"]
-        actor=client("s3",exact_key["AccessKeyId"],exact_key["SecretAccessKey"])
-        coarse=client("s3",coarse_key["AccessKeyId"],coarse_key["SecretAccessKey"])
+        # Agent and broader-control identities only receive their native IAM
+        # access keys inside separate unprivileged OS child invocations.
+        # This trusted owner/issuer process never executes direct actor S3 calls.
         cases=[]
-        cases.append(case("coarse_issuer_positive",coarse,"put_object",admin,
+        cases.append(case("coarse_issuer_positive",coarse_key,"put_object",admin,process.pid,
               Bucket=BUCKET,Key=COARSE,Body=COARSE_AFTER))
         assert_true(cases[-1]["native_http_status"]==200,
                     "Native publisher IAM bucket-wide baseline grant did not work")
-        cases.append(case("exact_object_authorized",actor,"put_object",admin,
+        cases.append(case("exact_object_authorized",exact_key,"put_object",admin,process.pid,
               Bucket=BUCKET,Key=EXACT,Body=APPROVED))
-        cases.append(case("same_prefix_neighbor_direct_bypass",actor,"put_object",admin,
+        cases.append(case("same_prefix_neighbor_direct_bypass",exact_key,"put_object",admin,process.pid,
               Bucket=BUCKET,Key=NEIGHBOR,Body=b"B27-POSSIBLE-UNAUTHORIZED-NEIGHBOR\n"))
-        cases.append(case("other_object_direct_bypass",actor,"put_object",admin,
+        cases.append(case("other_object_direct_bypass",exact_key,"put_object",admin,process.pid,
               Bucket=BUCKET,Key=OTHER,Body=b"B27-POSSIBLE-UNAUTHORIZED-FOREIGN\n"))
-        cases.append(case("agent_bucket_listing",actor,"list_objects_v2",admin,
+        cases.append(case("agent_bucket_listing",exact_key,"list_objects_v2",admin,process.pid,
               Bucket=BUCKET))
         if cases[1]["native_http_status"]==200:
-            cases.append(case("approved_object_wrong_value",actor,"put_object",admin,
+            cases.append(case("approved_object_wrong_value",exact_key,"put_object",admin,process.pid,
                   Bucket=BUCKET,Key=EXACT,Body=CHANGED))
-            cases.append(case("approved_object_replay",actor,"put_object",admin,
+            cases.append(case("approved_object_replay",exact_key,"put_object",admin,process.pid,
                   Bucket=BUCKET,Key=EXACT,Body=APPROVED))
         # Native IAM issuer revokes access after all direct-source attempts.
         iam.update_access_key(UserName="risu_b27_exact",
                               AccessKeyId=exact_key["AccessKeyId"],Status="Inactive")
-        cases.append(case("issuer_native_key_revocation",actor,"put_object",admin,
+        cases.append(case("issuer_native_key_revocation",exact_key,"put_object",admin,process.pid,
               Bucket=BUCKET,Key=EXACT,Body=b"AFTER-NATIVE-ISSUER-REVOCATION\n"))
         final=state(admin)
         report={
@@ -153,6 +199,10 @@ def run(binary,out):
           "real_third_party_hosting":False,
           "before_sha256":before,"final_sha256":final,
           "cases":cases,
+          "actor_separate_posix_uid":65534,
+          "native_s3_actor_calls_in_distinct_os_processes":len(cases),
+          "owner_admin_credential_not_forwarded_to_actor":True,
+          "root_fixture_administrator_trusted":True,
           "key_secret_material_persisted":False,
           "evaluation_protocol":"benchmarks/p6b27/SEAWEEDFS_HOLDOUT_LOCK.md",
         }
