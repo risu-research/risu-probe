@@ -1,0 +1,60 @@
+name: RISU B31 initial pinned external GitHub Sigstore attestation discovery
+on:
+  push:
+    branches: [qualification/p6b31-signed-provenance-holdout-20261113]
+    paths:
+      - '.github/workflows/p6b31-verify-original-signed-releases.yml'
+      - 'benchmarks/p6b31/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+  attestations: read
+jobs:
+  verify-two-independent-original-publishers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Pin official GitHub CLI and Fulcio signed release artifacts, DO NOT execute them
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .b31-signed
+          gh version | head -n1
+          curl -fLSs --retry 4 --retry-all-errors --max-time 240 \
+           https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_linux_amd64.tar.gz \
+           -o .b31-signed/gh_2.62.0_linux_amd64.tar.gz
+          curl -fLSs --retry 4 --retry-all-errors --max-time 300 \
+           https://github.com/sigstore/fulcio/releases/download/v1.10.0/fulcio-linux-amd64 \
+           -o .b31-signed/fulcio-linux-amd64
+          sha256sum .b31-signed/* | cut -c1-91
+      - name: Independently check original GitHub / Sigstore signed SLSA release claims
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation verify .b31-signed/gh_2.62.0_linux_amd64.tar.gz \
+            --repo cli/cli --format json > .b31-signed/dev_verification.json
+          gh attestation verify .b31-signed/fulcio-linux-amd64 \
+            --repo sigstore/fulcio --format json > .b31-signed/holdout_verification.json
+          python - <<'PY'
+          import json,hashlib
+          from pathlib import Path
+          root=Path(".b31-signed")
+          for case,name in [("dev","gh_2.62.0_linux_amd64.tar.gz"),
+                            ("holdout","fulcio-linux-amd64")]:
+              value=json.loads((root/(case+"_verification.json")).read_text())
+              print("B31_SIGNED_ORIGINAL",case,"json_type",type(value).__name__,
+                    "records",len(value) if hasattr(value,"__len__") else -1,
+                    "item_top_keys",sorted(value[0].keys()) if isinstance(value,list) and value else sorted(value.keys()) if isinstance(value,dict) else [])
+              if isinstance(value,list) and value:
+                  print("B31_SIGNED_INNER",case,"shape",{
+                    k:sorted(v.keys()) if isinstance(v,dict) else type(v).__name__
+                    for k,v in value[0].items()})
+              print("B31_ASSET_SHA256",case,
+                    hashlib.sha256((root/name).read_bytes()).hexdigest())
+          PY
+          echo B31_ORIGINAL_TWO_INDEPENDENT_SIGNATURES_CRYPTO_VERIFIED
