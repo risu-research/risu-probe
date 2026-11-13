@@ -77,7 +77,7 @@ def acquire_original(repo,run_id,environment,effect_repo=None,effect_run_id=None
         "source":"LIVE_ORIGINAL_GITHUB_REST_READ_ONLY",
     }
 
-def assess(data):
+def assess(data, trusted_live_original_api=False):
     """Assess independent GitHub identities and run-to-effect binding.
 
     A positive platform result is *not* human independence or owner control.
@@ -203,17 +203,21 @@ def assess(data):
     # A separate real human cannot be proven merely from GitHub account IDs,
     # and a successful run is not an original-resource effect audit.
     necessary=[x for x in _checks if not x["verified"]]
-    platform_verified=len(necessary)==0
+    structural_match=len(necessary)==0
+    platform_verified=structural_match and trusted_live_original_api is True
     review_ids=sorted({a["user"]["id"] for a in matching
                        if isinstance(a.get("user"),dict) and
                        _is_positive_id(a["user"].get("id"))})
     report={
        "schema":SCHEMA,
        "status":("PLATFORM_DISTINCT_ACCOUNT_REVIEW_BOUND_TO_SAME_RUN"
-                 if platform_verified else "REFUSED_UNSUPPORTED_INDEPENDENT_APPROVAL"),
-       "mode":"LIVE_ORIGINAL_GITHUB_REST" if
-              data.get("source")=="LIVE_ORIGINAL_GITHUB_REST_READ_ONLY"
+                 if platform_verified else
+                 "SYNTHETIC_STRUCTURAL_MATCH_NOT_REAL_GITHUB_PROOF"
+                 if structural_match else "REFUSED_UNSUPPORTED_INDEPENDENT_APPROVAL"),
+       "mode":"LIVE_ORIGINAL_GITHUB_REST" if trusted_live_original_api is True
+              and data.get("source")=="LIVE_ORIGINAL_GITHUB_REST_READ_ONLY"
               else "OFFLINE_TEST_OR_RECORDED_DATA",
+       "structural_platform_review_rule_match":structural_match,
        "obligations":_checks,
        "refusals":[x["refusal_code"] for x in necessary],
        "original_github_review_source":{
@@ -263,7 +267,7 @@ def main(argv=None):
         originals=acquire_original(args.repo,args.run_id,args.environment,
              effect_repo=args.effect_repo,effect_run_id=args.effect_run_id,
              token=os.environ.get("GITHUB_TOKEN",""))
-        report=assess(originals)
+        report=assess(originals, trusted_live_original_api=True)
         # No credential is ever persisted; only numeric GitHub identities,
         # checked run commit and selected native environment policy status.
         fd=os.open(output,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
