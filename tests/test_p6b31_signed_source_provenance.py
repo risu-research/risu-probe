@@ -17,17 +17,17 @@ import risu_signed_release_verifier as m
 
 DEVELOPMENT={
  "repo":"cli/cli",
- "asset_name":"gh_2.62.0_linux_amd64.tar.gz",
+ "filename":"gh_2.62.0_linux_amd64.tar.gz",
  "signer_workflow":"cli/cli/.github/workflows/deployment.yml",
  "source_ref":"refs/heads/trunk",
- "sha256":"41c8b0698ad3003cb5c44bde672a1ffd5f818595abd80162fbf8cc999418446a",
+ "expected_digest":"41c8b0698ad3003cb5c44bde672a1ffd5f818595abd80162fbf8cc999418446a",
 }
 HOLDOUT={
  "repo":"sigstore/fulcio",
- "asset_name":"fulcio-linux-amd64",
+ "filename":"fulcio-linux-amd64",
  "signer_workflow":"sigstore/fulcio/.github/workflows/release.yml",
  "source_ref":"refs/tags/v1.10.0",
- "sha256":"92092b98fbb78ec24585982f970367a734ac8ab035fde42df05ef9b0c48cb07d",
+ "expected_digest":"92092b98fbb78ec24585982f970367a734ac8ab035fde42df05ef9b0c48cb07d",
 }
 
 class StructuralTest(unittest.TestCase):
@@ -49,7 +49,7 @@ class StructuralTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             root=Path(d);p=root/"gh_2.62.0_linux_amd64.tar.gz"
             p.write_bytes(b"synthetic test only")
-            args=DEVELOPMENT.copy();args["sha256"]=m.digest(p)
+            args=DEVELOPMENT.copy();args["expected_digest"]=m.digest(p)
             with patch.object(m.shutil,"which",return_value=None):
                 with self.assertRaisesRegex(m.Refused,"OFFICIAL_GITHUB_VERIFIER_MISSING"):
                     m.verify_artifact(p,**args)
@@ -57,15 +57,15 @@ class StructuralTest(unittest.TestCase):
         # A fake fully marked verified object must never bypass the official
         # verifier subprocess: only verify_artifact invokes the trust root.
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/DEVELOPMENT["asset_name"];p.write_bytes(b"impostor")
-            args=DEVELOPMENT.copy();args["sha256"]=m.digest(p)
+            p=Path(d)/DEVELOPMENT["filename"];p.write_bytes(b"impostor")
+            args=DEVELOPMENT.copy();args["expected_digest"]=m.digest(p)
             with patch.object(m.shutil,"which",return_value=None):
                 with self.assertRaises(m.Refused):
                     m.verify_artifact(p,**args)
     def test_official_cryptographic_failure_refused_even_given_positive_json(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/DEVELOPMENT["asset_name"];p.write_bytes(b"mock only")
-            args=DEVELOPMENT.copy();args["sha256"]=m.digest(p)
+            p=Path(d)/DEVELOPMENT["filename"];p.write_bytes(b"mock only")
+            args=DEVELOPMENT.copy();args["expected_digest"]=m.digest(p)
             class Failed:
                 returncode=1
                 stdout='[{"verificationResult":{"status":"VERIFIED"}}]'
@@ -76,8 +76,8 @@ class StructuralTest(unittest.TestCase):
                     m.verify_artifact(p,**args)
     def test_official_cmd_must_enforce_expected_signer_and_source(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/DEVELOPMENT["asset_name"];p.write_bytes(b"mock only")
-            args=DEVELOPMENT.copy();args["sha256"]=m.digest(p)
+            p=Path(d)/DEVELOPMENT["filename"];p.write_bytes(b"mock only")
+            args=DEVELOPMENT.copy();args["expected_digest"]=m.digest(p)
             class Failed:
                 returncode=1
                 stdout=""
@@ -100,21 +100,21 @@ class StructuralTest(unittest.TestCase):
     def test_subject_semantics_cannot_be_forged_by_omitting_expected(self):
         x={"verificationResult":{"statement":{
             "_type":m.STATEMENT,"predicateType":m.PREDICATE,
-            "subject":[{"name":DEVELOPMENT["asset_name"],"digest":{"sha256":"0"*64}}],
+            "subject":[{"name":DEVELOPMENT["filename"],"digest":{"expected_digest":"0"*64}}],
             "predicate":{"buildDefinition":{"externalParameters":{"workflow":{
                 "repository":"https://github.com/cli/cli",
                 "path":".github/workflows/deployment.yml","ref":"refs/heads/trunk"}}}}},
             "signature":{"certificate":{}},"verifiedTimestamps":[{}]}}
         with self.assertRaisesRegex(m.Refused,"SIGNED_SUBJECT_DIGEST_MISMATCH"):
             m.validate_crypto_verified_output([x],DEVELOPMENT["repo"],
-                   DEVELOPMENT["asset_name"],DEVELOPMENT["signer_workflow"],
-                   DEVELOPMENT["source_ref"],DEVELOPMENT["sha256"])
-        y=copy.deepcopy(x);y["verificationResult"]["statement"]["subject"][0]["digest"]["sha256"]=DEVELOPMENT["sha256"]
+                   DEVELOPMENT["filename"],DEVELOPMENT["signer_workflow"],
+                   DEVELOPMENT["source_ref"],DEVELOPMENT["expected_digest"])
+        y=copy.deepcopy(x);y["verificationResult"]["statement"]["subject"][0]["digest"]["expected_digest"]=DEVELOPMENT["expected_digest"]
         y["verificationResult"]["statement"]["predicate"]["buildDefinition"]["externalParameters"]["workflow"]["repository"]="https://github.com/other/repo"
         with self.assertRaisesRegex(m.Refused,"ATTESTED_SOURCE_REPO_WORKFLOW_REF_MISMATCH"):
             m.validate_crypto_verified_output([y],DEVELOPMENT["repo"],
-                   DEVELOPMENT["asset_name"],DEVELOPMENT["signer_workflow"],
-                   DEVELOPMENT["source_ref"],DEVELOPMENT["sha256"])
+                   DEVELOPMENT["filename"],DEVELOPMENT["signer_workflow"],
+                   DEVELOPMENT["source_ref"],DEVELOPMENT["expected_digest"])
 
 class RealOriginallySignedReleaseTest(unittest.TestCase):
     @classmethod
@@ -123,15 +123,15 @@ class RealOriginallySignedReleaseTest(unittest.TestCase):
         if not path:raise unittest.SkipTest("Requires original signed external release assets")
         cls.root=Path(path)
         for v in (DEVELOPMENT,HOLDOUT):
-            if not (cls.root/v["asset_name"]).is_file():
+            if not (cls.root/v["filename"]).is_file():
                 raise AssertionError("Expected exact original signed release unavailable")
 
     def check_live(self,v):
-        res=m.verify_artifact(self.root/v["asset_name"],**v)
+        res=m.verify_artifact(self.root/v["filename"],**v)
         self.assertEqual(res["verification_mode"],
             "LIVE_OFFICIAL_GITHUB_SIGSTORE_CRYPTOGRAPHIC_VERIFIER")
         self.assertEqual(res["status"],"VERIFIED_SIGNED_SOURCE_ONLY_NOT_OWNER_CONSENT")
-        self.assertEqual(res["actual_artifact_sha256"],v["sha256"])
+        self.assertEqual(res["actual_artifact_sha256"],v["expected_digest"])
         self.assertEqual(res["signer_repository"],v["repo"])
         self.assertGreater(res["original_verified_timestamp_count"],0)
         self.assertFalse(res["full_resource_owner_authorization_certified"])
@@ -148,8 +148,8 @@ class RealOriginallySignedReleaseTest(unittest.TestCase):
 
     def test_actual_byte_tamper_rejected_before_signature_check(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/DEVELOPMENT["asset_name"]
-            p.write_bytes((self.root/DEVELOPMENT["asset_name"]).read_bytes())
+            p=Path(d)/DEVELOPMENT["filename"]
+            p.write_bytes((self.root/DEVELOPMENT["filename"]).read_bytes())
             with p.open("r+b") as f:
                 byte=f.read(1);f.seek(0);f.write(bytes([byte[0]^1]))
             with self.assertRaisesRegex(m.Refused,"ORIGINAL_SIGNED_ASSET_BYTES_CHANGED"):
@@ -157,8 +157,8 @@ class RealOriginallySignedReleaseTest(unittest.TestCase):
 
     def test_original_signed_but_wrong_publisher_does_not_authorize_other_resource(self):
         with tempfile.TemporaryDirectory() as d:
-            p=Path(d)/DEVELOPMENT["asset_name"]
-            p.write_bytes((self.root/DEVELOPMENT["asset_name"]).read_bytes())
+            p=Path(d)/DEVELOPMENT["filename"]
+            p.write_bytes((self.root/DEVELOPMENT["filename"]).read_bytes())
             mis=DEVELOPMENT.copy()
             mis["repo"]="sigstore/fulcio"
             mis["signer_workflow"]="sigstore/fulcio/.github/workflows/release.yml"
