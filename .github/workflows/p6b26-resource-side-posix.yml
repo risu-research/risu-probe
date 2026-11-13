@@ -32,15 +32,25 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install packaged B26 reference implementation with crypto extras
+      - name: Build an actual wheel, install it into a clean venv, then run every prior and B26 test
         run: |
+          set -euo pipefail
           python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
-          python -m pip install -e '.[effect-authority]'
-          python -m pip check
-          python -m risu_p5d_cli enforce-mcp-resource-side --help
-      - name: Full previous RISU and B26 negative / positive authorization regression
-        run: |
-          python -m unittest discover -s tests -v
+          mkdir -p .b26-wheel
+          python -m pip wheel --no-deps -w .b26-wheel .
+          python -m venv .b26-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b26-installed/Scripts/python.exe
+            CLI=.b26-installed/Scripts/risu-probe.exe
+          else
+            PY=.b26-installed/bin/python
+            CLI=.b26-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b26-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          "$PY" -m pip check
+          "$PY" -m risu_p5d_cli enforce-mcp-resource-side --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
           echo RISU_B26_FULL_CROSS_PLATFORM_REGRESSION_PASS
 
   real-os-issuer-resource-service:
