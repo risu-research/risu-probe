@@ -1,0 +1,166 @@
+name: RISU delegated signed source stable product / five originals
+on:
+  push:
+    branches:
+      - main
+      - integration/b32-exact-delegated-sigstore-main-20261113
+    paths:
+      - src/risu_delegated_signer.py
+      - src/risu_p5d_cli.py
+      - pyproject.toml
+      - tests/test_p6b32_original_delegated_signer.py
+      - docs/DELEGATED_SIGNED_PROVENANCE.md
+      - .github/workflows/b32-delegated-signed-source-product.yml
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+  attestations: read
+jobs:
+  installed-wheel:
+    name: Main-derived B32 installed RISU wheel + all prior regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install wheel and run full legacy + B31 + B32 regression
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b32-wheel
+          python -m pip wheel --no-deps -w .b32-wheel .
+          python -m venv .b32-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b32-installed/Scripts/python.exe
+            CLI=.b32-installed/Scripts/risu-probe.exe
+          else
+            PY=.b32-installed/bin/python
+            CLI=.b32-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b32-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" verify-signed-release-provenance --help
+          "$CLI" verify-delegated-signed-provenance --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B32_MAIN_STABLE_ALL_REGRESSIONS_PASS
+  original-external-signature-validation:
+    name: Main-derived stable B32 exact signer crypto + 5 external original signed releases
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download real pinned original publisher assets, do not execute
+        run: |
+          set -euo pipefail
+          mkdir -p .b32-original .b32-certificates
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/txn2/kubefwd/releases/download/v1.25.17/kubefwd_Linux_x86_64.tar.gz \
+            -o .b32-original/kubefwd_Linux_x86_64.tar.gz
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/UpCloudLtd/upcloud-cli/releases/download/v3.37.0/upcloud-cli_3.37.0_linux_x86_64.tar.gz \
+            -o .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/axonops/audit/releases/download/v0.2.5/audit_0.2.5_linux_amd64.tar.gz \
+            -o .b32-original/audit_0.2.5_linux_amd64.tar.gz
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/klodr/gmail-mcp/releases/download/v3.0.0/index.js \
+            -o .b32-original/index.js
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/libredb/libredb-studio/releases/download/1.3.0/libredb-studio-1.3.0.cdx.json \
+            -o .b32-original/libredb-studio-1.3.0.cdx.json
+          echo 'f9a2986f26d219713429477511f5f570df12c811e0f79d42b244569746e8eba1  .b32-original/kubefwd_Linux_x86_64.tar.gz' | sha256sum -c -
+          echo 'ce2d381bdf49ce74a74582f390490542c49957079d7e606303e1426138b7e3d6  .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz' | sha256sum -c -
+          echo 'e0b075569683a2614656f7923271b8b302dd167950bb3480f0021f2bf12c3f2a  .b32-original/audit_0.2.5_linux_amd64.tar.gz' | sha256sum -c -
+          echo '682301b9d0aaf51fbdbd05a1abea28387f1f4d06bfb9a0490a47e6421960cc4e  .b32-original/index.js' | sha256sum -c -
+          echo '7baef425849d7e54252bdf7bddb552f8fb27de39f0069e88c3af7efbcd4e87e8  .b32-original/libredb-studio-1.3.0.cdx.json' | sha256sum -c -
+      - name: Verify actual upstream signed files with exact source and original certificate signer policies
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RISU_B32_ORIGINAL_RELEASE_DIR: .b32-original
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/kubefwd_Linux_x86_64.tar.gz \
+            --source-repo txn2/kubefwd \
+            --signer-identity 'https://github.com/txn2/kubefwd/.github/workflows/release.yml@refs/tags/v1.25.17' \
+            --source-ref refs/tags/v1.25.17 \
+            --sha256 f9a2986f26d219713429477511f5f570df12c811e0f79d42b244569746e8eba1 \
+            --out .b32-certificates/kubefwd.json
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz \
+            --source-repo UpCloudLtd/upcloud-cli \
+            --signer-identity 'https://github.com/UpCloudLtd/workflows/.github/workflows/build-provenance.yaml@refs/heads/main' \
+            --source-ref refs/tags/v3.37.0 --allow-delegated \
+            --sha256 ce2d381bdf49ce74a74582f390490542c49957079d7e606303e1426138b7e3d6 \
+            --out .b32-certificates/upcloud_delegated.json
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/audit_0.2.5_linux_amd64.tar.gz \
+            --source-repo axonops/audit \
+            --signer-identity 'https://github.com/axonops/audit/.github/workflows/goreleaser.yml@refs/heads/main' \
+            --source-ref refs/heads/main \
+            --sha256 e0b075569683a2614656f7923271b8b302dd167950bb3480f0021f2bf12c3f2a \
+            --out .b32-certificates/axonops.json
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/index.js \
+            --source-repo klodr/gmail-mcp \
+            --signer-identity 'https://github.com/klodr/gmail-mcp/.github/workflows/release.yml@refs/tags/v3.0.0' \
+            --source-ref refs/tags/v3.0.0 \
+            --sha256 682301b9d0aaf51fbdbd05a1abea28387f1f4d06bfb9a0490a47e6421960cc4e \
+            --out .b32-certificates/gmail_mcp.json
+          risu-probe verify-delegated-signed-provenance \
+            --asset .b32-original/libredb-studio-1.3.0.cdx.json \
+            --source-repo libredb/libredb-studio \
+            --signer-identity 'https://github.com/libredb/libredb-studio/.github/workflows/release-artifacts.yml@refs/tags/1.3.0' \
+            --source-ref refs/tags/1.3.0 \
+            --sha256 7baef425849d7e54252bdf7bddb552f8fb27de39f0069e88c3af7efbcd4e87e8 \
+            --out .b32-certificates/libredb_sbom.json
+          python -m unittest discover -s tests -p test_p6b32_original_delegated_signer.py -v
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          certificates=list(Path(".b32-certificates").glob("*.json"))
+          assert len(certificates)==5
+          repos=set()
+          for p in certificates:
+              x=json.loads(p.read_text())
+              assert x["status"]=="ORIGINAL_SIGNED_SOURCE_VERIFIED_WITH_EXPLICIT_SIGNER_IDENTITY"
+              assert x["grants_authority_over_unrelated_resource"] is False
+              assert x["claim_states"]["separate_resource_owner_approval"]=="UNVERIFIED"
+              assert x["claim_states"]["same_operation_remote_effect"]=="UNVERIFIED"
+              repos.add(x["source_repository"])
+          assert len(repos)==5
+          u=json.loads((Path(".b32-certificates")/"upcloud_delegated.json").read_text())
+          assert u["source_repository"]!=""+u["signer_repository"]
+          assert u["delegation_explicitly_accepted"] is True
+          k=json.loads((Path(".b32-certificates")/"kubefwd.json").read_text())
+          assert k["normalized_single_dot_slash_prefix"] is True
+          print("B32_STABLE_MAIN_FIVE_ORIGINAL_PUBLISHERS_SIGNED_TRUST_ROOT_PASS")
+          print("B32_STABLE_NO_CROSS_RESOURCE_OWNER_AUTHORIZATION_OVERCLAIM_PASS")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b32-stable-main-five-original-signed-delegated-source-certificates
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
+          path: .b32-certificates/*.json
