@@ -121,6 +121,12 @@ class B25TrustedBrokerSimulation(unittest.TestCase):
         self.policy=grant()
         self.file=self.root/"proposal.json"
         self.file.write_text(json.dumps(self.policy))
+        raw=self.file.read_bytes()
+        fixture_blob=__import__("hashlib").sha1(
+            b"blob "+str(len(raw)).encode()+bytes([0])+raw).hexdigest()
+        pinned=patch.object(m,"EXPECTED_OWNER_PROPOSAL_GIT_BLOB",fixture_blob)
+        pinned.start()
+        self.addCleanup(pinned.stop)
         self.ledger=self.root/"ledger";self.ledger.mkdir(mode=0o700)
         self.url="https://api.github.com/repos/"+m.OWNER+"/"+m.REPO
         self.calls=[]
