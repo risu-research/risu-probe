@@ -198,12 +198,14 @@ class B25TrustedBrokerSimulation(unittest.TestCase):
                    "81231","a"*40,"mock",child_probe=True)
         self.assertFalse(any(z[0]=="PUT" for z in self.calls))
     def test_rerun_is_never_a_fresh_human_approval(self):
-        with patch.object(m,"api",side_effect=lambda tok,route,method="GET",body=None:
-              {**run(),"run_attempt":2,"head_sha":"a"*40}
-              if route.endswith("/actions/runs/81231")
-              else [] if route.endswith("/approvals")
-              else self.api(tok,route,method,body)):
-            with self.assertRaises(m.PolicyDenied):self.invoke()
+        def replay_run(token,route,method="GET",body=None):
+            if route.endswith("/actions/runs/81231"):
+                return {**run(),"run_attempt":2,"head_sha":"a"*40}
+            return self.api(token,route,method,body)
+        with patch.object(m,"api",side_effect=replay_run):
+            with self.assertRaises(m.PolicyDenied):
+                m.execute(self.file,self.ledger,self.root/"evidence.json",
+                    "81231","a"*40,"unit-test-reused-github-approval",child_probe=False)
         self.assertFalse(any(z[0]=="PUT" for z in self.calls))
 
 if __name__=="__main__":unittest.main()
