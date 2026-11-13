@@ -107,4 +107,5 @@ jobs:
           name: risu-b28-installed-portable-authority-certificate-${{ matrix.os }}
           if-no-files-found: error
           retention-days: 30
+          include-hidden-files: true
           path: .b28-record-certificate.json
