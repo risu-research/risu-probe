@@ -61,8 +61,8 @@ def valid_path(x):
             all(p not in (".","..") for p in x.split("/")))
 
 def valid_ref(x):
-    return type(x) is str and REF.fullmatch(x) is not None and
-        all(k not in (".","..") for k in x.split("/"))
+    return (type(x) is str and REF.fullmatch(x) is not None and
+            all(k not in (".","..") for k in x.split("/")))
 
 def sha256(data):
     return hashlib.sha256(data).hexdigest()
