@@ -1,0 +1,178 @@
+name: P6-B34 frozen public product against real external MCP defect holdout
+on:
+  push:
+    branches:
+      - qualification/p6b34-frozen-public-product-external-holdout-20261113
+    paths:
+      - benchmarks/p6b34/**
+      - .github/workflows/p6b34-independent-external-holdout.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  independent-frozen-baseline:
+    name: Five pinned upstream before/after cases, frozen CLI, no foreign execution
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout B34 evaluator and locked prereg (not detector source)
+        uses: actions/checkout@v5
+        with:
+          path: audit
+          persist-credentials: false
+      - name: Checkout exact public product frozen before holdout selection
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 8d622b792b4ae58b7157fd81ee5f95d6febcfd53
+          path: frozen-product
+          persist-credentials: false
+      - name: Use Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Checkout H1 independent upstream before original source
+        uses: actions/checkout@v5
+        with:
+          repository: agentscope-ai/agentscope
+          ref: 430fbc7898e5ba225bfe7e5afd26e0d83b622a0e
+          path: audit/upstream/H1/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agentscope/tool/_adapters.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H1 independent upstream after original source
+        uses: actions/checkout@v5
+        with:
+          repository: agentscope-ai/agentscope
+          ref: 7c198c5f1e68b6b9ee1dade94db254038c645907
+          path: audit/upstream/H1/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agentscope/tool/_adapters.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H2 independent upstream before original source
+        uses: actions/checkout@v5
+        with:
+          repository: NousResearch/hermes-agent
+          ref: dd2dc2bddf43d72e24e61fd306206c696298df47
+          path: audit/upstream/H2/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/mcp_tool.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H2 independent upstream after original source
+        uses: actions/checkout@v5
+        with:
+          repository: NousResearch/hermes-agent
+          ref: c8e3e3918509d4c43432ec2cf19ef6a1cfe9cd9c
+          path: audit/upstream/H2/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            tools/mcp_tool.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H3 independent upstream before original source
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: 72ff38cb5cb7c0f6d5024d1b185e5bf0c05f0cb0
+          path: audit/upstream/H3/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp/server/mcpserver/utilities/func_metadata.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H3 independent upstream after original source
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: 5a3a23af65def4d636864d55701ff9395cad92d0
+          path: audit/upstream/H3/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp/server/mcpserver/utilities/func_metadata.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H4 independent upstream before original source
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: 5a3a23af65def4d636864d55701ff9395cad92d0
+          path: audit/upstream/H4/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp/server/mcpserver/utilities/func_metadata.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H4 independent upstream after original source
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: a525a3d9bece967d91534b746a6c842931b7b4ec
+          path: audit/upstream/H4/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp/server/mcpserver/utilities/func_metadata.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H5 independent upstream before original source
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: af4c6f4db2cd207f44374cd324a12cfbee8d2da6
+          path: audit/upstream/H5/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp-types/mcp_types/_types.py
+          sparse-checkout-cone-mode: false
+      - name: Checkout H5 independent upstream after original source
+        uses: actions/checkout@v5
+        with:
+          repository: modelcontextprotocol/python-sdk
+          ref: 82adc272e85c12f620df21db34b6086ed7619548
+          path: audit/upstream/H5/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/mcp-types/mcp_types/_types.py
+          sparse-checkout-cone-mode: false
+      - name: Install frozen product in isolated virtualenv
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen-product rev-parse HEAD)" = 8d622b792b4ae58b7157fd81ee5f95d6febcfd53
+          python -m venv .b34-env
+          .b34-env/bin/python -m pip install --disable-pip-version-check ./frozen-product
+          .b34-env/bin/risu-probe doctor --format json
+      - name: Run preregistered evaluation with unchanged public CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          .b34-env/bin/python audit/benchmarks/p6b34/run_frozen_holdout.py .b34-env/bin/risu-probe
+          sha256sum audit/out/B34_FROZEN_BASELINE_RESULTS.json
+          cat audit/out/B34_FROZEN_BASELINE_REPORT.md
+      - name: Preserve only B34 derived results, not third-party source or credentials
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: p6b34-preregistered-frozen-external-holdout-results
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            audit/out/B34_FROZEN_BASELINE_RESULTS.json
+            audit/out/B34_FROZEN_BASELINE_REPORT.md
