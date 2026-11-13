@@ -56,7 +56,8 @@ def preflight(file_path,repo,filename,signer_workflow,source_ref,expected_digest
     path=Path(file_path)
     require(path.is_file() and not path.is_symlink(),"ARTIFACT_MISSING_OR_SYMLINK")
     require(path.stat().st_size>0,"ARTIFACT_EMPTY")
-    require(type(repo) is str and REPO.fullmatch(repo) is not None,
+    require(type(repo) is str and REPO.fullmatch(repo) is not None and
+            all(part not in (".","..") and not part.startswith("-") for part in repo.split("/")),
             "REPO_IDENTITY_INVALID")
     require(type(filename) is str and FILENAME.fullmatch(filename) is not None,
             "SIGNED_SUBJECT_FILENAME_INVALID")
