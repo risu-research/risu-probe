@@ -57,12 +57,21 @@ class TestNativeGithubIndependentApproval(unittest.TestCase):
 
     def test_synthetic_two_account_configuration_is_structurally_valid_but_not_real_owner(self):
         out=self.report()
-        self.assertEqual(out["status"],"PLATFORM_DISTINCT_ACCOUNT_REVIEW_BOUND_TO_SAME_RUN")
+        self.assertEqual(out["status"],"SYNTHETIC_STRUCTURAL_MATCH_NOT_REAL_GITHUB_PROOF")
+        self.assertTrue(out["structural_platform_review_rule_match"])
         self.assertEqual(out["refusals"],[])
+        self.assertFalse(out["supported_claims"]["github_distinct_account_approval_same_run"])
         self.assertFalse(out["supported_claims"]["independently_controlled_human_owner"])
         self.assertFalse(out["supported_claims"]["owner_signed_exact_resource_intent"])
         self.assertFalse(out["supported_claims"]["real_remote_resource_effect_independently_verified"])
         self.assertEqual(out["mode"],"OFFLINE_TEST_OR_RECORDED_DATA")
+
+    def test_synthetic_cannot_masquerade_as_live_evidence_via_source_field(self):
+        d=example()
+        d["source"]="LIVE_ORIGINAL_GITHUB_REST_READ_ONLY"
+        out=m.assess(d)
+        self.assertEqual(out["mode"],"OFFLINE_TEST_OR_RECORDED_DATA")
+        self.assertFalse(out["supported_claims"]["github_distinct_account_approval_same_run"])
 
     def test_self_reviewer_disqualifies_independence(self):
         def tamper(d):
