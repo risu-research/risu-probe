@@ -383,7 +383,9 @@ def normalize(e):
        ],
     }
 
-def collect_live(repo,run_id,artifact_name,workflow_path,token):
+def collect_live(repo,run_id,artifact_name,workflow_path,token,
+                 intent_path="benchmarks/p6b33/INTENT.json"):
+    need(valid_path(intent_path),"UNSAFE_ORIGINAL_INTENT_PATH")
     need(valid_repo(repo) and valid_path(workflow_path) and
          workflow_path.startswith(".github/workflows/") and
          workflow_path.endswith((".yml",".yaml")),
@@ -476,7 +478,6 @@ def collect_live(repo,run_id,artifact_name,workflow_path,token):
              "SIGNED_PROGRAM_BROKER_AND_RESOURCE_PATHS_INVALID")
         # The canonical policy is retrieved from the same immutable original
         # source commit, NOT from the artifact or current mutable branch.
-        intent_path="benchmarks/p6b33/INTENT.json"
         policy_data=source_content(repo,intent_path,source,token)
         intent=strict(policy_data)
         need(intent.get("source_program")==policy_path and
@@ -576,6 +577,8 @@ def main(argv=None):
     parser.add_argument("--workflow-path",required=True)
     parser.add_argument("--artifact-name",required=True)
     parser.add_argument("--expected-actor",required=True)
+    parser.add_argument("--intent-path",default="benchmarks/p6b33/INTENT.json",
+                        help="Original immutable source policy path, verified under run head SHA")
     parser.add_argument("--out",required=True)
     parser.add_argument("--snapshot-out",help="Optional source-fact JSON; is NOT a standalone signature")
     args=parser.parse_args(argv)
@@ -589,7 +592,7 @@ def main(argv=None):
     try:
         token=os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN","")
         original=collect_live(args.repo,args.run_id,args.artifact_name,
-                              args.workflow_path,token)
+                              args.workflow_path,token,args.intent_path)
         need(original["run"]["actor"]==args.expected_actor,
              "UNEXPECTED_NATIVE_ORIGINAL_RUN_ACTOR")
         verdict=normalize(original)
