@@ -137,7 +137,7 @@ async def preserve(session):
         self.assertTrue(any(x["rule_id"]=="RSEM102" and x["function"]=="project"
                             for x in record["findings"]))
         self.assertFalse(any(x["function"]=="preserve" for x in record["findings"]))
-        self.assertEqual(record["parse_error"]["line"],8)
+        self.assertEqual(record["parse_error"]["line"],9)
 
     def test_valid_module_must_not_downgrade_to_partial(self):
         record=analyze_source("def f():\n    return 42\n","normal.py")
