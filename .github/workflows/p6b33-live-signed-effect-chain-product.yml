@@ -49,6 +49,14 @@ jobs:
             --expected-actor moon10021017 \
             --out .b33-original/B33_LIVE_SIGNED_SOURCE_EXECUTION_EFFECT_VERDICT.json \
             --snapshot-out .b33-original/B33_ORIGINAL_NORMALIZED_SOURCE_FACTS.json
+          risu-probe verify-signed-effect-chain \
+            --repo risu-research/risu-probe \
+            --run-id 43461936460 \
+            --workflow-path .github/workflows/p6b33-holdout-signed-execution.yml \
+            --artifact-name risu-b33-original-candidate-and-broker-receipts \
+            --expected-actor moon10021017 \
+            --out .b33-original/B33_H2_LIVE_SIGNED_SOURCE_EXECUTION_EFFECT_VERDICT.json \
+            --snapshot-out .b33-original/B33_H2_ORIGINAL_NORMALIZED_SOURCE_FACTS.json
           python - <<'PY'
           import json
           from pathlib import Path
@@ -62,6 +70,21 @@ jobs:
           assert x["claim_states"]["independent_human_resource_owner_approval"]=="UNVERIFIED"
           assert x["claim_states"]["actual_instruction_trace_in_trusted_hardware"]=="UNVERIFIED"
           assert x["claim_states"]["repository_token_file_scoped_by_github"]=="REFUTED"
+          h=json.loads(Path(".b33-original/B33_H2_LIVE_SIGNED_SOURCE_EXECUTION_EFFECT_VERDICT.json").read_text())
+          assert h["status"]=="LIVE_GITHUB_SIGSTORE_SIGNED_SOURCE_EXECUTION_ONE_GIT_EFFECT_CLOSED"
+          assert h["verification_mode"]=="LIVE_OFFICIAL_GH_SIGSTORE_AND_INDEPENDENT_NATIVE_GITHUB_REST"
+          assert h["source_repository"]=="risu-research/risu-probe"
+          assert h["original_run_id"]==43461936460
+          assert h["original_source_sha"]=="846f458a3721ebb42b97217f65e72cbfd0ef5482"
+          assert h["effect_commit"]=="1b5aa13d1dd7116cb4998a769a89740989cead3b"
+          assert h["original_actor"]=="moon10021017"
+          assert h["claim_states"]["independent_human_resource_owner_approval"]=="UNVERIFIED"
+          assert h["claim_states"]["actual_instruction_trace_in_trusted_hardware"]=="UNVERIFIED"
+          assert h["claim_states"]["repository_token_file_scoped_by_github"]=="REFUTED"
+          assert x["source_candidate_sha256"]!=h["source_candidate_sha256"]
+          assert x["original_source_sha"]!=h["original_source_sha"]
+          assert x["effect_commit"]!=h["effect_commit"]
+          print("B33_SECOND_DISTINCT_REPOSITORY_ORIGINAL_SIGSTORE_AND_GIT_EFFECT_PASS")
           print("B33_THREE_ORIGINAL_ACTUAL_SIGNED_PROGRAMS_RECEIPT_AND_NATIVE_GIT_PASS")
           PY
       - name: Actual original normalizations and adversarial provenance mismatches
