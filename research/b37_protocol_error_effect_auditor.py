@@ -87,6 +87,8 @@ def classify_tool_wire(wire: dict[str, Any],tool_name: str,
         return "APPLICATION_ERROR_PROPAGATED"
     if outcome=="mcp_tool_error":
         return "NONERROR_MISCLASSIFIED_AS_ERROR"
+    if result.get("structuredContent") is not None:
+        return "SUCCESS_STATUS_PRESERVED_OTHER_CHANNELS_UNASSESSED"
     return "NORMAL_SUCCESS_PRESERVED_STATUS"
 
 
