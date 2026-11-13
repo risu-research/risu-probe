@@ -218,5 +218,90 @@ class B33OriginalVerifiedFactsAdversarial(unittest.TestCase):
         self.assertNotIn("independent_human_resource_owner_approval",
                          [k for k,v in self.base["claim_states"].items() if v=="VERIFIED"])
 
+class B33TwoIndependentLiveOriginalRunsCannotBeStitched(unittest.TestCase):
+    """Real valid Sigstore evidence from two distinct repos cannot be joined.
+
+    Both H1 and H2 completed actual GitHub writes and separate readonly audits.
+    This tests mixed ORIGINAL POSITIVES, not fabricated fake attestations.
+    """
+    @classmethod
+    def setUpClass(cls):
+        location=os.environ.get("RISU_B33_ORIGINAL_FACTS_DIR")
+        if not location:
+            raise unittest.SkipTest("Requires two fresh original GitHub/Sigstore source snapshots")
+        root=Path(location)
+        cls.h1=m.strict((root/"B33_ORIGINAL_NORMALIZED_SOURCE_FACTS.json").read_bytes())
+        cls.h2=m.strict((root/"B33_H2_ORIGINAL_NORMALIZED_SOURCE_FACTS.json").read_bytes())
+        cls.a=m.normalize(cls.h1)
+        cls.b=m.normalize(cls.h2)
+
+    def test_both_independently_authentic_original_runs_have_valid_structural_chain(self):
+        self.assertEqual(self.a["original_run_id"],43458536273)
+        self.assertEqual(self.b["original_run_id"],43461936460)
+        self.assertNotEqual(self.a["source_repository"],self.b["source_repository"])
+        self.assertNotEqual(self.a["original_source_sha"],self.b["original_source_sha"])
+        self.assertNotEqual(self.a["source_candidate_sha256"],self.b["source_candidate_sha256"])
+        self.assertNotEqual(self.a["source_broker_sha256"],self.b["source_broker_sha256"])
+        self.assertNotEqual(self.a["signed_execution_receipt_sha256"],
+                            self.b["signed_execution_receipt_sha256"])
+        self.assertNotEqual(self.a["effect_commit"],self.b["effect_commit"])
+        self.assertEqual(self.a["original_before_sha256"],self.b["original_before_sha256"])
+        self.assertEqual(self.a["original_after_sha256"],self.b["original_after_sha256"])
+        self.assertEqual(self.a["original_actor"],self.b["original_actor"])
+        self.assertNotEqual(self.a["source_repository"],self.b["source_repository"])
+
+    def reject_genuine_cross_run_mix(self,label,field):
+        mixed=copy.deepcopy(self.h1)
+        mixed[field]=copy.deepcopy(self.h2[field])
+        with self.subTest(mixed_real_original=label):
+            with self.assertRaises(m.Refused):
+                m.normalize(mixed)
+
+    def test_actual_crypto_verified_other_run_source_is_not_approval(self):
+        for key in ("run","writer_job","signatures","candidate","receipt",
+                    "intent","original","authorization"):
+            self.reject_genuine_cross_run_mix(key,key)
+
+    def test_specific_valid_signatures_cannot_move_between_original_runs(self):
+        for role in ("candidate","broker","receipt"):
+            mixed=copy.deepcopy(self.h1)
+            mixed["signatures"][role]=copy.deepcopy(self.h2["signatures"][role])
+            with self.subTest(signed_actual_other_run=role):
+                with self.assertRaises(m.Refused):
+                    m.normalize(mixed)
+
+    def test_exactly_matching_old_new_content_hashes_are_not_enough(self):
+        # The *same* initial/desired text in two independent GitHub repos is
+        # the deliberately strong identity-collision case; the bound source
+        # commit, actor-run ID, program and remote commit still prevent joining.
+        self.assertEqual(self.h1["original"]["before_sha256"],
+                         self.h2["original"]["before_sha256"])
+        self.assertEqual(self.h1["original"]["after_sha256"],
+                         self.h2["original"]["after_sha256"])
+        mixed=copy.deepcopy(self.h1)
+        mixed["receipt"]["remote_effect_commit"]=self.h2["original"]["effect_sha"]
+        mixed["original"]=copy.deepcopy(self.h2["original"])
+        with self.assertRaises(m.Refused):
+            m.normalize(mixed)
+
+    def test_real_certificate_identity_differs_even_for_same_github_actor(self):
+        self.assertEqual(self.h1["run"]["actor"],self.h2["run"]["actor"])
+        self.assertNotEqual(self.h1["run"]["signer_identity"],
+                            self.h2["run"]["signer_identity"])
+        for role in ("candidate","broker","receipt"):
+            self.assertNotEqual(self.h1["signatures"][role]["source_sha"],
+                                self.h2["signatures"][role]["source_sha"])
+            self.assertNotEqual(self.h1["signatures"][role]["run_id"],
+                                self.h2["signatures"][role]["run_id"])
+
+    def test_neither_operator_controlled_original_proves_external_human(self):
+        for conclusion in (self.a,self.b):
+            self.assertEqual(conclusion["claim_states"]["independent_human_resource_owner_approval"],
+                             "UNVERIFIED")
+            self.assertEqual(conclusion["claim_states"]["actual_instruction_trace_in_trusted_hardware"],
+                             "UNVERIFIED")
+            self.assertEqual(conclusion["claim_states"]["repository_token_file_scoped_by_github"],
+                             "REFUTED")
+
 if __name__=="__main__":
     unittest.main()
