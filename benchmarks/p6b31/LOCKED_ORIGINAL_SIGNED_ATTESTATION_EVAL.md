@@ -1,0 +1,17 @@
+# B31 locked signed-attestation evaluation protocol (2026-11-13)
+
+Frozen before the first B31 cryptographic live GitHub Actions run. This is **not** a request to create a signature: verify independently published existing SLSA provenance using GitHub CLI and Sigstore trust roots.
+
+Development source: `cli/cli`, release `v2.62.0`, published original asset `gh_2.62.0_linux_amd64.tar.gz` (release November 14, 2024). Verifier: `gh attestation verify FILE --repo cli/cli --format json`. The official cli/cli documentation confirms its release assets have GitHub build provenance since 2.50.0. This source is used for code adaptation.
+
+**Locked independent holdout**: `sigstore/fulcio`, release `v1.10.0`, published original asset `fulcio-linux-amd64` (approximately 51 MB). Verifier: `gh attestation verify FILE --repo sigstore/fulcio --format json`. Official Sigstore Fulcio verification guide explicitly documents original GitHub Artifact Attestations starting in v1.10.0; Fulcio and cli/cli are independently operated projects. Holdout identity, asset and rule are locked; a failing holdout should be reported rather than silently replaced with another publisher.
+
+**Minimum cryptographic baseline**: real bytes must be loaded; the official `gh` command must exit 0 with valid Sigstore-verified original GitHub attestation and exact repo identity, not a user-supplied JSON with `verified=true`. The B31 product must never claim it implemented cryptography itself. The pinned release tag and exact file name must match the inputs. It must fail closed if the official verifier is absent, fails, or returns an ambiguous statement or unexpected digest.
+
+**Required negative controls**, adapted only on development case: (A) edit one byte of the original asset, (B) swap expected repository (`sigstore/fulcio` versus `cli/cli`), (C) use correct verified signed CLI asset as alleged proof of permission to change B25 owner's unrelated original GitHub file, (D) substitute one signed release for the other while spoofing an asset label, (E) tamper with signed provenance statement after verification, (F) signer/repo/project mismatch, (G) absent verification CLI, (H) signed build provenance treated as distinct from human owner authorization and real resource effect.
+
+**Holdout policy**: run the frozen same algorithm once against actual released Fulcio artifact, with no post-hoc rule relaxations. Report PASS, REFUTED or UNVERIFIED for (1) signed provenance, (2) issuer identity, (3) artifact digest, (4) original release association, (5) independent-owner approval of a separate action, (6) same-operation remote effect. Cryptographically valid source provenance must **not** automatically become owner consent or resource authorization.
+
+**Operational safety**: read-only downloads and signature verification; never execute any downloaded artifact. CI tokens only for reading attestations/repositories. Do not upload binary assets, credentials or huge release files to persistent GitHub artifacts. Save only file SHA-256, pinned source metadata, verifier version, reason codes, and an original verification summary free of credentials.
+
+**Product integration**: B31 experimental study branch first. If holdout, Linux CI, Windows/macOS wheel packaging and existing product regression pass, selectively bring stable verifier and tests to a `main`-derived integration branch and PR. Do not fast-forward merge the entire B25-B31 qualification history or silently change `main` without tested isolated integration.
