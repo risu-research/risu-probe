@@ -1,0 +1,87 @@
+name: RISU P6-B24 final broker/agent owner-provenance and immutable original-source handoff
+on:
+  push:
+    branches: ['qualification/p6b24-*']
+    paths:
+      - 'docs/P6B24_REAL_OWNER_NO_WRITE_AGENT_BROKER.md'
+      - 'benchmarks/p6b24/HANDOFF_KO.md'
+      - 'README.md'
+      - '.github/workflows/p6b24-final-research-handoff.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  final-original-qualification-source-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Preserve all frozen older RISU source blobs and public CI constraints
+        run: |
+          set -euo pipefail
+          python tools/public_ci_audit.py
+          test "$(git hash-object src/risu_mcp_preflight.py)" = 651af884c3303bbe6729a751a89b57d939e9eb6d
+          test "$(git hash-object src/risu_mcp_effect_authority.py)" = 2f33e0f919b00f4205d3533b13124581288a3832
+          test "$(git hash-object src/risu_mcp_effects.py)" = ab8191a3ca153ac079fcd07d128ddfcd7a06e99f
+          python -m py_compile \
+            src/risu_mcp_owner_credential_broker.py \
+            benchmarks/p6b24/run_trusted_broker_official_github_mcp.py \
+            benchmarks/p6b24/real_untrusted_agent_bypass.py \
+            benchmarks/p6b24/independent_readonly_owner_and_broker_audit.py \
+            tests/test_p6b24_owner_credential_broker.py
+      - name: Write pinned source snapshot, Korean handoff, evidence run identifiers and per-file content hash ledger
+        run: |
+          set -euo pipefail
+          mkdir -p .b24-final-source
+          git archive --format=zip --output=.b24-final-source/COMPLETE_B24_RISU_RESEARCH_SOURCE.zip HEAD
+          cp docs/P6B24_REAL_OWNER_NO_WRITE_AGENT_BROKER.md .b24-final-source/TECHNICAL_REPORT.md
+          cp benchmarks/p6b24/HANDOFF_KO.md .b24-final-source/README_KO.md
+          python - <<'PY'
+          import hashlib,json,subprocess
+          from pathlib import Path
+          root=Path('.b24-final-source')
+          files=sorted(x for x in root.rglob('*') if x.is_file())
+          record={
+            'schema':'risu-b24-actual-owner-credential-isolated-original-mcp-source-handoff-v1',
+            'commit':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),
+            'owner_repo':'risu-research/risu-verify',
+            'owner_repo_id':1350184511,'owner_org_id':316025762,
+            'owner_grant_commit':'f21a899fe5466963b19bfcc8986e10c11776afae',
+            'actual_owner_issuing_untrusted_agent_and_broker_run':43341365204,
+            'true_original_publisher_github_mcp_version':'v2.1.0',
+            'pinned_original_publisher_tar_sha256':'a442f9db287cea01008bcb55fe6bc0292270301046c3edbd1a8b22d6e4157b2b',
+            'untrusted_actual_rest_http_unauthorized_status':403,
+            'untrusted_original_mcp_github_api_unauthorized_status':403,
+            'untrusted_writes_successful':0,
+            'trusted_broker_actual_original_mcp_native_write_successful':1,
+            'actual_owner_remote_file_change_commit':'140b47158ee6e03327e8fb8a98380479d0cd2554',
+            'actual_owner_remote_changed_file_count':1,
+            'first_independent_readonly_audit_run':43342185893,
+            'three_corruption_negative_independent_audit_run':43342408153,
+            'complete_510_tests_each_3_os_run':43343166589,
+            'direct_independent_external_human_owner_approval':'NOT_PERFORMED',
+            'credential_boundary':'UNTRUSTED_JOB_CONTENTS_READ; WRITER_BROKER_JOB_CONTENTS_WRITE',
+            'broker_token_narrowest_provider_permission':'REPOSITORY_CONTENTS_WRITE_NOT_PATH_SCOPED',
+            'new_original_upstream_vulnerabilities_discovered':0,
+            'files':[{
+              'path':p.relative_to(root).as_posix(),
+              'bytes':p.stat().st_size,
+              'sha256':hashlib.sha256(p.read_bytes()).hexdigest()
+            } for p in files]
+          }
+          (root/'B24_SOURCE_SHA256_EVIDENCE_LEDGER.json').write_text(
+              json.dumps(record,sort_keys=True,indent=2,ensure_ascii=False)+'\n')
+          print('B24_COMPLETE_SOURCE_HISTORICAL_AND_CREDENTIAL_BOUNDARY_LEDGER_FILES',len(files))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: risu-b24-complete-original-owner-credential-broker-source-and-handoff
+          retention-days: 21
+          include-hidden-files: true
+          if-no-files-found: error
+          path: .b24-final-source/
