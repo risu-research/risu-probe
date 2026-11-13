@@ -68,8 +68,10 @@ def verify_original(case,side):
         check(file.is_file() and not file.is_symlink(),case["id"]+"_FILE_MISSING_"+side)
         # Compare the actual pinned Git tree object, not the *materialized*
         # checkout bytes. Worktree filters/attributes may transform bytes.
-        check(git(root,"rev-parse","HEAD:"+path)==expected,
-              case["id"]+"_PINNED_GIT_TREE_BLOB_CHANGED_"+side)
+        actual_tree_blob=git(root,"rev-parse","HEAD:"+path)
+        check(actual_tree_blob==expected,
+              case["id"]+"_PINNED_GIT_TREE_BLOB_CHANGED_"+side+
+              "_expected_"+expected+"_actual_"+actual_tree_blob)
         raw=subprocess.run(["git","-C",str(root),"cat-file","blob",expected],
                            capture_output=True,timeout=60,check=False)
         check(raw.returncode==0,case["id"]+"_ORIGINAL_GIT_BLOB_UNAVAILABLE_"+side)
@@ -206,7 +208,20 @@ def main():
     from b34_channel_projection import analyze_source
     from types import SimpleNamespace
     frozen_algorithm=SimpleNamespace(analyze_source=analyze_source)
-    results=[analyze(c,frozen_algorithm,CLI) for c in cases]
+    results=[]
+    for case in cases:
+        try:
+            results.append(analyze(case,frozen_algorithm,CLI))
+        except RuntimeError as exc:
+            # A single integrity failure is an UNVERIFIED preselected case,
+            # never a removal or replacement; continue through every case.
+            results.append({
+                "id":case["id"],"repo":case["repo"],
+                "language":case["language"],"fix_pr":case["fix_pr"],
+                "status":"UNVERIFIED","error":str(exc),
+                "files":[],"confidence":"NO_RESULT",
+                "original_execution_verified":False,
+            })
     python=[r for r in results if r["language"]=="python"]
     eligible=[r for r in python if r["status"] in ("LOCALIZED_SOURCE_HYPOTHESIS","MISSED")]
     hits=[r for r in eligible if r["status"]=="LOCALIZED_SOURCE_HYPOTHESIS"]
