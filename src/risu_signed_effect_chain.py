@@ -22,6 +22,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request,urlopen
 
@@ -91,18 +93,39 @@ def stamp(s):
         raise Refused("TIMESTAMP_MALFORMED") from e
 
 def api(repo,endpoint,token):
+    """Read original GitHub facts, retrying only temporary transport/API failures.
+
+    All requests are GET. Exhausted attempts and permanent failures remain
+    REFUSED; no cached or client-supplied evidence is substituted.
+    """
     req=Request("https://api.github.com"+endpoint,
       headers={
           "Authorization":"Bearer "+token,
           "Accept":"application/vnd.github+json",
           "User-Agent":"RISU-B33-ReadOnly-Provenance-Closure",
           "X-GitHub-Api-Version":"2022-11-28"})
-    try:
-        with urlopen(req,timeout=40) as out:
-            need(out.status==200,"ORIGINAL_GITHUB_REST_STATUS_FAILED")
-            return strict(out.read())
-    except (OSError,TimeoutError) as ex:
-        raise Refused("ORIGINAL_GITHUB_REST_LOOKUP_FAILED") from ex
+    for attempt in range(3):
+        try:
+            with urlopen(req,timeout=40) as out:
+                need(out.status==200,"ORIGINAL_GITHUB_REST_STATUS_FAILED")
+                return strict(out.read())
+        except HTTPError as ex:
+            # Ordinary 403/404 authorization and absence failures are final.
+            # Retry 403 only with GitHub's explicit rate-limit indication.
+            headers=ex.headers or {}
+            retryable=(ex.code in (408,429,500,502,503,504) or
+                       (ex.code==403 and
+                        (headers.get("Retry-After") is not None or
+                         headers.get("X-RateLimit-Remaining")=="0")))
+            if retryable and attempt<2:
+                time.sleep(1+attempt)
+                continue
+            raise Refused(f"ORIGINAL_GITHUB_REST_HTTP_{ex.code}") from ex
+        except (OSError,TimeoutError,URLError) as ex:
+            if attempt<2:
+                time.sleep(1+attempt)
+                continue
+            raise Refused("ORIGINAL_GITHUB_REST_LOOKUP_FAILED") from ex
 
 def decode_contents(obj):
     need(type(obj) is dict and obj.get("type")=="file" and
