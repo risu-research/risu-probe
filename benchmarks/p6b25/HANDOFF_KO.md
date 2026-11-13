@@ -22,7 +22,7 @@ RISU 명령: risu-probe enforce-mcp-human-reviewed-write
 허가 조건은 GitHub의 실제 특정 workflow run에 대한
 GET /repos/{owner}/{repo}/actions/runs/{run_id}/approvals 의 승인 기록.
 정확히 지정된 환경과 moon10021017 사용자, User 계정, state=approved 확인.
-Bot, 잘못된 계정/환경, 미승인, rejected, 재실행 attempt>1 거부.
+Bot, 잘못된 계정/환경, 미승인, rejected, 재실행 attempt>1 및 실행 개시 후 30분이 지난 승인 거부.
 순수 push 이벤트나 GitHub OIDC 출처서명만으로 인간 동의로 판단하지 않음.
 
 이 코드에는 정확한 소유자 제안서 Git blob을 내장해
@@ -51,7 +51,7 @@ B24에서는 원본 MCP 프로세스가 저장소 쓰기 토큰을 직접
 401/403 거부, 무해한 대상 파일 존재하지 않음 404:
 https://github.com/risu-research/risu-verify/actions/runs/43351968519
 
-기존과 신규 모두 포함한 538 tests가
+기존과 신규 모두 포함한 539 tests가
 Ubuntu, macOS, Windows 각각 통과:
 https://github.com/risu-research/risu-probe/actions/runs/43352914194
 
