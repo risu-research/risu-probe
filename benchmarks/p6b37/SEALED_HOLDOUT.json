@@ -1,0 +1,187 @@
+{
+  "schema": "risu-p6b37-first-look-sealed-upstream-fix-manifest-v1",
+  "sealed_before_b37_code_development": true,
+  "prereg_commit": "59de1a6afeb09a330849e2640ddba29fc8e3121e",
+  "product_baseline": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "prior_source_detector_commit": "c34def4a25b66cbc89df039ca235d6c1df2094f0",
+  "holdout_rules": "Only original merged upstream fix SHA and first-parent parent; relevant original changed source Git blobs locked. No case substitution post-analysis. B34-B36 original organizations excluded.",
+  "cases": [
+    {
+      "id": "B37A",
+      "repo": "Eigenwise/atomic-agents",
+      "language": "python",
+      "issue": "https://github.com/Eigenwise/atomic-agents/pull/360",
+      "mechanism": "Structured-only MCP tool results disappear in generic-tool adapter when content array empty, and structure output exists",
+      "pre": "151dadb64814378e82fb7e87ac9c6125c37ae431",
+      "post": "29c894b2f4dd275e8bcb45083196a5ff281d58d5",
+      "files": [
+        [
+          "atomic-agents/atomic_agents/connectors/mcp/mcp_factory.py",
+          "732d8b7af4b9edd5a680685432d341d69fafc3ee",
+          "8c07a1d3640acb91c18123de514cf5ef4943d727"
+        ]
+      ]
+    },
+    {
+      "id": "B37B",
+      "repo": "zed123214/kitagent",
+      "language": "python",
+      "issue": "https://github.com/zed123214/kitagent/pull/14",
+      "mechanism": "MCP result isError true treated as success because consumer only extracts text; no error status propagated",
+      "pre": "33afd476312db30561f998c1d1dbb46fed9b835c",
+      "post": "ddbcca26231bbaef937b8a8823fc982a52f5c1c8",
+      "files": [
+        [
+          "src/agent_runtime/core/mcp/client.py",
+          "a9e849ee577c1c415fca93b75104e32e72ce9adb",
+          "e06486e1769a21278e7506933fd3f57ce8088302"
+        ]
+      ]
+    },
+    {
+      "id": "B37C",
+      "repo": "pvliesdonk/scholar-mcp",
+      "language": "python",
+      "issue": "https://github.com/pvliesdonk/scholar-mcp/pull/583",
+      "mechanism": "MCP structured output returned as JSON string, causing wrapped result and extra JSON parsing",
+      "pre": "59492daac9f92df3986adeb2e49ce001c653215f",
+      "post": "4bb65a93965487d1118692419e94241c4b8f7b7d",
+      "files": [
+        [
+          "src/scholar_mcp/_tools_books.py",
+          "62eaf37952d222c34bf3ad547314530db553e8a9",
+          "15c821dc5f6757481e77c5823780b434bd5dce60"
+        ]
+      ]
+    },
+    {
+      "id": "B37D",
+      "repo": "rhamenator/ai-scraping-defense",
+      "language": "python",
+      "issue": "https://github.com/rhamenator/ai-scraping-defense/pull/1883",
+      "mechanism": "MCP 2.3 results structured_content field not normalized to expected classification output",
+      "pre": "36df0547a05047decf4291e3c9a25b459f78be6c",
+      "post": "aab4d153805be5074b1bfe3eb210f50de7945c02",
+      "files": [
+        [
+          "src/shared/mcp_client.py",
+          "9244f213d7323e9f0a40dc9b0161dbe9ca65e64e",
+          "b7f00761f84e122e0bf57f1078f2c8099b87f431"
+        ]
+      ]
+    },
+    {
+      "id": "B37E",
+      "repo": "LvcidPsyche/auto-browser",
+      "language": "python",
+      "issue": "https://github.com/LvcidPsyche/auto-browser/pull/192",
+      "mechanism": "Non-object list/scalar result invalid MCP structuredContent; should preserve original text result",
+      "pre": "829f61ff7785f989a1b49f29e3cba18ba1254381",
+      "post": "faf35b9219cc698daf4b78fcae33763b9f16dbb7",
+      "files": [
+        [
+          "controller/app/mcp_transport.py",
+          "ed2d7a368fb901330b93bbc381fb3835ab1788b5",
+          "dff8cd74ade120f418d9d4e6c1669039d30f4d87"
+        ]
+      ]
+    },
+    {
+      "id": "B37F",
+      "repo": "mmarquezs/vouchervault-mcp",
+      "language": "python",
+      "issue": "https://github.com/mmarquezs/vouchervault-mcp/pull/2",
+      "mechanism": "FastMCP rejects bare list as structured_content; list must become object envelope",
+      "pre": "de6110a3aad59933a12d339d2f5a281b9e3c5df9",
+      "post": "46ef8abfb5c7f5158a92999a9fd5448195fb0789",
+      "files": [
+        [
+          "vouchervault_mcp/server.py",
+          "1ef20657129f2fc1cbdaad3f671afc4f62037953",
+          "4d8ed9067d7721d79de49352e6a8b179f110518b"
+        ]
+      ]
+    },
+    {
+      "id": "B37G",
+      "repo": "pete-builds/mcp-unifi",
+      "language": "python",
+      "issue": "https://github.com/pete-builds/mcp-unifi/pull/227",
+      "mechanism": "Client receives only count/summary text while full results hidden in structuredContent; host ignores structured channel",
+      "pre": "aad6eb8351ce4527864d69f301ed6002a08dad88",
+      "post": "59b1091c645e81c583f8ca7a83b4d78fd4ad16ac",
+      "files": [
+        [
+          "src/mcp_unifi/responses.py",
+          "9dd8854db82a023c15cf5a67a8f358210ad9a45d",
+          "dc1519c92486759b7f5f811f8f0b2e24bd51b740"
+        ],
+        [
+          "src/mcp_unifi/server.py",
+          "17b5b2d814a13d76a71dc57fc99f6b768e6cf31d",
+          "557fdd031a782cb152b3473c6344fcd348838c70"
+        ]
+      ]
+    },
+    {
+      "id": "B37H",
+      "repo": "portofcontext/pctx",
+      "language": "rust",
+      "issue": "https://github.com/portofcontext/pctx/pull/173",
+      "mechanism": "MCP tool error content discarded when isError true, leaving generic diagnostic",
+      "pre": "4db8d99591d262995aacee7544dd71cf5062e9cd",
+      "post": "275f0dadfc215fa780cae7cd7c178b65f6d06dfd",
+      "files": [
+        [
+          "crates/pctx_registry/src/registry.rs",
+          "ecda5c47133522138b31ab84de0696ed4d8f8623",
+          "730004db5e4db4e5a6ac617569bd146a8c665867"
+        ]
+      ]
+    }
+  ],
+  "excluded_prior_repos": [
+    "agentscope-ai/agentscope",
+    "NousResearch/hermes-agent",
+    "modelcontextprotocol/python-sdk",
+    "confident-ai/deepeval",
+    "Tencent/AI-Infra-Guard",
+    "Significant-Gravitas/AutoGPT",
+    "PostHog/posthog-python",
+    "Nano-Collective/nanocoder",
+    "microsoft/playwright",
+    "langfuse/langfuse",
+    "Daghis/teamcity-mcp",
+    "affinidi-ai/agent-gateway",
+    "agentarea/agentarea",
+    "pymc-labs/daimon",
+    "microsoft/agent-framework",
+    "StitchWB/Stitch-Manager",
+    "meyergru/opnsense-mcp-server",
+    "data-fair/agents",
+    "arcships/dim",
+    "codeready-toolchain/tarsy"
+  ],
+  "excluded_candidates": [
+    {
+      "repo": "emcie-co/parlant",
+      "pr": "https://github.com/emcie-co/parlant/pull/873",
+      "reason": "PR unmerged"
+    },
+    {
+      "repo": "langchain-ai/langchain",
+      "pr": "https://github.com/langchain-ai/langchain/pull/41566",
+      "reason": "PR unmerged"
+    },
+    {
+      "repo": "PrismorSec/prismor",
+      "pr": "https://github.com/PrismorSec/prismor/pull/837",
+      "reason": "Security redaction violation, not the targeted semantic value loss to consumers"
+    },
+    {
+      "repo": "google/mcp-security",
+      "pr": "https://github.com/google/mcp-security/pull/345",
+      "reason": "API error upstream response failure vs MCP channel projection, can be used separate development normal controls only after B37 seal"
+    }
+  ]
+}
