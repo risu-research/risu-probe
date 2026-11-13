@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='verify-mcp-external-authority':
+        from risu_mcp_external_authority_certificate import main as verify_external
+        return verify_external(args[1:])
     if args and args[0]=='enforce-mcp-resource-side':
         from risu_mcp_resource_guard import cli
         return cli(args[1:])
