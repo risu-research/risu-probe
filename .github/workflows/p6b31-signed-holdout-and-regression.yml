@@ -1,0 +1,156 @@
+name: RISU B31 signed source provenance external holdout and installed product
+on:
+  push:
+    branches: [qualification/p6b31-signed-provenance-holdout-20261113]
+    paths:
+      - src/risu_signed_release_verifier.py
+      - tests/test_p6b31_signed_source_provenance.py
+      - src/risu_p5d_cli.py
+      - pyproject.toml
+      - .github/workflows/p6b31-signed-holdout-and-regression.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  attestations: read
+jobs:
+  pinned-signed-release-development-and-independent-holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Fetch only frozen original cli/cli development and sigstore/fulcio independent heldout assets
+        run: |
+          set -euo pipefail
+          mkdir -p .b31-original .b31-verdicts
+          curl --fail --silent --show-error -L --retry 4 --retry-all-errors --max-time 240 \
+            https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_linux_amd64.tar.gz \
+            -o .b31-original/gh_2.62.0_linux_amd64.tar.gz
+          curl --fail --silent --show-error -L --retry 4 --retry-all-errors --max-time 300 \
+            https://github.com/sigstore/fulcio/releases/download/v1.10.0/fulcio-linux-amd64 \
+            -o .b31-original/fulcio-linux-amd64
+          echo '41c8b0698ad3003cb5c44bde672a1ffd5f818595abd80162fbf8cc999418446a  .b31-original/gh_2.62.0_linux_amd64.tar.gz' | sha256sum -c -
+          echo '92092b98fbb78ec24585982f970367a734ac8ab035fde42df05ef9b0c48cb07d  .b31-original/fulcio-linux-amd64' | sha256sum -c -
+          gh version | head -1
+      - name: Real cryptographic verifications against official Sigstore trust root and independent project identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          B31_ORIGINAL_RELEASE_DIR: .b31-original
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          risu-probe verify-signed-release-provenance \
+            --asset .b31-original/gh_2.62.0_linux_amd64.tar.gz \
+            --repo cli/cli --asset-name gh_2.62.0_linux_amd64.tar.gz \
+            --signer-workflow cli/cli/.github/workflows/deployment.yml \
+            --source-ref refs/heads/trunk \
+            --sha256 41c8b0698ad3003cb5c44bde672a1ffd5f818595abd80162fbf8cc999418446a \
+            --out .b31-verdicts/cli_development_signed_source.json
+          risu-probe verify-signed-release-provenance \
+            --asset .b31-original/fulcio-linux-amd64 \
+            --repo sigstore/fulcio --asset-name fulcio-linux-amd64 \
+            --signer-workflow sigstore/fulcio/.github/workflows/release.yml \
+            --source-ref refs/tags/v1.10.0 \
+            --sha256 92092b98fbb78ec24585982f970367a734ac8ab035fde42df05ef9b0c48cb07d \
+            --out .b31-verdicts/fulcio_independent_holdout_signed_source.json
+          python -m unittest discover -s tests -p test_p6b31_signed_source_provenance.py -v
+          echo B31_REAL_INDEPENDENT_ORIGINAL_GITHUB_SIGSTORE_SIGNED_RELEASES_PASS
+      - name: Cryptographic engine itself rejects modified bytes even if attacker chooses their own SHA256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p .b31-tampered
+          cp .b31-original/gh_2.62.0_linux_amd64.tar.gz .b31-tampered/
+          python - <<'PY'
+          from pathlib import Path
+          p=Path(".b31-tampered/gh_2.62.0_linux_amd64.tar.gz")
+          with p.open("r+b") as f:
+              a=f.read(1);assert a
+              f.seek(0);f.write(bytes([a[0]^1]))
+          PY
+          if gh attestation verify .b31-tampered/gh_2.62.0_linux_amd64.tar.gz \
+             --repo cli/cli \
+             --signer-workflow cli/cli/.github/workflows/deployment.yml \
+             --source-ref refs/heads/trunk --format json >/dev/null 2>&1; then
+             echo B31_ERROR_OFFICIAL_CRYPTO_VERIFIER_ACCEPTED_CHANGED_RELEASE >&2;exit 1
+          fi
+          echo B31_ACTUAL_GITHUB_SIGSTORE_CRYPTOGRAPHY_REFUSES_ALTERED_BYTES_PASS
+      - name: Confirm signed release source cannot authorize unrelated resource modification
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          base=Path(".b31-verdicts")
+          for name in ("cli_development_signed_source.json",
+                       "fulcio_independent_holdout_signed_source.json"):
+              r=json.loads((base/name).read_text())
+              s=r["claim_evidence_states"]
+              assert r["status"]=="VERIFIED_SIGNED_SOURCE_ONLY_NOT_OWNER_CONSENT"
+              assert s["original_signed_SLSA_provenance"]=="VERIFIED"
+              assert s["specific_external_owner_approval"]=="UNVERIFIED"
+              assert s["same_operation_resource_effect"]=="UNVERIFIED"
+              assert r["full_resource_owner_authorization_certified"] is False
+              assert r["cross_project_resource_consent_transfer_permitted"] is False
+          a=json.loads((base/"cli_development_signed_source.json").read_text())
+          b=json.loads((base/"fulcio_independent_holdout_signed_source.json").read_text())
+          assert a["signer_repository"]=="cli/cli"
+          assert b["signer_repository"]=="sigstore/fulcio"
+          assert a["actual_artifact_sha256"]!=b["actual_artifact_sha256"]
+          print("B31_SIGNED_PROVENANCE_CANNOT_AUTHORIZE_UNRELATED_B25_GITHUB_OR_B28_DATABASE_EFFECT_PASS")
+          print("B31_HOLDOUT_SEPARATE_UPSTREAM_DEVELOPMENT_ORGANIZATIONS_PASS")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b31-two-real-external-sigstore-signed-holdout-verdicts
+          retention-days: 30
+          include-hidden-files: true
+          if-no-files-found: error
+          path: |
+            .b31-verdicts/cli_development_signed_source.json
+            .b31-verdicts/fulcio_independent_holdout_signed_source.json
+
+  installed-full-regressions:
+    name: Installed RISU B31 verifier and all prior product tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install wheel without executing downloaded signed artifacts
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b31-wheel
+          python -m pip wheel --no-deps -w .b31-wheel .
+          python -m venv .b31-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b31-installed/Scripts/python.exe
+            CLI=.b31-installed/Scripts/risu-probe.exe
+          else
+            PY=.b31-installed/bin/python
+            CLI=.b31-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b31-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip install --disable-pip-version-check 'cryptography>=43,<49'
+          "$PY" -m pip check
+          "$CLI" verify-signed-release-provenance --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B31_ALL_INSTALLED_PRODUCT_TESTS_PASS
