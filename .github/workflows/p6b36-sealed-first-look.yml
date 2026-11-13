@@ -253,7 +253,14 @@ jobs:
           .b36-python/bin/python holdout/benchmarks/p6b36/run_sealed_once.py .b36-python/bin/risu-probe
           sha256sum holdout/out/B36_FIRST_LOOK_RESULTS.json
           cat holdout/out/B36_FIRST_LOOK_REPORT.md
-      - name: Preserve only derived audit records, not third-party repositories
+      - name: Supplementary original Git tree SHA correction, with original seal preserved
+        shell: bash
+        run: |
+          set -euo pipefail
+          .b36-python/bin/python holdout/benchmarks/p6b36/run_provenance_erratum.py .b36-python/bin/risu-probe
+          sha256sum holdout/out/B36_SUPPLEMENTAL_RESULTS.json
+          cat holdout/out/B36_SUPPLEMENTAL_REPORT.md
+      - name: Preserve original result and transparent corrected supplement
         uses: actions/upload-artifact@v4
         if: success()
         with:
@@ -263,3 +270,5 @@ jobs:
           path: |
             holdout/out/B36_FIRST_LOOK_RESULTS.json
             holdout/out/B36_FIRST_LOOK_REPORT.md
+            holdout/out/B36_SUPPLEMENTAL_RESULTS.json
+            holdout/out/B36_SUPPLEMENTAL_REPORT.md
