@@ -1,0 +1,173 @@
+name: "P6-B37 prior-B36 original-source development (never new B37 holdout)"
+on:
+  push:
+    branches:
+      - qualification/p6b37-development-robust-semantic-20261113
+    paths:
+      - research/b37_*
+      - .github/workflows/p6b37-prior-b36-development.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bounded-original-source-training:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout B37 development code
+        uses: actions/checkout@v5
+        with:
+          path: dev
+          persist-credentials: false
+      - name: Checkout exposed older B36 training manifest and correction
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 868489bf4928276436f5bd1832c98a35e8711b87
+          path: previous
+          persist-credentials: false
+          sparse-checkout: |
+            benchmarks/p6b36/SEALED_HOLDOUT.json
+            benchmarks/p6b36/PROVENANCE_ERRATUM.json
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Prior development B36A before fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: agentarea/agentarea
+          ref: 0ccc32d1438f58b11619e2dd83e3518bda338198
+          path: original/B36A/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            agentarea-platform/libs/execution/agentarea_execution/workflows/helpers.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36A after fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: agentarea/agentarea
+          ref: 43af5b172b5255e6c61d253fd456b4d59797d225
+          path: original/B36A/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            agentarea-platform/libs/execution/agentarea_execution/workflows/helpers.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36B before fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: pymc-labs/daimon
+          ref: d0ab8001036b8009db35baf6c170d529a7d2c1de
+          path: original/B36B/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            apps/harness/src/daimon_harness/model_adapter.py
+            apps/harness/src/daimon_harness/runtime.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36B after fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: pymc-labs/daimon
+          ref: 3825b6865c160ddf950f438dc6f8cbcaba61c660
+          path: original/B36B/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            apps/harness/src/daimon_harness/model_adapter.py
+            apps/harness/src/daimon_harness/runtime.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36C before fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: microsoft/agent-framework
+          ref: fd1230844b890b8986813a5461ff0d6690e74631
+          path: original/B36C/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            python/packages/anthropic/agent_framework_anthropic/_chat_client.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36C after fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: microsoft/agent-framework
+          ref: f6a7335697bd3b770d7968c1660a441b21dc26e9
+          path: original/B36C/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            python/packages/anthropic/agent_framework_anthropic/_chat_client.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36D before fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: StitchWB/Stitch-Manager
+          ref: 7325b78af73e633978566a9d4298f5fbacb149da
+          path: original/B36D/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            python/stitch_backend/mcp_server/tools.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36D after fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: StitchWB/Stitch-Manager
+          ref: 62f6fdee0eef20000d3b09b039fa106f8ccebb1d
+          path: original/B36D/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            python/stitch_backend/mcp_server/tools.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36E before fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: meyergru/opnsense-mcp-server
+          ref: 222b317845e80a11b8f37ce0a3bac29ef557eec3
+          path: original/B36E/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/opnsense_mcp/tools/dhcp.py
+            src/opnsense_mcp/tools/network.py
+          sparse-checkout-cone-mode: false
+      - name: Prior development B36E after fixed source
+        uses: actions/checkout@v5
+        with:
+          repository: meyergru/opnsense-mcp-server
+          ref: cc7b5d9460271e8a7315cf14883c3a820289d672
+          path: original/B36E/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/opnsense_mcp/tools/dhcp.py
+            src/opnsense_mcp/tools/network.py
+          sparse-checkout-cone-mode: false
+      - name: Test normal and threat source cases on prior B36 only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m unittest discover -s dev/research -p test_b37_semantic_preservation.py -v
+          python dev/research/b37_prior_b36_train.py
+          sha256sum dev/out/B37_B36_TRAINING_RESULTS.json
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b37-development-prior-b36-cases-only
+          path: dev/out/B37_B36_TRAINING_RESULTS.json
+          retention-days: 90
+          if-no-files-found: error
