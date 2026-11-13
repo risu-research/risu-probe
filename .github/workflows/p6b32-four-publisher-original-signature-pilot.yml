@@ -1,0 +1,100 @@
+name: RISU B32 frozen four external signed original provenance pilot
+on:
+  push:
+    branches: [qualification/p6b32-original-delegated-signature-closure-20261113]
+    paths:
+      - benchmarks/p6b32/**
+      - .github/workflows/p6b32-four-publisher-original-signature-pilot.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  attestations: read
+jobs:
+  locked-first-look-original-publishers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Download strictly preregistered original binaries without executing them
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .b32-original .b32-native
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/mitre/hdf-libs/releases/download/v3.5.1/hdf_3.5.1_linux_amd64.tar.gz \
+            -o .b32-original/hdf_3.5.1_linux_amd64.tar.gz
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/txn2/kubefwd/releases/download/v1.25.17/kubefwd_Linux_x86_64.tar.gz \
+            -o .b32-original/kubefwd_Linux_x86_64.tar.gz
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/UpCloudLtd/upcloud-cli/releases/download/v3.37.0/upcloud-cli_3.37.0_linux_x86_64.tar.gz \
+            -o .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz
+          curl -fLSs --retry 4 --retry-all-errors --max-time 200 \
+            https://github.com/axonops/audit/releases/download/v0.2.5/audit_0.2.5_linux_amd64.tar.gz \
+            -o .b32-original/audit_0.2.5_linux_amd64.tar.gz
+          echo '482bc0e3a92a508d141e9285eba9985965c0d6bc67e922903359d70e06c3ae7a  .b32-original/hdf_3.5.1_linux_amd64.tar.gz' | sha256sum -c -
+          echo 'f9a2986f26d219713429477511f5f570df12c811e0f79d42b244569746e8eba1  .b32-original/kubefwd_Linux_x86_64.tar.gz' | sha256sum -c -
+          echo 'ce2d381bdf49ce74a74582f390490542c49957079d7e606303e1426138b7e3d6  .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz' | sha256sum -c -
+          echo 'e0b075569683a2614656f7923271b8b302dd167950bb3480f0021f2bf12c3f2a  .b32-original/audit_0.2.5_linux_amd64.tar.gz' | sha256sum -c -
+          gh --version | head -n 1
+      - name: Native Sigstore/GitHub verification on all frozen publishers and true delegated signer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          gh attestation verify .b32-original/hdf_3.5.1_linux_amd64.tar.gz \
+            --repo mitre/hdf-libs --format json > .b32-native/hdf.json
+          echo "B32_NATIVE_H1_EXIT:$?"
+          gh attestation verify .b32-original/kubefwd_Linux_x86_64.tar.gz \
+            --repo txn2/kubefwd --format json > .b32-native/kubefwd.json
+          echo "B32_NATIVE_H2_EXIT:$?"
+          gh attestation verify .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz \
+            --repo UpCloudLtd/upcloud-cli --signer-repo UpCloudLtd/workflows \
+            --format json > .b32-native/upcloud-delegated.json
+          echo "B32_NATIVE_H3_DELEGATED_EXIT:$?"
+          gh attestation verify .b32-original/audit_0.2.5_linux_amd64.tar.gz \
+            --repo axonops/audit --format json > .b32-native/axonops.json
+          echo "B32_NATIVE_H4_EXIT:$?"
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import hashlib
+          for label,file,release in (
+            ("H1","hdf","hdf_3.5.1_linux_amd64.tar.gz"),
+            ("H2","kubefwd","kubefwd_Linux_x86_64.tar.gz"),
+            ("H3","upcloud-delegated","upcloud-cli_3.37.0_linux_x86_64.tar.gz"),
+            ("H4","axonops","audit_0.2.5_linux_amd64.tar.gz"),
+          ):
+              p=Path(".b32-native")/(file+".json")
+              print("B32_ORIGINAL",label,"json_size",p.stat().st_size)
+              try:
+                  obj=json.loads(p.read_text())
+                  print("B32_ORIGINAL_PARSED",label,"list_count",len(obj) if isinstance(obj,list) else -1)
+                  for row in obj[:2] if isinstance(obj,list) else []:
+                      v=row.get("verificationResult",{})
+                      st=v.get("statement",{})
+                      subj=st.get("subject",[])
+                      w=(st.get("predicate",{}).get("buildDefinition",{})
+                         .get("externalParameters",{}).get("workflow",{}))
+                      print("B32_ORIGINAL_WORKFLOW",label,json.dumps(w,sort_keys=True)[:650])
+                      print("B32_ORIGINAL_IDENTITY",label,json.dumps(v.get("verifiedIdentity",{}),sort_keys=True)[:500])
+                      print("B32_ORIGINAL_SUBJECT",label,json.dumps(
+                          [s for s in subj if s.get("name")==release],sort_keys=True)[:300])
+              except (ValueError,TypeError) as e:
+                  print("B32_ORIGINAL_PARSE_REFUSED",label,str(e)[:100])
+          PY
+          echo B32_FROZEN_FIRST_LOOK_ALL_FOUR_ORIGINAL_VERIFICATIONS_COMPLETED
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: risu-b32-frozen-four-original-publisher-native-verified-statements
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 30
+          path: .b32-native/*.json
