@@ -12,11 +12,43 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
+from urllib.error import HTTPError
+from io import BytesIO
 
 import risu_signed_effect_chain as m
 
 class B33ParserAndTrustBoundary(unittest.TestCase):
+    def test_original_rest_retries_transient_http_without_weakening_evidence(self):
+        response=MagicMock()
+        response.__enter__.return_value.status=200
+        response.__enter__.return_value.read.return_value=b'{"id":43458536273}'
+        temporary=HTTPError("https://api.github.com/test",502,"Bad Gateway",{},BytesIO(b""))
+        with patch.object(m,"urlopen",side_effect=[temporary,response]) as get, \
+             patch.object(m.time,"sleep") as sleep:
+            self.assertEqual(m.api("risu-research/risu-verify","/test","test-token"),
+                             {"id":43458536273})
+        self.assertEqual(get.call_count,2)
+        sleep.assert_called_once_with(1)
+
+    def test_original_rest_does_not_retry_permanent_missing_or_denied(self):
+        for code in (401,403,404):
+            error=HTTPError("https://api.github.com/test",code,"Denied",{},BytesIO(b""))
+            with self.subTest(status=code), \
+                 patch.object(m,"urlopen",side_effect=error) as get, \
+                 patch.object(m.time,"sleep") as sleep:
+                with self.assertRaisesRegex(m.Refused,f"ORIGINAL_GITHUB_REST_HTTP_{code}"):
+                    m.api("risu-research/risu-verify","/test","test-token")
+                self.assertEqual(get.call_count,1)
+                sleep.assert_not_called()
+
+    def test_original_rest_refuses_after_bounded_transport_retries(self):
+        with patch.object(m,"urlopen",side_effect=OSError("intermittent lookup")) as get, \
+             patch.object(m.time,"sleep") as sleep:
+            with self.assertRaisesRegex(m.Refused,"ORIGINAL_GITHUB_REST_LOOKUP_FAILED"):
+                m.api("risu-research/risu-verify","/test","test-token")
+            self.assertEqual(get.call_count,3)
+            self.assertEqual(sleep.call_count,2)
     def test_no_path_escape(self):
         for bad in ("/tmp/a","../a","a/../b","a//b","a/./b","a\\b","",
                     "a b","a/%2e%2e","a;b"):
