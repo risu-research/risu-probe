@@ -57,6 +57,7 @@ py-modules = [
   "risu_mcp_owner_credential_broker",
   "risu_mcp_human_review_broker",
   "risu_mcp_resource_guard",
+  "risu_mcp_external_authority_certificate",
   "risu_nested_schema",
   "risu_obligations",
   "risu_onboarding",
