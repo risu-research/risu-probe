@@ -184,7 +184,7 @@ def main():
     check(manifest["selection_phase"]=="BEFORE_SOURCE_OPENING_AND_ANY_B35_DRIVEN_RULE_CHANGES","MANIFEST_STAGE")
     check([c["id"] for c in cases]==["B36A","B36B","B36C","B36D","B36E","B36F","B36G","B36H"],
           "CASE_MEMBERSHIP_CHANGED")
-    check(len({c["repo"].split("/")[0].lower() for c in cases})==9,
+    check(len({c["repo"].split("/")[0].lower() for c in cases})==8,
           "REPOSITORY_ORGANIZATIONS_NOT_DISTINCT")
     sys.path.insert(0,str(DEV/"research"))
     from b34_channel_projection import analyze_source
