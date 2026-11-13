@@ -52,6 +52,32 @@ jobs:
           echo 'f9a2986f26d219713429477511f5f570df12c811e0f79d42b244569746e8eba1  .b32-original/kubefwd_Linux_x86_64.tar.gz' | sha256sum -c -
           echo 'ce2d381bdf49ce74a74582f390490542c49957079d7e606303e1426138b7e3d6  .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz' | sha256sum -c -
           echo 'e0b075569683a2614656f7923271b8b302dd167950bb3480f0021f2bf12c3f2a  .b32-original/audit_0.2.5_linux_amd64.tar.gz' | sha256sum -c -
+      - name: Diagnose exact original GitHub CLI signer and source ref flag interoperability
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set +e
+          for flags in 1 2 3; do
+            if [[ "$flags" == 1 ]]; then
+              gh attestation verify .b32-original/kubefwd_Linux_x86_64.tar.gz --repo txn2/kubefwd --format json >/dev/null
+            elif [[ "$flags" == 2 ]]; then
+              gh attestation verify .b32-original/kubefwd_Linux_x86_64.tar.gz --repo txn2/kubefwd --signer-repo txn2/kubefwd --format json >/dev/null
+            else
+              gh attestation verify .b32-original/kubefwd_Linux_x86_64.tar.gz --repo txn2/kubefwd --signer-repo txn2/kubefwd --cert-identity 'https://github.com/txn2/kubefwd/.github/workflows/release.yml@refs/tags/v1.25.17' --source-ref refs/tags/v1.25.17 --predicate-type https://slsa.dev/provenance/v1 --format json >/dev/null
+            fi
+            echo B32_GH_DIAGNOSTIC_H2_CASE_${flags}_EXIT:$?
+          done
+          for flags in 1 2 3; do
+            if [[ "$flags" == 1 ]]; then
+              gh attestation verify .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz --repo UpCloudLtd/upcloud-cli --signer-repo UpCloudLtd/workflows --format json >/dev/null
+            elif [[ "$flags" == 2 ]]; then
+              gh attestation verify .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz --repo UpCloudLtd/upcloud-cli --signer-repo UpCloudLtd/workflows --cert-identity 'https://github.com/UpCloudLtd/workflows/.github/workflows/build-provenance.yaml@refs/heads/main' --format json >/dev/null
+            else
+              gh attestation verify .b32-original/upcloud-cli_3.37.0_linux_x86_64.tar.gz --repo UpCloudLtd/upcloud-cli --signer-repo UpCloudLtd/workflows --cert-identity 'https://github.com/UpCloudLtd/workflows/.github/workflows/build-provenance.yaml@refs/heads/main' --source-ref refs/tags/v3.37.0 --predicate-type https://slsa.dev/provenance/v1 --format json >/dev/null
+            fi
+            echo B32_GH_DIAGNOSTIC_H3_CASE_${flags}_EXIT:$?
+          done
       - name: Install actual experimental RISU wheel and check live crypto + original-source tampering
         env:
           GH_TOKEN: ${{ github.token }}
