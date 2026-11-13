@@ -97,6 +97,20 @@ def classify_seaweedfs(raw,ind):
     demand(ind["native_issuer_exact_policy"]["Statement"][0]["Resource"]==
            "arn:aws:s3:::risu-b27-external/approved/report.txt",
            "Native publisher's IAM source policy is not exactly one object")
+    demand(raw.get("actor_separate_posix_uid")==65534 and
+           raw.get("native_s3_actor_calls_in_distinct_os_processes")==len(raw["cases"]) and
+           raw.get("owner_admin_credential_not_forwarded_to_actor") is True and
+           ind.get("native_actor_os_uid")==65534 and
+           ind.get("native_os_separated_original_s3_calls")==len(raw["cases"]) and
+           ind.get("trusted_issuer_process_and_server_environments_not_readable_by_actor") is True,
+           "Native S3 original actor and issuer OS/process isolation evidence missing")
+    for original_case in raw["cases"]:
+        demand(original_case.get("agent_os_uid")==65534 and
+               original_case.get("trusted_publisher_server_environment_readable") is False and
+               original_case.get("trusted_owner_issuer_environment_readable") is False and
+               original_case.get("native_issuer_key_only") is True and
+               original_case.get("direct_original_upstream_s3") is True,
+               "Native S3 direct actor bypass case lacked isolated OS provenance")
     status={c["case"]:c["native_http_status"] for c in raw["cases"]}
     demand(len(status)==len(raw["cases"])==8
            and set(status)=={"coarse_issuer_positive","exact_object_authorized",
@@ -138,7 +152,10 @@ def classify_seaweedfs(raw,ind):
       "actual_effect_independently_audited":True,
       "real_unrelated_third_party_human_approval":False,
       "observed_unauthorized_cross_object_change_count":len(ind["direct_scope_bypass_cases"]),
-      "evidence_type":"UNMODIFIED_EXTERNAL_SERVICE_DIRECT_NATIVE_S3",
+      "evidence_type":"UNMODIFIED_EXTERNAL_SERVICE_DIRECT_NATIVE_S3_FROM_UID_65534",
+      "actor_os_uid":65534,
+      "issuer_and_server_process_environment_denied_by_kernel":True,
+      "separate_native_actor_process_count":len(raw["cases"]),
     }
 
 def compare(pg,pg_audit,pg_package,s3,s3_audit):
