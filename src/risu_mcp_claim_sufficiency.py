@@ -89,24 +89,16 @@ def check_b25(b30,b29):
          "B29_ACTUAL_SELF_REVIEW_NEGATIVE_MISSING")
     origin=b29.get("original_github_review_source") or {}
     effect=b29.get("claimed_effect_source") or {}
-    need(origin.get("repo_id")==g["repo_id"] and
-         origin.get("run_id")==g["run_id"] and
-         origin.get("attempt")==g["attempt"] and
-         origin.get("head_sha")==g["run_head_commit"] and
-         origin==effect | {"approved_user_ids":origin.get("approved_user_ids"),
-                           "environment_id":origin.get("environment_id"),
-                           "run_actor_id":origin.get("run_actor_id"),
-                           "run_trigger_id":origin.get("run_trigger_id")}
-         if False else (
-           origin.get("repo_id")==g["repo_id"] and
-           origin.get("run_id")==g["run_id"] and
-           origin.get("attempt")==g["attempt"] and
-           origin.get("head_sha")==g["run_head_commit"] and
-           effect.get("repo_id")==g["repo_id"] and
-           effect.get("run_id")==g["run_id"] and
-           effect.get("attempt")==g["attempt"] and
-           effect.get("head_sha")==g["run_head_commit"]
-         ),"REAL_B25_B29_DIFFERENT_RUN_PROVENANCE")
+    need(
+        origin.get("repo_id")==g["repo_id"] and
+        origin.get("run_id")==g["run_id"] and
+        origin.get("attempt")==g["attempt"] and
+        origin.get("head_sha")==g["run_head_commit"] and
+        effect.get("repo_id")==g["repo_id"] and
+        effect.get("run_id")==g["run_id"] and
+        effect.get("attempt")==g["attempt"] and
+        effect.get("head_sha")==g["run_head_commit"],
+        "REAL_B25_B29_DIFFERENT_RUN_PROVENANCE")
     sc=b30["supported_claims"]
     need(sc.get("native_platform_review_history") is True and
          sc.get("independent_human_resource_owner") is False and
