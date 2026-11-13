@@ -100,7 +100,7 @@ class StructuralTest(unittest.TestCase):
     def test_subject_semantics_cannot_be_forged_by_omitting_expected(self):
         x={"verificationResult":{"statement":{
             "_type":m.STATEMENT,"predicateType":m.PREDICATE,
-            "subject":[{"name":DEVELOPMENT["filename"],"digest":{"expected_digest":"0"*64}}],
+            "subject":[{"name":DEVELOPMENT["filename"],"digest":{"sha256":"0"*64}}],
             "predicate":{"buildDefinition":{"externalParameters":{"workflow":{
                 "repository":"https://github.com/cli/cli",
                 "path":".github/workflows/deployment.yml","ref":"refs/heads/trunk"}}}}},
@@ -109,7 +109,7 @@ class StructuralTest(unittest.TestCase):
             m.validate_crypto_verified_output([x],DEVELOPMENT["repo"],
                    DEVELOPMENT["filename"],DEVELOPMENT["signer_workflow"],
                    DEVELOPMENT["source_ref"],DEVELOPMENT["expected_digest"])
-        y=copy.deepcopy(x);y["verificationResult"]["statement"]["subject"][0]["digest"]["expected_digest"]=DEVELOPMENT["expected_digest"]
+        y=copy.deepcopy(x);y["verificationResult"]["statement"]["subject"][0]["digest"]["sha256"]=DEVELOPMENT["expected_digest"]
         y["verificationResult"]["statement"]["predicate"]["buildDefinition"]["externalParameters"]["workflow"]["repository"]="https://github.com/other/repo"
         with self.assertRaisesRegex(m.Refused,"ATTESTED_SOURCE_REPO_WORKFLOW_REF_MISMATCH"):
             m.validate_crypto_verified_output([y],DEVELOPMENT["repo"],
