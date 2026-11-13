@@ -15,6 +15,7 @@ This module does not inherit a positive result from B25 or B28.
 """
 from __future__ import annotations
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -120,17 +121,40 @@ def assess(data):
     require("review_environment_unchanged",
         env.get("name")==expected_env and _is_positive_id(env_id),
         "REVIEW_ENVIRONMENT_IDENTITY_UNVERIFIED")
+    # GitHub shows current protection rules. Do not call them historical
+    # approval-time protection if the environment has been edited since the
+    # original run started.
+    def parse_time(value):
+        if type(value) is not str:
+            return None
+        try:
+            timestamp=datetime.fromisoformat(value.replace("Z","+00:00"))
+            if timestamp.tzinfo is None:
+                return None
+            return timestamp.astimezone(timezone.utc)
+        except ValueError:
+            return None
+    policy_time=parse_time(env.get("updated_at"))
+    run_time=parse_time(run.get("run_started_at"))
+    require("environment_policy_unchanged_since_run_start",
+        policy_time is not None and run_time is not None and
+        policy_time <= run_time,
+        "POST_HOC_ENVIRONMENT_PROTECTION_CHANGE_OR_UNVERIFIABLE_TIME")
+    require("single_reviewable_run_attempt",
+        attempt==1,
+        "REVIEW_EVENT_NOT_BOUND_TO_SPECIFIC_RETRY_ATTEMPT")
     protection=env.get("protection_rules")
     rules=protection if isinstance(protection,list) else []
-    required=[r for r in rules if r.get("type")=="required_reviewers"
-              and isinstance(r,dict)]
+    required=[r for r in rules if isinstance(r,dict)
+              and r.get("type")=="required_reviewers"]
     require("environment_has_unambiguous_required_reviewer",
         len(required)==1 and isinstance(required[0].get("reviewers"),list),
         "NATIVE_REQUIRED_REVIEWER_PROTECTION_MISSING")
     rule=required[0] if len(required)==1 else {}
     reviewers=rule.get("reviewers") or []
-    allowed_ids={r.get("reviewer",{}).get("id") for r in reviewers
-                 if r.get("type")=="User" and _is_positive_id(
+    allowed_ids={(r.get("reviewer") or {}).get("id") for r in reviewers
+                 if isinstance(r,dict) and r.get("type")=="User" and
+                 isinstance(r.get("reviewer"),dict) and _is_positive_id(
                      (r.get("reviewer") or {}).get("id"))}
     require("platform_prevents_self_review",
         rule.get("prevent_self_review") is True,
@@ -204,6 +228,8 @@ def assess(data):
        },
        "supported_claims":{
           "github_distinct_account_approval_same_run":platform_verified,
+          "historical_protection_configuration_unmodified_since_start":
+              policy_time is not None and run_time is not None and policy_time<=run_time,
           "independently_controlled_human_owner":False,
           "owner_signed_exact_resource_intent":False,
           "real_remote_resource_effect_independently_verified":False,
