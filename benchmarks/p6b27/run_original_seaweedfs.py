@@ -67,7 +67,10 @@ def run(binary,out):
     env.update({"AWS_ACCESS_KEY_ID":key,"AWS_SECRET_ACCESS_KEY":secret,
                 "S3_BUCKET":BUCKET})
     log=open(out/"original_server_private.log","w")
-    process=subprocess.Popen([str(binary),"mini","-dir="+str(data)],
+    # Original SeaweedFS 4.53 mini defaults embedded IAM to read-only.
+    # This documented native config enables the owner's IAM issuer API.
+    process=subprocess.Popen([str(binary),"mini","-dir="+str(data),
+                              "-s3.iam.readOnly=false"],
                              env=env,stdout=log,stderr=subprocess.STDOUT,
                              start_new_session=True)
     try:
