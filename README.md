@@ -417,3 +417,42 @@ human's direct UI approval. Separate human approval and stronger
 path-scoped server-enforced write constraints remain to be tested.
 
 See [the complete B24 origin, no-bypass and original MCP audit](docs/P6B24_REAL_OWNER_NO_WRITE_AGENT_BROKER.md).
+
+## P6-B25 · Real GitHub required human review before a one-file credential-isolated write
+
+The optional `enforce-mcp-human-reviewed-write` profile validates a *real
+run-specific GitHub environment approval* for a named repository reviewer,
+rather than treating a push event, CI self-claim or GitHub OIDC provenance
+certificate as human consent. It then checks an exact GitHub repository,
+branch, before/after file digest and a one-use nonce. One immutable-source
+trusted broker process (not an untrusted agent or MCP child) is the only
+holder of the short-lived repository write token and performs exactly
+one allowlisted GitHub Contents API update.
+
+An untrusted process runs under a different POSIX UID with no token,
+and an independent `contents:read`-only GitHub job is prepared to audit the
+actual deployment review history and immutable remote Git commit.
+The trusted writer has no arbitrary external MCP server invocation with
+its privileged credential.
+
+**Important current status:** B25's real human approval and post-approval
+remote update are *pending user action*. In separate real owner-repository
+CI, GitHub reported an empty review history, the unreviewed agent's actual
+write returned HTTP 403 and the owner resource was unchanged. All 538
+installed tests (including earlier RISU features) passed on Ubuntu,
+macOS and Windows. A mocked reviewer approval in tests is **never**
+reported as real human consent.
+
+GitHub environment configuration: see
+[the precise owner setup steps](https://github.com/risu-research/risu-verify/blob/qualification/p6b25-real-review-credential-isolation-20261112/benchmarks/p6b25/OWNER_APPROVAL_STEPS_KO.md).
+After the owner configures required reviewers, the single research-branch
+`REQUEST_HUMAN_REVIEW.txt` marker can trigger the protected writer without
+changing `main`.
+
+The GitHub job-scoped `contents:write` credential remains **repository-
+scoped, not cryptographically path-scoped**. Confinement to one file here
+is enforced by pinned trusted code and a separate process identity; a
+compromised trusted job or runner may bypass it. A production-level
+external, separately administered credential service remains future work.
+
+[Read the complete B25 engineering and trust-boundary report](docs/P6B25_REAL_HUMAN_REVIEW_AND_TRUSTED_ONE_FILE_BROKER.md).
