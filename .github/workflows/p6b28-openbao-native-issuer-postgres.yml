@@ -1,0 +1,112 @@
+name: RISU B28 original OpenBao issuer to PostgreSQL resource enforcement
+on:
+  push:
+    branches:
+      - qualification/p6b28-external-issuer-live-revocation-20261113
+    paths:
+      - "benchmarks/p6b28/**"
+      - ".github/workflows/p6b28-openbao-native-issuer-postgres.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  third-publisher-native-issuer-and-resource:
+    name: Original OpenBao dynamic leases and original PostgreSQL direct SQL effect and revocation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install original PostgreSQL server and client, no RISU proxy
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql postgresql-contrib
+          sudo service postgresql start
+          sudo -n -u postgres psql -X -At -c 'SELECT version();'
+          python -m py_compile benchmarks/p6b28/untrusted_openbao_pg_actor.py benchmarks/p6b28/run_original_openbao_postgres.py benchmarks/p6b28/independent_b28_openbao_pg_audit.py
+      - name: Download original independent OpenBao 2.7.2 release and validate original SHA-256 release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .b28-official-release .b28-original-evidence
+          curl --fail --show-error --silent --location --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 240 \
+            https://github.com/openbao/openbao/releases/download/v2.7.2/checksums.txt \
+            -o .b28-official-release/checksums.txt
+          echo 'd839d376448eceef3ccb5cdd44c4a0749a92a6e4aa2fdaf47255cfa949dfb77e  .b28-official-release/checksums.txt' | sha256sum -c -
+          curl --fail --show-error --silent --location --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 240 \
+            https://github.com/openbao/openbao/releases/download/v2.7.2/openbao_2.7.2_linux_amd64.tar.gz \
+            -o .b28-official-release/openbao_2.7.2_linux_amd64.tar.gz
+          (cd .b28-official-release && grep -E '^[0-9a-f]{64}  openbao_2\.7\.2_linux_amd64\.tar\.gz$' checksums.txt | sha256sum -c -)
+          tar -xzf .b28-official-release/openbao_2.7.2_linux_amd64.tar.gz -C .b28-official-release
+          test -f .b28-official-release/bao
+          chmod +x .b28-official-release/bao
+          .b28-official-release/bao version
+          python - <<'PY'
+          import hashlib,json
+          from pathlib import Path
+          root=Path(".b28-official-release")
+          archive=root/"openbao_2.7.2_linux_amd64.tar.gz"
+          expected=(next(line.split()[0] for line in (root/"checksums.txt").read_text().splitlines()
+                  if line.endswith("  openbao_2.7.2_linux_amd64.tar.gz")))
+          observed=hashlib.sha256(archive.read_bytes()).hexdigest()
+          assert expected==observed
+          obj={"schema":"risu-b28-original-openbao-official-binary-provenance-v1",
+               "publisher":"openbao/openbao","version":"v2.7.2",
+               "release":"https://github.com/openbao/openbao/releases/tag/v2.7.2",
+               "official_checksums_file_sha256":"d839d376448eceef3ccb5cdd44c4a0749a92a6e4aa2fdaf47255cfa949dfb77e",
+               "archive_sha256":observed,
+               "original_executable_sha256":hashlib.sha256((root/"bao").read_bytes()).hexdigest()}
+          Path(".b28-original-evidence/issuer_original_binary_identity.json").write_text(json.dumps(obj,indent=2)+"\n")
+          print("B28_ORIGINAL_OPENBAO_RELEASE_SHA256_MANIFEST_MATCH_PASS")
+          PY
+      - name: Native issuer limited token, one-use credential, direct native PostgreSQL attacks, lease revocation, independent audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo -n "$(command -v python)" benchmarks/p6b28/run_original_openbao_postgres.py \
+            --bao-binary .b28-official-release/bao \
+            --out .b28-original-evidence
+          test -s .b28-original-evidence/original_native_issuer_resource_result.json
+          test -s .b28-original-evidence/independent_original_backend_audit.json
+          test ! -e .b28-original-evidence/private
+          test ! -e .b28-original-evidence/INVALID_SHOULD_NOT_EXIST.json
+          echo B28_UNMODIFIED_TWO_PUBLISHER_REAL_ISSUER_AND_RESOURCE_EFFECT_PASS
+      - name: Verify only nonsecret evidence is uploaded
+        shell: bash
+        if: always()
+        run: |
+          set -euo pipefail
+          test ! -d .b28-original-evidence/private
+          sudo -n chown -R "$(id -u):$(id -g)" .b28-original-evidence
+          if test -f .b28-original-evidence/original_native_issuer_resource_result.json; then
+             python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path(".b28-original-evidence")
+          data=json.loads((root/"original_native_issuer_resource_result.json").read_text())
+          assert data["secrets_persisted"] is False
+          assert all(x not in data for x in ["root_token","restricted_bao_token","password","secret"])
+          assert not (root/"private").exists()
+          print("B28_NONSECRET_EVIDENCE_POLICY_PASS")
+          PY
+          fi
+      - name: Save nonsecret original issuer, native SQL and independent audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b28-openbao-original-issuer-postgresql-real-resource
+          retention-days: 30
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b28-original-evidence/issuer_original_binary_identity.json
+            .b28-original-evidence/original_native_issuer_resource_result.json
+            .b28-original-evidence/independent_original_backend_audit.json
