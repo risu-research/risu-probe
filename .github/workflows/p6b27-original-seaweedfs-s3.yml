@@ -1,0 +1,64 @@
+name: RISU B27 external SeaweedFS 4.53 independently published native S3 IAM holdout
+on:
+  push:
+    branches:
+      - qualification/p6b27-external-resource-enforcement-20261112
+    paths:
+      - 'benchmarks/p6b27/run_original_seaweedfs.py'
+      - 'benchmarks/p6b27/independent_seaweedfs_audit.py'
+      - 'benchmarks/p6b27/SEAWEEDFS_HOLDOUT_LOCK.md'
+      - '.github/workflows/p6b27-original-seaweedfs-s3.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-seaweedfs-published-binary:
+    name: Original signed-release S3 server and native IAM-issuer policy scope heldout
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install AWS SigV4 and S3 client without modifying native server
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'boto3>=1.35,<2'
+          python -m py_compile benchmarks/p6b27/run_original_seaweedfs.py benchmarks/p6b27/independent_seaweedfs_audit.py
+      - name: Fetch original developer release and verify GitHub asset SHA-256 before any execution
+        run: |
+          set -euo pipefail
+          mkdir -p .b27-external-release .b27-seaweedfs-out
+          curl --fail --show-error --silent --location --retry 4 --retry-all-errors \
+            --connect-timeout 20 --max-time 210 \
+            https://github.com/seaweedfs/seaweedfs/releases/download/4.53/linux_amd64.tar.gz \
+            -o .b27-external-release/linux_amd64.tar.gz
+          echo 'd1a7dec9f48d8b33895a0ea8951971defc2dc5312906dcc76fa5a5f74a6ee90d  .b27-external-release/linux_amd64.tar.gz' | sha256sum -c -
+          tar -xzf .b27-external-release/linux_amd64.tar.gz -C .b27-external-release
+          test -f .b27-external-release/weed
+          chmod +x .b27-external-release/weed
+          .b27-external-release/weed version
+          echo B27_ORIGINAL_PUBLISHER_RELEASE_SHA256_PIN_PASS
+      - name: Run upstream original S3 backend, native IAM credentials, direct S3 effects, and independent audit
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b27/run_original_seaweedfs.py \
+            --weed .b27-external-release/weed \
+            --out .b27-seaweedfs-out
+          test -s .b27-seaweedfs-out/seaweedfs_live_observation.json
+          test -s .b27-seaweedfs-out/seaweedfs_independent_audit.json
+          echo B27_INDEPENDENT_SEAWEEDFS_HOLDOUT_COMPLETED_WITH_ORIGINAL_BYTES
+      - name: Upload native publisher, owner policy and independent outcome without credentials
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: risu-b27-original-seaweedfs-453-external-heldout
+          retention-days: 30
+          include-hidden-files: true
+          if-no-files-found: warn
+          path: |
+            .b27-seaweedfs-out/seaweedfs_live_observation.json
+            .b27-seaweedfs-out/seaweedfs_independent_audit.json
