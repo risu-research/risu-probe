@@ -1,0 +1,203 @@
+{
+  "schema": "risu-p6b36-preselected-new-upstream-source-holdout-v1",
+  "selection_phase": "BEFORE_SOURCE_OPENING_AND_ANY_B35_DRIVEN_RULE_CHANGES",
+  "preregistration_commit": "39addcda7a62ab7f92d1cf38e7f9468a6438cc8a",
+  "public_baseline": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "frozen_algorithm_commit": "c34def4a25b66cbc89df039ca235d6c1df2094f0",
+  "frozen_algorithm_source_blob": "79c8b45901766179c7e39b17969c726a276e543d",
+  "holdout_controls": "Every selected existing changed file checked at first-parent before and merge commit after, post-fix never equated to population normal FPR.",
+  "language_policy": "Python only in eligible source-analysis denominator; TS/Rust/Go are unsupported explicit capacity cases.",
+  "cases": [
+    {
+      "id": "B36A",
+      "repo": "agentarea/agentarea",
+      "language": "python",
+      "fix_pr": "https://github.com/agentarea/agentarea/pull/957",
+      "defect": "Structured tool-result payload sanitized recursively and actual nested data silently replaced with omission marker",
+      "pre": "0ccc32d1438f58b11619e2dd83e3518bda338198",
+      "post": "43af5b172b5255e6c61d253fd456b4d59797d225",
+      "files": [
+        [
+          "agentarea-platform/libs/execution/agentarea_execution/workflows/helpers.py",
+          "ac42ad20ccfa58f2ac8a938597b4a2c70d4c5ae5",
+          "6782bfceb72746c4351de3f0860987edf048a13c"
+        ]
+      ]
+    },
+    {
+      "id": "B36B",
+      "repo": "pymc-labs/daimon",
+      "language": "python",
+      "fix_pr": "https://github.com/pymc-labs/daimon/pull/1689",
+      "defect": "Tool error content discarded on exception path; model sees ValueError instead of MCP explanatory payload",
+      "pre": "d0ab8001036b8009db35baf6c170d529a7d2c1de",
+      "post": "3825b6865c160ddf950f438dc6f8cbcaba61c660",
+      "files": [
+        [
+          "apps/harness/src/daimon_harness/model_adapter.py",
+          "98758b5de9f331da6f258ba485d31cf69e33f1d2",
+          "982618e40438c7e7b815f38af512149564c4642b"
+        ],
+        [
+          "apps/harness/src/daimon_harness/runtime.py",
+          "bd9f4d5b6a5c3267426d810d8b717b7b7f03b98d",
+          "ebb0e124dbda922a539b4cc086bd5a35aaa9bd1f"
+        ]
+      ]
+    },
+    {
+      "id": "B36C",
+      "repo": "microsoft/agent-framework",
+      "language": "python",
+      "fix_pr": "https://github.com/microsoft/agent-framework/pull/9972",
+      "defect": "MCP tool result Content objects are copied as un-serializable objects on model message replay",
+      "pre": "fd1230844b890b8986813a5461ff0d6690e74631",
+      "post": "f6a7335697bd3b770d7968c1660a441b21dc26e9",
+      "files": [
+        [
+          "python/packages/anthropic/agent_framework_anthropic/_chat_client.py",
+          "5db805c699048968093e96aa2979890555160a81",
+          "1a01392ada492851c48aa4bda456398d6818dea8"
+        ]
+      ]
+    },
+    {
+      "id": "B36D",
+      "repo": "StitchWB/Stitch-Manager",
+      "language": "python",
+      "fix_pr": "https://github.com/StitchWB/Stitch-Manager/pull/19",
+      "defect": "Generated MCP tools expose schema dictionary while actual list and scalar return breaks structured output and errors disclose original result",
+      "pre": "7325b78af73e633978566a9d4298f5fbacb149da",
+      "post": "62f6fdee0eef20000d3b09b039fa106f8ccebb1d",
+      "files": [
+        [
+          "python/stitch_backend/mcp_server/tools.py",
+          "5f0a5daa7d8a5240b964dd5b1548bbdc71dc8d",
+          "010b6a6a003b5c9bcdce1ab17c09a31ee6b58184"
+        ]
+      ]
+    },
+    {
+      "id": "B36E",
+      "repo": "meyergru/opnsense-mcp-server",
+      "language": "python",
+      "fix_pr": "https://github.com/meyergru/opnsense-mcp-server/pull/17",
+      "defect": "Successful array result passed directly to MCP structuredContent requiring dict, causing tool error",
+      "pre": "222b317845e80a11b8f37ce0a3bac29ef557eec3",
+      "post": "cc7b5d9460271e8a7315cf14883c3a820289d672",
+      "files": [
+        [
+          "src/opnsense_mcp/tools/dhcp.py",
+          "ac32db4017e4d7cec6e6d5fbc4ac7bdf8e11e106",
+          "0f6aa558044abd8c24ca45b4bc0952609fd23f50"
+        ],
+        [
+          "src/opnsense_mcp/tools/network.py",
+          "30908fbb5426f001bb2bebc19d9ba0bbd8e54daf",
+          "e591e8d671da6e952e5accea75987978498cd800"
+        ]
+      ],
+      "after_only_file": "src/opnsense_mcp/tool_result.py",
+      "after_only_git_blob": "073a8633cefd86f0c401010dc292987d9405e751",
+      "after_only_is_NOT_a_before_after_file": true
+    },
+    {
+      "id": "B36F",
+      "repo": "data-fair/agents",
+      "language": "typescript",
+      "fix_pr": "https://github.com/data-fair/agents/pull/95",
+      "defect": "Code-mode script loses text when MCP result also has images and structured metadata",
+      "pre": "143f8ec491deaccb925e2b93194bd87e491a84f0",
+      "post": "3fe020d1cdc75304423acf3684b7758e01d3aa8e",
+      "files": [
+        [
+          "shared/tool-result.ts",
+          "a967ef824bec7fbb253de7219e6c16bab921946e",
+          "8de3f753175a616df2a5efc7e7834b748537a171"
+        ],
+        [
+          "api/src/code-mode/code-tools.ts",
+          "cacf0b2376c31fd5b28259d80077827397ed1011",
+          "95e872b02d97abb219b274905de83d53ac656d34"
+        ]
+      ]
+    },
+    {
+      "id": "B36G",
+      "repo": "arcships/dim",
+      "language": "rust",
+      "fix_pr": "https://github.com/arcships/dim/pull/1366",
+      "defect": "Nested MCP tool call result prefers structuredContent over content, drops text output",
+      "pre": "de151ef83b25dd4df98c32f245bd1284e5be4ebd",
+      "post": "1e4d11144d013e0959685d6d38db4f94e460bb8b",
+      "files": [
+        [
+          "crates/dim-codemode/src/interpreter.rs",
+          "6a582d6b17b6a924af63ce8c3914b51e43888f71",
+          "627729a3f40bd06d529d23a33ad99bda4671cd56"
+        ],
+        [
+          "crates/dim-codemode/src/session.rs",
+          "97770fa2248e137614adfc5fd3d2e7cf224a903d",
+          "d3dc3c8973afb901e7be98e482094c5175763849"
+        ]
+      ]
+    },
+    {
+      "id": "B36H",
+      "repo": "codeready-toolchain/tarsy",
+      "language": "go",
+      "fix_pr": "https://github.com/codeready-toolchain/tarsy/pull/423",
+      "defect": "Embedded resource text is joined without resource boundary/URI, losing identity and structure",
+      "pre": "fab8e339bd5252f9ef36a1a305730877295ba0d5",
+      "post": "e623b8e56bbfb253e30bdffb488a071c586a2176",
+      "files": [
+        [
+          "pkg/mcp/executor.go",
+          "80a358d73f7f9a057680df842e6c73995385f6ee",
+          "5224330f05a62fce13752fca85fc860312bfaf5b"
+        ]
+      ]
+    }
+  ],
+  "exclusions": [
+    {
+      "repo": "agentscope-ai/agentscope",
+      "reason": "B34 original training"
+    },
+    {
+      "repo": "NousResearch/hermes-agent",
+      "reason": "B34 original training"
+    },
+    {
+      "repo": "modelcontextprotocol/python-sdk",
+      "reason": "B34 original training"
+    },
+    {
+      "repo": "Tencent/AI-Infra-Guard",
+      "reason": "B35 holdout already used"
+    },
+    {
+      "repo": "Significant-Gravitas/AutoGPT",
+      "reason": "B35 holdout already used"
+    },
+    {
+      "repo": "microsoft/playwright",
+      "reason": "B35 holdout already used"
+    },
+    {
+      "repo": "confident-ai/deepeval",
+      "reason": "B35 holdout already used"
+    },
+    {
+      "repo": "anomalyco/browse",
+      "fix_pr": "https://github.com/anomalyco/browse/pull/235",
+      "reason": "Additional credible TS candidate excluded to cap cross-language cohort before inspection"
+    },
+    {
+      "repo": "maximhq/bifrost",
+      "fix_pr": "https://github.com/maximhq/bifrost/pull/8604",
+      "reason": "Additional credible Go candidate excluded to cap cross-language cohort before inspection"
+    }
+  ]
+}
