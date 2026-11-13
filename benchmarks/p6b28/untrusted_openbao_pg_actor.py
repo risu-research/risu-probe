@@ -83,7 +83,7 @@ def main():
                                 launch["restricted_bao_token"])
     require(issue_code==200 and "data" in issued
         and issued.get("lease_id","").startswith("database/creds/b28-write/"),
-        "Original OpenBao PostgreSQL engine did not issue native leased credentials")
+        "Original OpenBao PostgreSQL engine did not issue native leased credentials; status="+str(issue_code)+" response_fields="+str(sorted(issued.keys()))+" lease_prefix_ok="+str(issued.get("lease_id","").startswith("database/creds/b28-write/")))
     username=issued["data"]["username"]
     password=issued["data"]["password"]
     require(type(username) is str and 3<len(username)<120
