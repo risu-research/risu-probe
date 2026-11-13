@@ -57,7 +57,7 @@ def old_changed_lines(a,b):
 
 def verify_original(case,side):
     root=UPSTREAM/case["id"]/side
-    commit=case["before"] if side=="before" else case["after"]
+    commit=case["pre"] if side=="before" else case["post"]
     check(root.is_dir(),case["id"]+"_SOURCE_MISSING_"+side)
     check(git(root,"rev-parse","HEAD")==commit,case["id"]+"_COMMIT_CHANGED_"+side)
     records=[]
@@ -181,7 +181,7 @@ def main():
           ==EXPECTED_MANIFEST_GIT_BLOB,"SEALED_CASES_CHANGED")
     manifest=json.loads(MANIFEST.read_text(encoding="utf-8"))
     cases=manifest["cases"]
-    check(manifest["stage"]=="SEALED_BEFORE_B34_DEVELOPMENT","MANIFEST_STAGE")
+    check(manifest["selection_phase"]=="BEFORE_SOURCE_OPENING_AND_ANY_B35_DRIVEN_RULE_CHANGES","MANIFEST_STAGE")
     check([c["id"] for c in cases]==["B36A","B36B","B36C","B36D","B36E","B36F","B36G","B36H"],
           "CASE_MEMBERSHIP_CHANGED")
     check(len({c["repo"].split("/")[0].lower() for c in cases})==9,
