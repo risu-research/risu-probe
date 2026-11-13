@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='enforce-mcp-owner-credential-broker':
+        from risu_mcp_owner_credential_broker import cli
+        return cli(args[1:])
     if args and args[0]=='enforce-mcp-github-owner':
         from risu_mcp_github_owner import main
         return main()
