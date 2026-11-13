@@ -1,4 +1,4 @@
-"""B28: agent runs as Linux UID 65534 with single-use OpenBao token.
+"""B28: agent runs as Linux UID 65534 with single-use wrapped OpenBao secret.
 
 The original OpenBao server issues the real ephemeral PostgreSQL username
 and password. No privileged issuer token, database owner credential, or RISU
@@ -68,6 +68,19 @@ def issuer_get(path,token=None):
                          "native_error_safe_keywords":safe_words,
                          "native_error_body_length":len(diagnostic)}
 
+def issuer_unwrap(wrapping_token):
+    """Use upstream OpenBao one-use response wrapper; no privileged access."""
+    req=urllib.request.Request(HOST+"/v1/sys/wrapping/unwrap",
+         data=b"",method="POST",
+         headers={"X-Vault-Token":wrapping_token})
+    try:
+        with urllib.request.urlopen(req,timeout=25) as response:
+            return response.status,json.loads(response.read())
+    except urllib.error.HTTPError as err:
+        # The token was already consumed, expired or refused. Never expose a
+        # raw wrapped secret or an original backend diagnostic.
+        return err.code,{}
+
 def actor_sql(username,password,sql):
     env={"PATH":"/usr/bin:/bin","HOME":"/tmp","LANG":"C.UTF-8",
          "PGPASSWORD":password,"PGCONNECT_TIMEOUT":"8"}
@@ -99,31 +112,38 @@ def main():
                 "PGPASSWORD","B28_DATABASE_ADMIN_PASSWORD"):
         require(key not in os.environ,"Issuer or resource-owner secret leaked to agent env")
     launch=json.loads(sys.stdin.readline())
-    require(set(launch)=={"restricted_bao_token","issuer_launcher_pid",
-                          "bao_server_pid","other_role_token"},
+    require(set(launch)=={"one_time_wrapped_secret","issuer_launcher_pid",
+                          "bao_server_pid"},
             "Unauthorized actor input fields")
     require(validate_env(launch["issuer_launcher_pid"]) and
             validate_env(launch["bao_server_pid"]),
             "Failed to isolate original issuer/owner process credentials")
-    # Issuer HTTP 403, even when the user bypasses all RISU code.
+    # No OpenBao database-credential issuing token exists in the agent.
+    # Original issuer operator generated the dynamic secret and wrapped it;
+    # the agent can only consume exactly that wrapped response.
     anonymous_code,_=issuer_get("database/creds/b28-write")
-    require(anonymous_code in (400,403),"Anonymous request got a database credential")
-    other_code,_=issuer_get("database/creds/admin",launch["other_role_token"])
-    require(other_code in (400,403),"Actor read an unauthorized issuer role")
-    config_code,_=issuer_get("database/config/b28",launch["other_role_token"])
-    require(config_code in (400,403),"Actor could read issuer administrative config")
-    issue_code,issued=issuer_get("database/creds/b28-write",
-                                launch["restricted_bao_token"])
+    require(anonymous_code in (400,403),"Anonymous requester minted credentials")
+    other_code,_=issuer_get("database/creds/admin")
+    require(other_code in (400,403),"Anonymous requester minted other role")
+    config_code,_=issuer_get("database/config/b28")
+    require(config_code in (400,403),"Anonymous requester read issuer config")
+    issue_code,issued=issuer_unwrap(launch["one_time_wrapped_secret"])
     require(issue_code==200 and "data" in issued
-        and issued.get("lease_id","").startswith("database/creds/b28-write/"),
-        "Original OpenBao PostgreSQL engine did not issue native leased credentials; status="+str(issue_code)+" response_fields="+str(sorted(issued.keys()))+" native_classes="+str(issued.get("native_error_classes",[]))+" safe_keywords="+str(issued.get("native_error_safe_keywords",[]))+" length="+str(issued.get("native_error_body_length",-1))+" lease_prefix_ok="+str(issued.get("lease_id","").startswith("database/creds/b28-write/")))
+       and issued.get("lease_id","").startswith("database/creds/b28-write/"),
+       "Original OpenBao one-time wrapped dynamic secret refused; status="
+           +str(issue_code)+" response_fields="+str(sorted(issued.keys())))
     username=issued["data"]["username"]
     password=issued["data"]["password"]
     require(type(username) is str and 3<len(username)<120
         and type(password) is str and len(password)>8,
-        "Original issuer produced invalid PostgreSQL credentials")
-    second_code,_=issuer_get("database/creds/b28-write",launch["restricted_bao_token"])
-    require(second_code in (400,403),"Single-use issuer token minted a second credential")
+        "Native wrapped OpenBao credential malformed")
+    second_code,_=issuer_unwrap(launch["one_time_wrapped_secret"])
+    require(second_code in (400,403),
+            "Original OpenBao wrapping token allowed second secret delivery")
+    extra_code,_=issuer_get("database/creds/b28-write",
+                            launch["one_time_wrapped_secret"])
+    require(extra_code in (400,403),
+            "Consumed one-use wrapped token minted a new database credential")
     negative={
       "outside_object":"UPDATE b28.resources SET state='APPROVED',body='APPROVED CONTENT' WHERE object_key='foreign/other' RETURNING object_key;",
       "same_prefix_neighbor":"UPDATE b28.resources SET state='APPROVED',body='APPROVED CONTENT' WHERE object_key='approved/report-extra' RETURNING object_key;",
@@ -159,6 +179,8 @@ def main():
       "other_issuer_role_http":other_code,
       "issuer_config_http":config_code,
       "native_one_use_first_http":issue_code,
+      "native_credential_delivery":"OpenBao native single-use response wrapping",
+      "native_wrapped_token_recredential_http":extra_code,
       "native_one_use_repeat_http":second_code,
       "issuer_process_env_denied":True,
       "openbao_process_env_denied":True,
