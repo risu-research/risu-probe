@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='compare-mcp-claim-sufficiency':
+        from risu_mcp_claim_sufficiency import main as compare_sufficiency
+        return compare_sufficiency(args[1:])
     if args and args[0]=='verify-mcp-effect-closure':
         from risu_mcp_effect_closure import main as verify_closure
         return verify_closure(args[1:])
