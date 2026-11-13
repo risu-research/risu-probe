@@ -1,0 +1,122 @@
+name: RISU B33 stable read-only signed execution to exact Git effect
+on:
+  push:
+    branches:
+      - main
+      - integration/b33-signed-run-effect-closure-main-20261113
+    paths:
+      - src/risu_signed_effect_chain.py
+      - src/risu_p5d_cli.py
+      - pyproject.toml
+      - tests/test_p6b33_signed_effect_chain.py
+      - docs/P6B33_ORIGINAL_SIGNED_EXECUTION_EFFECT.md
+      - .github/workflows/b33-signed-effect-chain-product.yml
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+  attestations: read
+jobs:
+  installed-product:
+    name: B33 read-only wheel and complete RISU regressions (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build and install stable source without GitHub write authority
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check 'setuptools>=68,<82' 'wheel>=0.44,<1'
+          mkdir -p .b33-wheel
+          python -m pip wheel --no-deps -w .b33-wheel .
+          python -m venv .b33-installed
+          if [[ "${{ runner.os }}" == Windows ]]; then
+            PY=.b33-installed/Scripts/python.exe
+            CLI=.b33-installed/Scripts/risu-probe.exe
+          else
+            PY=.b33-installed/bin/python
+            CLI=.b33-installed/bin/risu-probe
+          fi
+          "$PY" -m pip install .b33-wheel/risu_probe_preview-*.whl
+          "$PY" -m pip check
+          "$CLI" verify-signed-effect-chain --help
+          "$CLI" verify-delegated-signed-provenance --help
+          "$CLI" verify-signed-release-provenance --help
+          RISU_P6A_TEST_CLI="$CLI" "$PY" -m unittest discover -s tests -v
+          echo B33_STABLE_READONLY_ALL_PRODUCT_REGRESSIONS_PASS
+  pinned-original-evidence-readonly-recheck:
+    name: Optional fresh H1 and H2 original signed Git effect verification
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Recheck original real GitHub/Sigstore subject and source bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --disable-pip-version-check .
+          mkdir -p .b33-original
+          risu-probe verify-signed-effect-chain \
+            --repo risu-research/risu-verify \
+            --run-id 43458536273 \
+            --workflow-path .github/workflows/p6b33-signed-execution-effect.yml \
+            --artifact-name risu-b33-original-candidate-and-broker-receipts \
+            --expected-actor moon10021017 \
+            --out .b33-original/H1.json \
+            --snapshot-out .b33-original/B33_ORIGINAL_NORMALIZED_SOURCE_FACTS.json
+          risu-probe verify-signed-effect-chain \
+            --repo risu-research/risu-probe \
+            --run-id 43461936460 \
+            --workflow-path .github/workflows/p6b33-holdout-signed-execution.yml \
+            --artifact-name risu-b33-original-candidate-and-broker-receipts \
+            --expected-actor moon10021017 \
+            --out .b33-original/H2.json \
+            --snapshot-out .b33-original/B33_H2_ORIGINAL_NORMALIZED_SOURCE_FACTS.json
+          RISU_B33_ORIGINAL_FACTS_DIR=.b33-original python -m unittest discover -s tests -p test_p6b33_signed_effect_chain.py -v
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          root=Path(".b33-original")
+          x=json.loads((root/"H1.json").read_text())
+          h=json.loads((root/"H2.json").read_text())
+          expected="LIVE_GITHUB_SIGSTORE_SIGNED_SOURCE_EXECUTION_ONE_GIT_EFFECT_CLOSED"
+          assert x["status"]==h["status"]==expected
+          assert x["original_run_id"]==43458536273
+          assert h["original_run_id"]==43461936460
+          assert x["source_repository"]!=h["source_repository"]
+          assert x["original_source_sha"]!=h["original_source_sha"]
+          assert x["effect_commit"]!=h["effect_commit"]
+          assert x["claim_states"]["independent_human_resource_owner_approval"]=="UNVERIFIED"
+          assert h["claim_states"]["independent_human_resource_owner_approval"]=="UNVERIFIED"
+          print("B33_STABLE_TWO_REAL_ORIGINALS_AND_CROSS_RUN_MIX_REJECT_PASS")
+          PY
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b33-stable-original-github-sigstore-readonly-recheck
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
+          path: .b33-original/*.json
