@@ -4,6 +4,9 @@ import sys
 
 def main():
     args=sys.argv[1:]
+    if args and args[0]=='verify-signed-effect-chain':
+        from risu_signed_effect_chain import main as verify_signed_effect_chain
+        return verify_signed_effect_chain(args[1:])
     if args and args[0]=='verify-delegated-signed-provenance':
         from risu_delegated_signer import main as verify_delegate
         return verify_delegate(args[1:])
