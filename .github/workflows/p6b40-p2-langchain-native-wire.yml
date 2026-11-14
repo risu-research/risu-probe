@@ -1,0 +1,108 @@
+name: "P6-B40 original LangChain SDK-native consumer wire witness and frozen checker"
+on:
+  push:
+    branches: [qualification/p6b40-sealed-original-clients-20261114]
+    paths:
+      - .github/workflows/p6b40-p2-langchain-native-wire.yml
+      - benchmarks/p6b40/runners/langchain_native_client_witness.test.ts
+      - benchmarks/p6b40/runners/score_b40_langchain.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-external-client-with-native-mcp-sdk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: langchain-ai/langchainjs
+          ref: 17b6bba8343bdd3f3dfc5c59578e0b72337ec740
+          path: original/before
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: langchain-ai/langchainjs
+          ref: ba4e7a276b11b57e1cfc21f4ab66289bdd2971f5
+          path: original/after
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: frozen-b38
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: pnpm/action-setup@v4
+        with: {version: '10.14.0'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Verify original unmodified source, locked source test overlay, frozen generic checker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = 17b6bba8343bdd3f3dfc5c59578e0b72337ec740
+          test "$(git -C original/after rev-parse HEAD)" = ba4e7a276b11b57e1cfc21f4ab66289bdd2971f5
+          test "$(git -C original/before rev-parse HEAD:libs/langchain-mcp-adapters/src/tools.ts)" = 6d5b4b713a3acea3b2b001285e3af8272b9bef9b
+          test "$(git -C original/after rev-parse HEAD:libs/langchain-mcp-adapters/src/tools.ts)" = 2b687c45315d13d9450a33161b1a7e67d36fcbf5
+          test "$(git -C frozen-b38 rev-parse HEAD:research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+          mkdir -p out
+      - name: Install independent original SDK dependencies without scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after && pnpm install --frozen-lockfile --ignore-scripts --filter '@langchain/mcp-adapters...')
+          (cd original/before && pnpm install --frozen-lockfile --ignore-scripts --filter '@langchain/mcp-adapters...')
+      - name: Build original export entrypoints without modifications to source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after/libs/langchain-core && pnpm run build:compile)
+          (cd original/before/libs/langchain-core && pnpm run build:compile)
+      - name: Overlay only new independent test file (never the original application source)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp benchmarks/p6b40/runners/langchain_native_client_witness.test.ts original/before/libs/langchain-mcp-adapters/src/tests/b40_native_original.test.ts
+          cp benchmarks/p6b40/runners/langchain_native_client_witness.test.ts original/after/libs/langchain-mcp-adapters/src/tests/b40_native_original.test.ts
+          test "$(git -C original/before rev-parse HEAD:libs/langchain-mcp-adapters/src/tools.ts)" = 6d5b4b713a3acea3b2b001285e3af8272b9bef9b
+          test "$(git -C original/after rev-parse HEAD:libs/langchain-mcp-adapters/src/tools.ts)" = 2b687c45315d13d9450a33161b1a7e67d36fcbf5
+      - name: Execute original repaired MCP client with real SDK native protocol in memory
+        shell: bash
+        run: |
+          set -euo pipefail
+          export B40_ORIGINAL_VERSION=after
+          export B40_NATIVE_WITNESS="$PWD/out/B40_P2_NATIVE_AFTER.json"
+          (cd original/after && pnpm --filter @langchain/mcp-adapters exec vitest run src/tests/b40_native_original.test.ts --reporter verbose) 2>&1 | tee out/B40_P2_NATIVE_AFTER.log
+          test -s out/B40_P2_NATIVE_AFTER.json
+      - name: Execute original pre-fix MCP client over same native protocol
+        shell: bash
+        run: |
+          set -euo pipefail
+          export B40_ORIGINAL_VERSION=before
+          export B40_NATIVE_WITNESS="$PWD/out/B40_P2_NATIVE_BEFORE.json"
+          (cd original/before && pnpm --filter @langchain/mcp-adapters exec vitest run src/tests/b40_native_original.test.ts --reporter verbose) 2>&1 | tee out/B40_P2_NATIVE_BEFORE.log
+          test -s out/B40_P2_NATIVE_BEFORE.json
+      - name: Score precisely predeclared in-band status against true external consumer observation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b40/runners/score_b40_langchain.py \
+            --checker frozen-b38/research/b38_native_contract_auditor.py \
+            --before out/B40_P2_NATIVE_BEFORE.json \
+            --after out/B40_P2_NATIVE_AFTER.json \
+            --output out/B40_P2_FROZEN_B38_SCORE.json
+          sha256sum out/B40_P2_*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b40-p2-original-sdk-native-wire-consumer
+          path: out/B40_P2_*
+          if-no-files-found: warn
+          retention-days: 90
