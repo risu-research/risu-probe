@@ -1,0 +1,51 @@
+name: P6-B42 supplementary original FastMCP author test dependency recovery
+on:
+  push:
+    branches: [qualification/p6b42-disjoint-native-status-and-completion-20261114]
+    paths:
+      - .github/workflows/p6b42-original-fastmcp-author.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-author-client-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: PrefectHQ/fastmcp
+          ref: a8745d61e650467756bb28b4157822dbfbdfa34f
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify original Git sources before dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = a8745d61e650467756bb28b4157822dbfbdfa34f
+          test "$(git -C original rev-parse HEAD:fastmcp_slim/fastmcp/client/client.py)" = 99cfd750f5a3f76f5fbb3c917850ac4e27345b43
+          test "$(git -C original rev-parse HEAD:tests/client/client/test_client.py)" = 846d03bf4271c069f1d8a356573cf8729c3da4aa
+          mkdir -p out
+      - name: Install original FastMCP local server/client + author pytest dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install -e 'original/fastmcp_slim[client,server]'             'pytest>=8' 'pytest-asyncio>=1' 'opentelemetry-sdk>=1.28'             'pytest-env' 'pytest-timeout' 'inline-snapshot' 'pytest-mock'             'respx>=0.20' 'httpx' 2>&1 | tee out/B42_N2_AUTHOR_DEPENDENCIES.log
+      - name: Run frozen author's unmodified in-memory native MCP client tool tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && python -m pytest -q tests/client/client/test_client.py             -k 'test_call_tool or test_call_tool_mcp') 2>&1 | tee out/B42_N2_AUTHOR_TESTS.log
+          grep -E 'passed' out/B42_N2_AUTHOR_TESTS.log
+          echo B42_N2_UPSTREAM_OWNER_ORIGINAL_CLIENT_TESTS_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b42-n2-original-author-test-dependency-recovery
+          path: out/B42_N2_*
+          if-no-files-found: warn
+          retention-days: 90
