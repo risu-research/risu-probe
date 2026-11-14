@@ -1,0 +1,33 @@
+name: "P6-B38 generalized protocol-to-consumer verifier, frozen pre-holdout controls"
+on:
+  push:
+    branches:
+      - qualification/p6b38-runtime-verifier-development-20261113
+    paths:
+      - research/b38_native_contract_auditor.py
+      - research/test_b38_native_contract_auditor.py
+      - .github/workflows/p6b38-verifier-development-controls.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  no-B38-source-unit-tests:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Verify 26 source-independent synthetic and B37-informed controls
+        shell: bash
+        run: |
+          python -m unittest discover -s research -p test_b38_native_contract_auditor.py -v
+          python -m compileall -q research/b38_native_contract_auditor.py
+          git hash-object research/b38_native_contract_auditor.py
