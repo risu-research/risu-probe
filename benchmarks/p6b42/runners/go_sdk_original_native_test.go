@@ -46,10 +46,10 @@ func TestB42OfficialGoOriginalClientNativeIsError(t *testing.T){
  originalServer:=NewServer(&Implementation{Name:"b42-original-peer",Version:"1.0"},nil)
  // ToolHandlerFor would add validation and synthesize output; low-level
  // original server is used to return deterministic native MCP result flags.
- originalServer.AddTool(&Tool{Name:"b42_success"},func(_ context.Context,_ *CallToolRequest)(*CallToolResult,error){
+ originalServer.AddTool(&Tool{Name:"b42_success",InputSchema:map[string]any{"type":"object"}},func(_ context.Context,_ *CallToolRequest)(*CallToolResult,error){
    return &CallToolResult{Content:[]Content{&TextContent{Text:"b42 hello"}},IsError:false},nil
  })
- originalServer.AddTool(&Tool{Name:"b42_denied"},func(_ context.Context,_ *CallToolRequest)(*CallToolResult,error){
+ originalServer.AddTool(&Tool{Name:"b42_denied",InputSchema:map[string]any{"type":"object"}},func(_ context.Context,_ *CallToolRequest)(*CallToolResult,error){
    return &CallToolResult{Content:[]Content{&TextContent{Text:"b42 access denied"}},IsError:true},nil
  })
  cside,sside:=net.Pipe()
