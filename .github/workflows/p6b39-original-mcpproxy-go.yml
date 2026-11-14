@@ -1,0 +1,86 @@
+name: "P6-B39 original MCPProxy-Go official native HTTP Go client pre/post RED GREEN"
+on:
+  push:
+    branches:
+      - qualification/p6b39-original-mcpproxy-go-20261114
+    paths:
+      - .github/workflows/p6b39-original-mcpproxy-go.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mcpproxy-official-go:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Exact original mcpproxy before official repair
+        uses: actions/checkout@v5
+        with:
+          repository: smart-mcp-proxy/mcpproxy-go
+          ref: 51fd13e072d252238b3c9234c75af97dd7562b31
+          path: original/before
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+      - name: Exact original official after-fix mcpproxy source and author's tests
+        uses: actions/checkout@v5
+        with:
+          repository: smart-mcp-proxy/mcpproxy-go
+          ref: ba5177450f8ffc211636c151c52e9afff619db39
+          path: original/after
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.0'
+          cache: false
+      - name: Verify actual Git tree source blobs and copy official added TESTS ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = 51fd13e072d252238b3c9234c75af97dd7562b31
+          test "$(git -C original/after rev-parse HEAD)" = ba5177450f8ffc211636c151c52e9afff619db39
+          test "$(git -C original/before hash-object cmd/mcpproxy/call_cmd.go)" = 70ba9b93eb6ec764909fb2914f6c61937efe9042
+          test "$(git -C original/after hash-object cmd/mcpproxy/call_cmd.go)" = 8b63ec222ca441d4abea70f99b8c735572ed770d
+          test "$(git -C original/before hash-object internal/cliclient/client.go)" = 3f4b3f24e9ca820d5533eb3fd19412644ba7409d
+          test "$(git -C original/after hash-object internal/cliclient/client.go)" = 4479941ea495e8e111a8162133b5ffd5eacaa703
+          cp original/after/internal/cliclient/call_tool_test.go original/before/internal/cliclient/risu_b39_official_call_tool_test.go
+          mkdir -p out
+      - name: RED - original external Go CLI client's maintainer HTTP result-preservation regression
+        shell: bash
+        env:
+          GOTOOLCHAIN: local
+          CGO_ENABLED: '0'
+        run: |
+          set +e
+          set -uo pipefail
+          (cd original/before && go test ./internal/cliclient -run '^TestCallToolPreservesResultShapes$' -count=1 -v) >out/B39_MCPPROXY_BEFORE.log 2>&1
+          code=$?
+          echo "B39_MCPPROXY_ORIGINAL_BEFORE_EXIT=$code"
+          tail -n 90 out/B39_MCPPROXY_BEFORE.log
+          if [ "$code" -eq 0 ]; then echo "B39_UNEXPECTED_ORIGINAL_BEFORE_GREEN"; exit 3; fi
+          grep -F 'TestCallToolPreservesResultShapes' out/B39_MCPPROXY_BEFORE.log || exit 4
+          grep -E 'expected|Error Trace|not equal|FAIL: TestCallTool' out/B39_MCPPROXY_BEFORE.log || exit 5
+          echo "B39_MCPPROXY_ORIGINAL_BEFORE_RED_CONFIRMED"
+      - name: GREEN - exact official original Go CLI client repair with same regression
+        shell: bash
+        env:
+          GOTOOLCHAIN: local
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+          (cd original/after && go test ./internal/cliclient -run '^TestCallToolPreservesResultShapes$' -count=1 -v) | tee out/B39_MCPPROXY_AFTER.log
+          grep -F 'PASS: TestCallToolPreservesResultShapes' out/B39_MCPPROXY_AFTER.log
+          echo "B39_MCPPROXY_ORIGINAL_AFTER_GREEN_CONFIRMED"
+      - name: Save original exact author test results, missing tests as failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b39-mcpproxy-original-Go-HTTP-red-green
+          if-no-files-found: warn
+          retention-days: 90
+          path: out/*.log
