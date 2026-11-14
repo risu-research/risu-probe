@@ -1,0 +1,85 @@
+name: "B38 original external MCP-Go parser pre-post with real Go compiler, eight normal/invalid cases"
+on:
+  push:
+    branches:
+      - qualification/p6b38-original-mcpgo-parser-20261113
+    paths:
+      - research/b38_original_mcpgo_parser_test.go
+      - .github/workflows/p6b38-original-mcpgo-parser.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  upstream-original-parser:
+    name: MCP-Go original before/after, parser-only ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Exact original MCP-Go first parent before fix
+        uses: actions/checkout@v5
+        with:
+          repository: mark3labs/mcp-go
+          ref: 10d5595143759b4565c00a583651f630c28ad577
+          path: original/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+      - name: Exact original MCP-Go maintainer merged fix
+        uses: actions/checkout@v5
+        with:
+          repository: mark3labs/mcp-go
+          ref: 61741f7f524fc047eb0c39ff2a2178b670a4096a
+          path: original/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.5'
+          cache: false
+      - name: Confirm original SHA and unchanged upstream parser bytes, overlay tests ONLY
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = 10d5595143759b4565c00a583651f630c28ad577
+          test "$(git -C original/after rev-parse HEAD)" = 61741f7f524fc047eb0c39ff2a2178b670a4096a
+          test "$(git -C original/before hash-object mcp/utils.go)" = aa401fefcd15439bae601f25db0aa3169a7bb68e
+          test "$(git -C original/after hash-object mcp/utils.go)" = d4a4066c3b6e069e109d4abf698b182f56bb1228
+          cp research/b38_original_mcpgo_parser_test.go original/before/mcp/risu_b38_original_parser_test.go
+          cp research/b38_original_mcpgo_parser_test.go original/after/mcp/risu_b38_original_parser_test.go
+          mkdir -p out
+      - name: Original upstream MCP-Go pre-fix parser with expected negative and normal controls
+        shell: bash
+        env:
+          B38_UPSTREAM_ORIGINAL_SIDE: before
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          (cd original/before && go test ./mcp -run '^TestB38OriginalStructuredOnlyResultParser$' -count=1 -v) | tee out/B38_ORIGINAL_MCP_GO_BEFORE.log
+          grep B38_ORIGINAL_PARSER_before_8_CONTROLS_PASS out/B38_ORIGINAL_MCP_GO_BEFORE.log
+      - name: Original upstream MCP-Go after official repair with same controls
+        shell: bash
+        env:
+          B38_UPSTREAM_ORIGINAL_SIDE: after
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          (cd original/after && go test ./mcp -run '^TestB38OriginalStructuredOnlyResultParser$' -count=1 -v) | tee out/B38_ORIGINAL_MCP_GO_AFTER.log
+          grep B38_ORIGINAL_PARSER_after_8_CONTROLS_PASS out/B38_ORIGINAL_MCP_GO_AFTER.log
+      - name: Archive parser-only original test output with genuine Git provenance
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b38-external-mcpgo-parser-${{ matrix.os }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            out/B38_ORIGINAL_MCP_GO_BEFORE.log
+            out/B38_ORIGINAL_MCP_GO_AFTER.log
