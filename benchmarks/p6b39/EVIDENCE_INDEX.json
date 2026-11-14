@@ -1,0 +1,122 @@
+{
+  "schema": "risu-p6b39-final-evidence-index-v1",
+  "scope": "preregistered selected original external software; purposive, cannot estimate population rates",
+  "product_main_frozen_commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "holdout_seal_commit": "68b93a4ef64034b567a550168f343ce88fba6007",
+  "preregistration_commit": "d92d828c3abb19a164301d3f31481486271e862d",
+  "upstream_git_blobs_and_paths": "benchmarks/p6b39/SEALED_COHORT.json at holdout_seal_commit",
+  "b38_verifier_commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+  "b38_verifier_git_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+  "all_selected_orgs_with_some_original_code_executed": 8,
+  "positive_orgs_with_original_before_after_semantic_regression": 4,
+  "purposeful_normal_orgs_with_original_code_or_author_tests": 4,
+  "eligible_independently_authored_external_consumer_normal_orgs": 0,
+  "eligible_independent_external_consumer_fpr_numerator": null,
+  "eligible_independent_external_consumer_fpr_denominator": 0,
+  "independent_external_consumer_fpr": "UNMEASURED",
+  "population_false_positive_rate": "UNMEASURED",
+  "generic_verifier_new_positive_detection_rate": "UNMEASURED",
+  "geolonia_original_server_controlled_consumer_discrepancies": "0/1 organization under native producer-level declared policy; never treated as external client FPR",
+  "integrated_validation_run_id": 43627847300,
+  "integrated_validation_final_artifact_id": 14126344211,
+  "integrated_validation_report_sha256": "a46149fb583c43d1c94c24174c9be255407bbab856b8ad5ed47c6d37c665c159",
+  "p4_failed_evaluator_runs": [
+    43572730278,
+    43628043248
+  ],
+  "p4_evaluator_repairs": "invalid --no-restore=false removed; explicitly pinned .NET 10.0.404 via untracked ephemeral global.json; no original external source modifications",
+  "case_results": [
+    {
+      "id": "N1",
+      "organization": "geolonia/datamodels",
+      "role": "original_external_server_plus_controlled_first_party_http_consumer",
+      "execution_status": "ORIGINAL_NATIVE_END_TO_END_SERVER",
+      "result": "0 declared-contract discrepancies across 7 independent-internal witness instances (one original org); supplemental 3 after additional isolated run",
+      "run_id": 43571194001,
+      "artifact_id": 14104248933,
+      "prior_result_sha256": "208f61210fdc33d73b6fc68188a5d1903621eb34a70088649a20071bafcbc48d",
+      "independent_external_consumer_fpr_eligible": false
+    },
+    {
+      "id": "N2",
+      "organization": "major/gitlab-mcp",
+      "role": "original_maintainer_python_fake_api_tests",
+      "execution_status": "ORIGINAL_UPSTREAM_PARSER_OR_TEST",
+      "result": "10 passed, 171 deselected; compact/full/batch-cursor owner behavior",
+      "run_id": 43572636971,
+      "artifact_id": 14104902175,
+      "independent_external_consumer_fpr_eligible": false
+    },
+    {
+      "id": "N3",
+      "organization": "xxynet/KiraAI",
+      "role": "original_isolated_source_function_on_mcp_sdk_stdio",
+      "execution_status": "ORIGINAL_SOURCE_FUNCTION_NATIVE_PEER",
+      "result": "5 native SDK tool outcomes; 3 intended truncations, 2 exact retained; 3 expected warnings with wrong exact contract",
+      "run_id": 43571536167,
+      "artifact_id": 14103748519,
+      "prior_result_sha256": "deff3f9eb3cab186f944ea47bcd652eaee0b373eb601d13d995622fcdfea24ac",
+      "independent_external_consumer_fpr_eligible": false
+    },
+    {
+      "id": "N4",
+      "organization": "appwrite/mcp",
+      "role": "original_redaction_module_with_actual_sdk_model_metadata_on_mcp_sdk_stdio",
+      "execution_status": "ORIGINAL_SOURCE_FUNCTION_NATIVE_PEER",
+      "result": "typed and nested synthetic secrets redacted; public fields and empty values retained",
+      "run_id": 43572031124,
+      "artifact_id": 14104677401,
+      "prior_result_sha256": "d6eb307d2275a70d70056c39f9c7c7965f92551e13741ac44fa6aeb568c2ef5d",
+      "independent_external_consumer_fpr_eligible": false
+    },
+    {
+      "id": "P1",
+      "organization": "punkpeye/fastmcp",
+      "role": "original_edge_producer_plus_official_maintainer_test_overlay",
+      "execution_status": "ORIGINAL_NATIVE_END_TO_END_SERVER",
+      "result": "official owner red-before, green-after for explicit result isError/structured/meta; additional native HTTP pre/post",
+      "run_id": 43571728841,
+      "artifact_id": 14104636993,
+      "frozen_b38_detector_hit": false
+    },
+    {
+      "id": "P2",
+      "organization": "mozilla-ai/otari",
+      "role": "original_isolated_formatter_with_mcp_sdk_stdio",
+      "execution_status": "ORIGINAL_SOURCE_FUNCTION_NATIVE_PEER",
+      "result": "embedded text resource body missing before and present after; binary intentionally summarized",
+      "run_id": 43572218723,
+      "artifact_id": 14104776698,
+      "prior_result_sha256": "3de40b8badac03a98886f82e2b36706071ba21e827eb9378baebb3a85dc24128",
+      "frozen_b38_detector_hit": false
+    },
+    {
+      "id": "P3",
+      "organization": "smart-mcp-proxy/mcpproxy-go",
+      "role": "original_go_cli_client_with_maintainer_test_cases",
+      "execution_status": "ORIGINAL_UPSTREAM_PARSER_OR_TEST",
+      "result": "3 original maintainer regression subtests RED before / GREEN after",
+      "run_id": 43572583795,
+      "artifact_id": 14105201635,
+      "frozen_b38_detector_hit": false
+    },
+    {
+      "id": "P4",
+      "organization": "honua-io/honua-server",
+      "role": "original_dotnet10_project_with_maintainer_test_file_only_overlay",
+      "execution_status": "ORIGINAL_UPSTREAM_PARSER_OR_TEST",
+      "result": "original fixed C# 6 passed 0 failed; original before 4 failed 2 passed under same 6 author tests",
+      "run_id": 43628613088,
+      "artifact_id": 14127355912,
+      "frozen_b38_detector_hit": false
+    }
+  ],
+  "methodological_guards": [
+    "Do not double count same-organization variants or three OS runs.",
+    "Do not equate successful owner-maintained regression test with frozen B38 generic detector sensitivity.",
+    "Original external server with first-party controlled downstream client is ineligible for independent external consumer FPR.",
+    "Intentional truncation/redaction/compactness under upstream declared policy is not an information-loss bug.",
+    "B39 sources have been exposed and must be excluded from any prospective B40 holdout.",
+    "GitHub Actions artifact retention is finite; rerun pinned original Git refs and retain result hashes or archive independently before expiry."
+  ]
+}
