@@ -52,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          (cd original/after/packages/mcp && pnpm exec vitest run --project e2e:packages/mcp src/client/tool-error-structured-content.test.ts --reporter verbose) 2>&1 | tee out/B40_P1_AFTER.log
+          (cd original/after/packages/mcp && pnpm exec vitest run --project unit:packages/mcp src/client/tool-error-structured-content.test.ts --reporter verbose) 2>&1 | tee out/B40_P1_AFTER.log
           grep -E 'passed|PASS' out/B40_P1_AFTER.log
           echo B40_P1_MASTRA_OFFICIAL_POST_FIX_NATIVE_HTTP_GREEN
       - name: Author test file overlay only on unchanged original pre-fix MCP client
@@ -62,7 +62,7 @@ jobs:
           cp original/after/packages/mcp/src/client/tool-error-structured-content.test.ts original/before/packages/mcp/src/client/tool-error-structured-content.test.ts
           test "$(git -C original/before rev-parse HEAD:packages/mcp/src/client/client.ts)" = 1f49e459dca1a9d32fd46c32f8d4139e786c7d98
           set +e
-          (cd original/before/packages/mcp && pnpm exec vitest run --project e2e:packages/mcp src/client/tool-error-structured-content.test.ts --reporter verbose) >out/B40_P1_BEFORE.log 2>&1
+          (cd original/before/packages/mcp && pnpm exec vitest run --project unit:packages/mcp src/client/tool-error-structured-content.test.ts --reporter verbose) >out/B40_P1_BEFORE.log 2>&1
           code=$?
           set -e
           tail -n 115 out/B40_P1_BEFORE.log
