@@ -1,0 +1,85 @@
+{
+  "schema": "risu-p6-b42-sealed-sample-v1",
+  "preregistration_commit": "706c2cbc545bd630dcf13c49ec0329db32dc89eb",
+  "source_review_before_freeze": false,
+  "normal_client_contract": {
+    "status": true,
+    "text": "none",
+    "structured": "none",
+    "media": "none"
+  },
+  "completion_contract": {
+    "name": "C42-COMPLETE-1",
+    "state": "settled_original_tool_call",
+    "started_event_required": true,
+    "terminal_count_exactly": 1,
+    "matching_original_tool_call_id": true,
+    "withheld_pending_as_incomplete": true
+  },
+  "frozen_public_main": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "frozen_b38": {
+    "commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+    "git_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae"
+  },
+  "cohort": [
+    {
+      "id": "N1",
+      "class": "normal_native",
+      "repo": "modelcontextprotocol/go-sdk",
+      "commit": "0fa5e8407aa3fda65166e4207156c03d084bfd44",
+      "blobs": {
+        "mcp/client.go": "7894dd0eee3e18bed7137ed88c9b5016ccc90a74",
+        "mcp/client_test.go": "12bf52e7726f3a66eb8da431862d31b91f16fb76",
+        "go.mod": "3287a95780c8160bdbb4554fb2f509ca369197a4"
+      }
+    },
+    {
+      "id": "N2",
+      "class": "normal_native",
+      "repo": "PrefectHQ/fastmcp",
+      "commit": "a8745d61e650467756bb28b4157822dbfbdfa34f",
+      "blobs": {
+        "fastmcp_slim/fastmcp/client/client.py": "99cfd750f5a3f76f5fbb3c917850ac4e27345b43",
+        "tests/client/client/test_client.py": "846d03bf4271c069f1d8a356573cf8729c3da4aa",
+        "pyproject.toml": "b00f614696ed6b7a037182bd0f9de77eb1efa327"
+      }
+    },
+    {
+      "id": "C1",
+      "class": "completion_positive",
+      "repo": "matthewfae/Personal-Assistant",
+      "pr": "https://github.com/matthewfae/Personal-Assistant/pull/37",
+      "pre": "241b1cb722af4efed82afd308c1232163517e429",
+      "post": "d164e21ceee1596d23ab2a61146457c558005ec9",
+      "blobs_pre": {
+        "bot/agent.py": "cae2390364ca5955bfa3f12afdc2cc760b2bfbd4",
+        "bot/mcp_client.py": "2e807771cc0b391bef5b08a5e82ac349d76217e9",
+        "pyproject.toml": "327d3126788957ff1b41c360630cfa4480da89a1"
+      },
+      "blobs_post": {
+        "bot/agent.py": "f6d789ce4da435286e93a6ea1dc56530cedaccee",
+        "bot/mcp_client.py": "d6d0ae4ffb0d24befbec7a5a0cda5e7cf0897d62"
+      }
+    },
+    {
+      "id": "C2",
+      "class": "completion_secondary_potential",
+      "repo": "TGPSKI/leather",
+      "pr": "https://github.com/TGPSKI/leather/pull/51",
+      "pre": "a9cffc50a0425d2217e566f988612b25d1efb6d7",
+      "post": "c2d4da6d5022b42be5ff9818dd0f6d8900314769",
+      "blobs_pre": {
+        "internal/mcp/client.go": "44fbcc28cc243e1172f0995e0d8b342c4e345323",
+        "internal/runner/runner.go": "b31ace0033779c126306295a9a24683210a19c93",
+        "internal/runner/runner_test.go": "e865475ecf419d3cc87da539823bc5c41c5bc1ba"
+      },
+      "blobs_post": {
+        "internal/mcp/client.go": "20deb3c09cd507b4a182f74f71dc314c4bcd3ee0",
+        "internal/runner/runner.go": "4bceeb4ec382c2daf95bfcb3f071eba000603b93",
+        "internal/runner/tooltrace_test.go": "c194da6a186a4e360eeb8527fbed50514429a60e"
+      }
+    }
+  ],
+  "results": [],
+  "no_posthoc_replacement": true
+}
