@@ -48,6 +48,12 @@ jobs:
           set -euo pipefail
           (cd original/after && pnpm install --frozen-lockfile --ignore-scripts --filter '@langchain/mcp-adapters...')
           (cd original/before && pnpm install --frozen-lockfile --ignore-scripts --filter '@langchain/mcp-adapters...')
+      - name: Build original LangChain core package's exported JavaScript (evaluator setup only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after && pnpm --filter '@langchain/core' run build:compile)
+          (cd original/before && pnpm --filter '@langchain/core' run build:compile)
       - name: Fixed source official original in-band error ToolMessage test (GREEN)
         shell: bash
         run: |
