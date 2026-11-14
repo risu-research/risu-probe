@@ -38,11 +38,18 @@ jobs:
         run: |
           set -euo pipefail
           (cd original && pnpm install --frozen-lockfile --ignore-scripts --filter '@openai/agents-codex...')
+      - name: Copy maintainer's exact new test to the already-included native Vitest profile path (tests only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp original/packages/agents-codex/test/native/selected-mcp-errors-native.test.ts original/packages/agents-codex/test/native/selected-mcp.test.ts
+          test "$(git -C original rev-parse HEAD:packages/agents-codex/src/runtime/selected-mcp.ts)" = fe2cfd65c464f412bf4fb29d943ed2598e4963fe
+          echo B40_N2_AUTHOR_TEST_UNMODIFIED_RELOCATED_FOR_UPSTREAM_STATIC_TEST_INCLUDE
       - name: Original live local MCP native borrowed policy test, no external model or credentials
         shell: bash
         run: |
           set -euo pipefail
-          (cd original && pnpm exec vitest run --mode full --project '@openai/agents-codex' test/native/selected-mcp-errors-native.test.ts --reporter verbose) 2>&1 | tee out/B40_N2_ORIGINAL_NATIVE_POLICY.log
+          (cd original && pnpm exec vitest run --mode full --project '@openai/agents-codex' test/native/selected-mcp.test.ts --reporter verbose) 2>&1 | tee out/B40_N2_ORIGINAL_NATIVE_POLICY.log
           grep -E 'passed|PASS' out/B40_N2_ORIGINAL_NATIVE_POLICY.log
           echo B40_N2_OPENAI_AGENTS_NATIVE_POLICY_SUCCESS_NOT_B38_STATUS_FPR
       - uses: actions/upload-artifact@v4
