@@ -1,0 +1,219 @@
+{
+  "schema": "risu-p6b39-eight-independent-org-sealed-normal-positive-v1",
+  "chronology": "Preregistration commit d92d828c3abb19a164301d3f31481486271e862d precedes source selection and B39 source code inspection. File Git hashes fetched without source inspection.",
+  "preregistration_commit": "d92d828c3abb19a164301d3f31481486271e862d",
+  "frozen_b38_checker_commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+  "frozen_b38_checker_file": "research/b38_native_contract_auditor.py",
+  "frozen_b38_checker_git_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+  "public_product_commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "selection": "four independent original already-repaired positive defects, four independent owner-intended normal output policies; purposely sampled, not representative population",
+  "metric_groups": [
+    "positive_original_before_after",
+    "normal_original_intended_policy"
+  ],
+  "cases": [
+    {
+      "id": "P1",
+      "group": "positive",
+      "repo": "punkpeye/fastmcp",
+      "pr": "https://github.com/punkpeye/fastmcp/pull/445",
+      "language": "typescript",
+      "source_role": "edge_server",
+      "mechanism": "explicit result isError, structuredContent, _meta stripped by Edge handler",
+      "contract_scope": [
+        "status",
+        "structured"
+      ],
+      "pre": "cf6f981305e4f8c11c0a3e1d1401bcdcb1530587",
+      "post": "93c1a2bdb2cfbabb242805e5c1ab02cf5d10f91f",
+      "files": [
+        [
+          "src/edge/index.ts",
+          "f16c4f0856d37d36037a9be6e484a25de26be109",
+          "e58f3ebfded3ec2091da5728639087f3d1a76cbe"
+        ]
+      ]
+    },
+    {
+      "id": "P2",
+      "group": "positive",
+      "repo": "mozilla-ai/otari",
+      "pr": "https://github.com/mozilla-ai/otari/pull/3059",
+      "language": "python",
+      "source_role": "client_model_projection",
+      "mechanism": "embedded text resource body omitted, URI alone retained; binary content intentionally summarized",
+      "contract_scope": [
+        "text_resource_body"
+      ],
+      "pre": "54c67f5986b090db1198ebf43f9c879b3f5779a2",
+      "post": "86267dbf0f22bdeaebad9efdcb6111445c7656a5",
+      "files": [
+        [
+          "src/gateway/services/mcp_client.py",
+          "5e61fa7fb8f7df50e71d4b03211a21ec6960e17b",
+          "5dab897cef5ce34e0d847efe49e59f0abd21e640"
+        ]
+      ]
+    },
+    {
+      "id": "P3",
+      "group": "positive",
+      "repo": "smart-mcp-proxy/mcpproxy-go",
+      "pr": "https://github.com/smart-mcp-proxy/mcpproxy-go/pull/1731",
+      "language": "go",
+      "source_role": "cli_consumer",
+      "mechanism": "CLI text/map flattening drops structuredContent isError meta and error outcome",
+      "contract_scope": [
+        "status",
+        "structured"
+      ],
+      "pre": "51fd13e072d252238b3c9234c75af97dd7562b31",
+      "post": "ba5177450f8ffc211636c151c52e9afff619db39",
+      "files": [
+        [
+          "cmd/mcpproxy/call_cmd.go",
+          "70ba9b93eb6ec764909fb2914f6c61937efe9042",
+          "8b63ec222ca441d4abea70f99b8c735572ed770d"
+        ],
+        [
+          "internal/cliclient/client.go",
+          "3f4b3f24e9ca820d5533eb3fd19412644ba7409d",
+          "4479941ea495e8e111a8162133b5ffd5eacaa703"
+        ]
+      ]
+    },
+    {
+      "id": "P4",
+      "group": "positive",
+      "repo": "honua-io/honua-server",
+      "pr": "https://github.com/honua-io/honua-server/pull/6901",
+      "language": "csharp",
+      "source_role": "server_producer",
+      "mechanism": "large structured result lacked text mirror in model-visible content; now always serializes complete JSON text",
+      "contract_scope": [
+        "text",
+        "structured"
+      ],
+      "pre": "645ea3c00a91c2663fe19315ebe64f29f9498059",
+      "post": "26907b6789a58452d653680ead834ad363206497",
+      "files": [
+        [
+          "src/Honua.Ai/Features/Protocols/Mcp/Mcp/Tools/McpToolHelpers.cs",
+          "267f180b1bf6f805c3a94097f58b2707c6bc5081",
+          "706da6e7b6c35b09941fab8b95f7ac68dad15148"
+        ],
+        [
+          "src/Honua.Ai/Features/Protocols/Mcp/Mcp/MapTools/QueryFeaturesTool.cs",
+          "9f8456e0d52c6ca53c8ef56688f64ed4ff8e7bad",
+          "96e5042c304eb322bbb0c2f90cb02fe5fc20eac6"
+        ]
+      ]
+    },
+    {
+      "id": "N1",
+      "group": "normal",
+      "repo": "geolonia/datamodels",
+      "pr": "https://github.com/geolonia/datamodels/pull/323",
+      "language": "javascript",
+      "source_role": "server_producer",
+      "intended_policy": "MIRRORED_TEXT_AND_STRUCTURED_JSON",
+      "contract_scope": [
+        "status",
+        "structured_json_equivalent"
+      ],
+      "pre": "91242612ef426be28e10265406f6cecc3e3f958b",
+      "post": "d0d2a05cdc60e8e9a106d0f425560a1f1303f21c",
+      "files": [
+        [
+          "worker/mcp.mjs",
+          "34984da8a75c1ef432c8b52bc7e7469a91eb7176",
+          "826ba84d772aec28bc12c002c96608cee19e7e8f"
+        ],
+        [
+          "test/mcp.test.mjs",
+          "ed56966c2397c2f5c21c8d7de55ec78bfb7efbf6",
+          "8b0d2eebcdc57024387de3918fe66d08524ba865"
+        ]
+      ]
+    },
+    {
+      "id": "N2",
+      "group": "normal",
+      "repo": "major/gitlab-mcp",
+      "pr": "https://github.com/major/gitlab-mcp/pull/184",
+      "language": "python",
+      "source_role": "tool_result_summary",
+      "intended_policy": "RESOLVED_COMPACT_BY_DEFAULT_AND_EXPLICIT_FULL_VIEW",
+      "contract_scope": [
+        "status",
+        "declared_compact_and_full_modes"
+      ],
+      "pre": "38d0c71d5b3b7c60e5edcfa98c77465c5581f528",
+      "post": "03b19ec3972a8f55ce29e61db920e03fde09b098",
+      "files": [
+        [
+          "src/gitlab_mcp/tools/mr_threads.py",
+          "a9ca15d373f1f3bed72c6bc831329fc5b1f43f7c",
+          "5d91a5beeb871bccf93885d26cde804f0686e6ba"
+        ]
+      ]
+    },
+    {
+      "id": "N3",
+      "group": "normal",
+      "repo": "xxynet/KiraAI",
+      "pr": "https://github.com/xxynet/KiraAI/pull/383",
+      "language": "python",
+      "source_role": "model_result_budget",
+      "intended_policy": "EXPLICIT_TEXT_OUTPUT_BUDGET_TRUNCATION",
+      "contract_scope": [
+        "status",
+        "declared_budget"
+      ],
+      "pre": "5539d9f297b945f5b2486230fe9625b2852e44e0",
+      "post": "c69b8eab5e89cb09201723e48dcefb83164b7bd6",
+      "files": [
+        [
+          "core/agent/tool.py",
+          "884b8a219abac7c87a9da494ff65b14dcd560dd2",
+          "cdb1833c8593d45b724fe5c6daddacfde04bacff"
+        ],
+        [
+          "core/agent/func_tool_manager.py",
+          "1ddfd1a67f1e2d1af80f91cc24e7f5819b00e02b",
+          "14185fd10aad0e6e8a44143ab08688a186dd1ce2"
+        ]
+      ]
+    },
+    {
+      "id": "N4",
+      "group": "normal",
+      "repo": "appwrite/mcp",
+      "pr": "https://github.com/appwrite/mcp/pull/170",
+      "language": "python",
+      "source_role": "server_output_redaction",
+      "intended_policy": "FIELDS_MARKED_FORMAT_PASSWORD_REDACTED_BY_DEFAULT",
+      "contract_scope": [
+        "status",
+        "declared_redaction"
+      ],
+      "pre": "d0a84db49d43121652183674acd71952754cea2b",
+      "post": "96d0278df4a2c0917c894d2b25138235e3963488",
+      "files": [
+        [
+          "src/mcp_server_appwrite/redaction.py",
+          null,
+          "4c35901707211c917c8850e03026efb3280ed611"
+        ],
+        [
+          "src/mcp_server_appwrite/operator.py",
+          "ebf6b85807dcd1f9a40d2dd32573e0c104bb9211",
+          "2c9f8e2d05076cd39962de3f6b647ddec48ab130"
+        ]
+      ]
+    }
+  ],
+  "other_existing_research_exclusions": "All organizations from B34-B38 are excluded by selection; source cases from B39 cannot be future unseen test set.",
+  "fpr_guard": "Primary eligible FPR only for real independently authored original executable NORMAL implementations with preregistered in-scope contract. UNEXECUTED and contract-excluded results stay visible. Never claim ecosystem FPR.",
+  "original_source_execution": "NO upstream original executed at manifest creation."
+}
