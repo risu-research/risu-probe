@@ -1,0 +1,89 @@
+name: "B38 independent Langboard original multimodal bridge and frozen generic media verifier"
+on:
+  push:
+    branches:
+      - qualification/p6b38-original-langboard-media-20261113
+    paths:
+      - research/b38_langboard_*.py
+      - .github/workflows/p6b38-original-langboard-stdio.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-langboard-function:
+    name: Real MCP stdio, unchanged Langboard original serializer on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Genuine original Langboard pre-fix source
+        uses: actions/checkout@v5
+        with:
+          repository: Langboard/langboard
+          ref: 751ed96cbe4817d10edf5467212d3ca0833381e5
+          path: original/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/api/langboard/routes/mcp/McpApi.py
+          sparse-checkout-cone-mode: false
+      - name: Genuine original Langboard official post-fix source
+        uses: actions/checkout@v5
+        with:
+          repository: Langboard/langboard
+          ref: 63753a9618aef540b08e72f7e1ca5313ef1e86bf
+          path: original/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/api/langboard/routes/mcp/McpApi.py
+          sparse-checkout-cone-mode: false
+      - name: B38 verifier frozen before inspecting external original sources
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: verifier
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Original actual MCP SDK 2.3 stdio transport
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+      - name: Verify frozen generic audit algorithm identical to preregistered binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C verifier rev-parse HEAD)" = 425d3d8272c4e725064010ed8fbf5b8217080cab
+          test "$(git -C verifier hash-object research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+      - name: Exact upstream bridge serializer AST before/after on real native MCP stdio
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/verifier/research"
+          python research/b38_langboard_original_stdio.py
+          python -c "import json; r=json.load(open('research/out/B38_LANGBOARD_ORIGINAL_IMAGE_STRUCTURED_RESULTS.json')); assert r['summary']['frozen_generic_media_contract_checker_successful']; assert r['summary']['media_lost_before']==1; assert r['summary']['media_lost_after']==0"
+      - name: Upload original native JSON-RPC wire, source metadata and verified observed adapter outcomes only
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b38-original-langboard-frozen-media-audit-${{ matrix.os }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            research/out/B38_LANGBOARD_ORIGINAL_IMAGE_STRUCTURED_RESULTS.json
+            research/out/B38_LANGBOARD_BEFORE_ORIGINAL_NATIVE.jsonl
+            research/out/B38_LANGBOARD_AFTER_ORIGINAL_NATIVE.jsonl
