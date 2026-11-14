@@ -1,0 +1,77 @@
+name: "P6-B39 original Honua C# MCP full structured and model-visible JSON pre/post"
+on:
+  push:
+    branches:
+      - qualification/p6b39-original-honua-csharp-20261114
+    paths:
+      - .github/workflows/p6b39-original-honua-csharp.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-honua-dotnet:
+    name: Exact original C# source against official model text mirror regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Original independent Honua code before PR6901
+        uses: actions/checkout@v5
+        with:
+          repository: honua-io/honua-server
+          ref: 645ea3c00a91c2663fe19315ebe64f29f9498059
+          path: original/before
+          fetch-depth: 1
+          submodules: false
+          persist-credentials: false
+      - name: Original Honua source after official repair and new author tests
+        uses: actions/checkout@v5
+        with:
+          repository: honua-io/honua-server
+          ref: 26907b6789a58452d653680ead834ad363206497
+          path: original/after
+          fetch-depth: 1
+          submodules: false
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Prove pinned original C# source SHA before running any code
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = 645ea3c00a91c2663fe19315ebe64f29f9498059
+          test "$(git -C original/after rev-parse HEAD)" = 26907b6789a58452d653680ead834ad363206497
+          test "$(git -C original/before hash-object src/Honua.Ai/Features/Protocols/Mcp/Mcp/Tools/McpToolHelpers.cs)" = 267f180b1bf6f805c3a94097f58b2707c6bc5081
+          test "$(git -C original/after hash-object src/Honua.Ai/Features/Protocols/Mcp/Mcp/Tools/McpToolHelpers.cs)" = 706da6e7b6c35b09941fab8b95f7ac68dad15148
+          mkdir -p out
+      - name: Original official post-fix C# xUnit full-JSON mirror tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after && dotnet test tests/dotnet/Honua.Ai.UnitTests/Honua.Ai.UnitTests.csproj --filter 'FullyQualifiedName~McpTaxonomyAlignmentTests.SuccessResult_|FullyQualifiedName~McpTaxonomyAlignmentTests.QueryFeatures_LargePage_ReturnsSummaryThenFullJsonText|FullyQualifiedName~McpTaxonomyAlignmentTests.SuccessJsonElement_' --no-restore=false --verbosity minimal) >out/B39_HONUA_OFFICIAL_AFTER.log 2>&1 || { tail -n 95 out/B39_HONUA_OFFICIAL_AFTER.log; exit 3; }
+          tail -n 45 out/B39_HONUA_OFFICIAL_AFTER.log
+          grep -E 'Passed!|Passed:|Test summary' out/B39_HONUA_OFFICIAL_AFTER.log
+          echo "B39_HONUA_ORIGINAL_CSHARP_FULL_JSON_POST_FIXED_PASS"
+      - name: Before original regression using same added official test file, source unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp original/after/tests/dotnet/Honua.Ai.UnitTests/Source/McpTokenEfficiencyTests.cs original/before/tests/dotnet/Honua.Ai.UnitTests/Source/McpTokenEfficiencyTests.cs
+          set +e
+          (cd original/before && dotnet test tests/dotnet/Honua.Ai.UnitTests/Honua.Ai.UnitTests.csproj --filter 'FullyQualifiedName~McpTaxonomyAlignmentTests.SuccessResult_|FullyQualifiedName~McpTaxonomyAlignmentTests.QueryFeatures_LargePage_ReturnsSummaryThenFullJsonText|FullyQualifiedName~McpTaxonomyAlignmentTests.SuccessJsonElement_' --verbosity minimal) >out/B39_HONUA_OFFICIAL_BEFORE.log 2>&1
+          code=$?
+          tail -n 100 out/B39_HONUA_OFFICIAL_BEFORE.log
+          if [ "$code" -eq 0 ]; then echo "B39_HONUA_BEFORE_UNEXPECTED_GREEN"; exit 4; fi
+          grep -E 'Failed:|Failed |Expected|FAIL|Error Message|Error:' out/B39_HONUA_OFFICIAL_BEFORE.log || { echo "B39_HONUA_COMPILE_OR_RUNTIME_INCOMPLETE"; exit 5; }
+          echo "B39_HONUA_ORIGINAL_CSHARP_PRE_FIX_EXPECTED_RED_CONFIRMED"
+      - name: Preserve original author unit test stdout, not unpublished source
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b39-original-honua-dotnet-mcp-mirror
+          retention-days: 90
+          if-no-files-found: warn
+          path: out/B39_HONUA_OFFICIAL_*.log
