@@ -1,0 +1,208 @@
+{
+  "schema": "risu-p6b38-sealed-runtime-first-eight-external-fixes-v1",
+  "preregistration_commit": "c546862d4e113b983b1fdbcdec067258832fcb77",
+  "selection_before_source_read": true,
+  "original_public_main": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "frozen_prior_runtime_verifier_commit": "c272114d3c824b29324ed2bb086981aee9fb8c5e",
+  "frozen_prior_runtime_verifier_blob": "5eaba55c7da156342e3e45b43ba56fe8f890c3d9",
+  "cohorts": {
+    "original_consumer": [
+      "B38A",
+      "B38B",
+      "B38C",
+      "B38D",
+      "B38E"
+    ],
+    "original_server_bridge": [
+      "B38G",
+      "B38H"
+    ],
+    "original_parser": [
+      "B38F"
+    ]
+  },
+  "cases": [
+    {
+      "id": "B38A",
+      "repo": "smslavin/waterworks-ai",
+      "language": "python",
+      "type": "original_consumer",
+      "fix_pr": "https://github.com/smslavin/waterworks-ai/pull/48",
+      "mechanism": "MCP v2 Python SDK is_error alias mistakenly read as isError; two client-side paths mask application errors",
+      "pre": "fe373e086d9963c37eeac7139c1c7297b355e594",
+      "post": "506154fddca004722efbdb99d6125efcd4cb1052",
+      "files": [
+        [
+          "chat-ui/backend.py",
+          "36d889afb70e7183f83c9fd1565021281ae14b07",
+          "f382663d4f0b63a86814a3a83b88d0a75e54cc6f"
+        ],
+        [
+          "chat-ui/mcp_client.py",
+          "10fd84d1336b44f5dfe0d7270d2a636e9c5ca866",
+          "02c6eb077a0fdf95a28a8c3b9cd7a5c27d7d6855"
+        ],
+        [
+          "topology-builder/discovery.py",
+          "b75ceb9de20caf8a4b04bc1c68a55e09d6f4c07d",
+          "c10b0766e9cdc5d2758c7d6601a8f0ed5cb7c51b"
+        ]
+      ]
+    },
+    {
+      "id": "B38B",
+      "repo": "ntin60775/deepseek-harness",
+      "language": "typescript",
+      "type": "original_consumer",
+      "fix_pr": "https://github.com/ntin60775/deepseek-harness/pull/2",
+      "mechanism": "structuredContent-only MCP results rendered as empty model-visible output",
+      "pre": "6283cefa56b63b79262368f6b911dd2b56d6e57e",
+      "post": "a2e14f5a2623019c297a4d80575bb0a8b4d742b4",
+      "files": [
+        [
+          "packages/mcp/mcp-client/src/tools.ts",
+          "8f688c373ab0c6ae4ca1ea62e26fa5eb855ddee1",
+          "30879f7dbdbfeefd6ecd38b734b44c17ab02da82"
+        ]
+      ]
+    },
+    {
+      "id": "B38C",
+      "repo": "thedotmack/claude-mem",
+      "language": "typescript",
+      "type": "original_consumer",
+      "fix_pr": "https://github.com/thedotmack/claude-mem/pull/5604",
+      "mechanism": "HTTP 200 with MCP isError result misclassified as success/empty index",
+      "pre": "a453b9940b0af8df8cfbfb1e699da403c86e0f72",
+      "post": "d3a118c140b615e4e1aa2e2a63869db48410a8a2",
+      "files": [
+        [
+          "src/integrations/dsh-plugin/worker.ts",
+          "8bf0f6ed5b7c87c88a8e8dc104f86fc196f8392a",
+          "f81ea4915b75dae8608c21928f718425140dca42"
+        ]
+      ]
+    },
+    {
+      "id": "B38D",
+      "repo": "lengzhao/agentkit",
+      "language": "go",
+      "type": "original_consumer",
+      "fix_pr": "https://github.com/lengzhao/agentkit/pull/18",
+      "mechanism": "CallToolResult.IsError Go client handled as nil error; tool failures treated as success",
+      "pre": "ee66db98ff51b3cf705642e19592bf38f863fa8b",
+      "post": "1e12b2387730354a96c8b8de0de48a2335a8e4c7",
+      "files": [
+        [
+          "plugins/tool/mcp/mcp.go",
+          "9ba334cc1414c1cb484a4a0d5ad311feeaf09a87",
+          "7a0819204fc55e3822b18a1efdb04f9a9ab9d8bd"
+        ]
+      ]
+    },
+    {
+      "id": "B38E",
+      "repo": "onyx-dot-app/onyx",
+      "language": "python",
+      "type": "original_consumer",
+      "fix_pr": "https://github.com/onyx-dot-app/onyx/pull/17157",
+      "mechanism": "Image/audio-only MCP result leaves model-observed response empty despite native tool response",
+      "pre": "0a96b123eebebcbda736b3a9690a432883bec443",
+      "post": "e4ea39563c9fef7ba6c8f4d5a664a526ccd8eb3b",
+      "files": [
+        [
+          "backend/onyx/server/features/mcp/client.py",
+          "46c7f8691baa5fd0344bde6ba3ff3b5746efc26a",
+          "891820ed678e32fac4a2cbaa3b4b418a4b6e498d"
+        ]
+      ]
+    },
+    {
+      "id": "B38F",
+      "repo": "mark3labs/mcp-go",
+      "language": "go",
+      "type": "original_parser",
+      "fix_pr": "https://github.com/mark3labs/mcp-go/pull/1148",
+      "mechanism": "Parser rejects structuredContent-only result without content even if MCP 2025 protocol supports structured-only",
+      "pre": "10d5595143759b4565c00a583651f630c28ad577",
+      "post": "61741f7f524fc047eb0c39ff2a2178b670a4096a",
+      "files": [
+        [
+          "mcp/utils.go",
+          "aa401fefcd15439bae601f25db0aa3169a7bb68e",
+          "d4a4066c3b6e069e109d4abf698b182f56bb1228"
+        ]
+      ]
+    },
+    {
+      "id": "B38G",
+      "repo": "Langboard/langboard",
+      "language": "python",
+      "type": "original_server_bridge",
+      "fix_pr": "https://github.com/Langboard/langboard/pull/259",
+      "mechanism": "HTTP bridge drops native MCP image blocks and retains only structured result",
+      "pre": "751ed96cbe4817d10edf5467212d3ca0833381e5",
+      "post": "63753a9618aef540b08e72f7e1ca5313ef1e86bf",
+      "files": [
+        [
+          "src/api/langboard/routes/mcp/McpApi.py",
+          "c2e4a7c339304d2d78398447df847fa51affa90a",
+          "cedab42d86517e7186144101ba8992959e00ca8b"
+        ]
+      ]
+    },
+    {
+      "id": "B38H",
+      "repo": "openclaw/openclaw",
+      "language": "typescript",
+      "type": "original_server_bridge",
+      "fix_pr": "https://github.com/openclaw/openclaw/pull/196243",
+      "mechanism": "StructuredContent wrapped array/scalar duplicate payload in model context",
+      "pre": "b39848a3e49c39965226a8f7fbd849b5ba71f20c",
+      "post": "bdce9c84ea551c28a89bfb6bddfd4edb31e58add",
+      "files": [
+        [
+          "src/agents/mcp-content.ts",
+          "4a871503157ba98818c1f3759e00569d558c149d",
+          "0887511b9550460b0f508da61fac5f9c34b9fccf"
+        ],
+        [
+          "src/agents/tool-search.ts",
+          "f2b825b20d25cfb945596e3d9ecc0c1890d9d984",
+          "ab968df37a1b16ea8f707b4c7e6819fa38a10472"
+        ]
+      ]
+    }
+  ],
+  "excluded_prior_repos": [
+    "agentscope-ai/agentscope",
+    "NousResearch/hermes-agent",
+    "modelcontextprotocol/python-sdk",
+    "confident-ai/deepeval",
+    "Tencent/AI-Infra-Guard",
+    "Significant-Gravitas/AutoGPT",
+    "PostHog/posthog-python",
+    "Nano-Collective/nanocoder",
+    "microsoft/playwright",
+    "langfuse/langfuse",
+    "Daghis/teamcity-mcp",
+    "affinidi-ai/agent-gateway",
+    "agentarea/agentarea",
+    "pymc-labs/daimon",
+    "microsoft/agent-framework",
+    "StitchWB/Stitch-Manager",
+    "meyergru/opnsense-mcp-server",
+    "data-fair/agents",
+    "arcships/dim",
+    "codeready-toolchain/tarsy",
+    "Eigenwise/atomic-agents",
+    "zed123214/kitagent",
+    "pvliesdonk/scholar-mcp",
+    "rhamenator/ai-scraping-defense",
+    "LvcidPsyche/auto-browser",
+    "mmarquezs/vouchervault-mcp",
+    "pete-builds/mcp-unifi",
+    "portofcontext/pctx"
+  ],
+  "out_of_scope": "Original PR repaired known defects; no new discovery asserted; original native client execution and SDK/parser-only are separate evidence categories."
+}
