@@ -1,0 +1,94 @@
+{
+  "schema": "risu-b40-four-original-external-client-targets-sealed-v1",
+  "selection_method": "Only original merged PR metadata and Git object identifiers were inspected; no selected source content inspected before this seal. Four purposive non-overlapping organizations. All selected cases retained even if infeasible.",
+  "preregistration_commit": "afe997ea0363c32110091b54bce59eb0940d02b7",
+  "public_product": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "frozen_verifier_commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+  "frozen_verifier_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+  "cases": [
+    {
+      "id": "P1",
+      "category": "positive",
+      "repo": "mastra-ai/mastra",
+      "pr": "https://github.com/mastra-ai/mastra/pull/27564",
+      "pre": "b77f59cc5407b1158a271d579b55514f2ba79145",
+      "post": "f6260f8cc50c21a5d78d47fff4e04e55aca57a08",
+      "targets": [
+        [
+          "packages/mcp/src/client/client.ts",
+          "1f49e459dca1a9d32fd46c32f8d4139e786c7d98",
+          "3ae7e66728125e313c2977da2da63c2932be707b"
+        ],
+        [
+          "packages/mcp/src/client/tool-error-structured-content.test.ts",
+          null,
+          "99fd116b5b1630ee2ba8fa7639802e2b9b174fe3"
+        ]
+      ],
+      "chosen_protocol_policy": "MCP in-band isError + structuredContent, 'return' and 'throw' separate"
+    },
+    {
+      "id": "P2",
+      "category": "positive",
+      "repo": "langchain-ai/langchainjs",
+      "pr": "https://github.com/langchain-ai/langchainjs/pull/11758",
+      "pre": "17b6bba8343bdd3f3dfc5c59578e0b72337ec740",
+      "post": "ba4e7a276b11b57e1cfc21f4ab66289bdd2971f5",
+      "targets": [
+        [
+          "libs/langchain-mcp-adapters/src/tools.ts",
+          "6d5b4b713a3acea3b2b001285e3af8272b9bef9b",
+          "2b687c45315d13d9450a33161b1a7e67d36fcbf5"
+        ],
+        [
+          "libs/langchain-mcp-adapters/src/tests/tools.errors.test.ts",
+          "09c5b499ff1e08fce0222a64299ab7523b8c1375",
+          "29cfd4b63019f0bbd644ee0297f5dd16910f5c8d"
+        ]
+      ],
+      "chosen_protocol_policy": "original named tool call MCP tool error -> ToolMessage with status error; normal success matched"
+    },
+    {
+      "id": "N1",
+      "category": "normal",
+      "repo": "vercel/ai",
+      "pr": "https://github.com/vercel/ai/pull/18903",
+      "pre": "72435300083e28d5027747eddd04e542edb5b0be",
+      "post": "f21945b427472fb2fdca4110b8f1b36c76f7e19f",
+      "targets": [
+        [
+          "packages/harness-claude-code/src/bridge/create-emit-stream-event.ts",
+          "48249e7a73fc90c2930b47ed36e474847b26bbf1",
+          "a9a1720d4b606946afba881a6382e0fea329479f"
+        ],
+        [
+          "packages/harness-claude-code/src/bridge/create-emit-stream-event.test.ts",
+          "c25bb80ef3801c4bd70489332a9845fc127c1851",
+          "d8050220055d33311e23d2e485a35a90b8f23101"
+        ]
+      ],
+      "chosen_protocol_policy": "normal raw non-text content block and scalar text typed stream output; adapter vs native client boundary explicitly checked"
+    },
+    {
+      "id": "N2",
+      "category": "normal",
+      "repo": "openai/openai-agents-js",
+      "pr": "https://github.com/openai/openai-agents-js/pull/2582",
+      "pre": "d32847865b7d341d3647f69ccdbbf8083a03a68d",
+      "post": "6e11314da6d4560f1143784fba4a58d218ff2080",
+      "targets": [
+        [
+          "packages/agents-codex/src/runtime/selected-mcp.ts",
+          "709c9da571e04d46fff0efa9e36e1f55d0364361",
+          "fe2cfd65c464f412bf4fb29d943ed2598e4963fe"
+        ],
+        [
+          "packages/agents-codex/test/native/selected-mcp-errors-native.test.ts",
+          null,
+          "4f1b152f0ba9e685c086046ea85858224fea0b64"
+        ]
+      ],
+      "chosen_protocol_policy": "original borrowed MCP client with explicit custom error function, formatter and null disabled policy; status fidelity only if native result observed"
+    }
+  ]
+}
