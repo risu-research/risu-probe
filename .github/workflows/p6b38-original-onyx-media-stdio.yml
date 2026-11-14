@@ -1,0 +1,72 @@
+name: "B38 original Onyx media-only MCP output before-after real native stdio, function-only"
+on:
+  push:
+    branches:
+      - qualification/p6b38-original-onyx-media-20261113
+    paths:
+      - research/b38_*
+      - .github/workflows/p6b38-original-onyx-media-stdio.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-upstream-source-function-native:
+    name: Onyx exact original function + real MCP SDK stdio on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Exact pinned external Onyx source at first-parent before fix
+        uses: actions/checkout@v5
+        with:
+          repository: onyx-dot-app/onyx
+          ref: 0a96b123eebebcbda736b3a9690a432883bec443
+          path: original/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            backend/onyx/server/features/mcp/client.py
+          sparse-checkout-cone-mode: false
+      - name: Exact pinned external Onyx source at official fix commit
+        uses: actions/checkout@v5
+        with:
+          repository: onyx-dot-app/onyx
+          ref: e4ea39563c9fef7ba6c8f4d5a664a526ccd8eb3b
+          path: original/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            backend/onyx/server/features/mcp/client.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install original official MCP SDK for real native stdio wire evidence
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+      - name: Execute exact AST of original Onyx formatter on SDK real MCP image/audio/text/structured replies
+        shell: bash
+        run: |
+          set -euo pipefail
+          python research/b38_onyx_original_media_stdio.py
+          python -c "import json; p='research/out/B38_ONYX_ORIGINAL_MEDIA_NOTICE_RESULTS.json'; r=json.load(open(p)); assert r['summary']['before_model_visible_media_text_empty']; assert r['summary']['after_model_visible_media_notice_present']; assert not r['summary']['after_media_data_delivered_to_model']"
+      - name: Preserve raw original SDK wire plus isolated function outcomes, not original source
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b38-original-onyx-media-function-${{ matrix.os }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            research/out/B38_ONYX_ORIGINAL_MEDIA_NOTICE_RESULTS.json
+            research/out/B38_ONYX_BEFORE_NATIVE_STDIO.jsonl
+            research/out/B38_ONYX_AFTER_NATIVE_STDIO.jsonl
