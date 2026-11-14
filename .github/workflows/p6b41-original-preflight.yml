@@ -1,0 +1,105 @@
+name: P6-B41 original source-owned test preflight (two normal Go clients, one upstream repair)
+on:
+  push:
+    branches: [qualification/p6b41-sealed-original-client-fpr-20261114]
+    paths: [.github/workflows/p6b41-original-preflight.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-mark3labs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: mark3labs/mcp-go, ref: a21ffc6877f1741603dc36246f309d6cf6c6ed05, path: original, persist-credentials: false}
+      - uses: actions/setup-go@v6
+        with: {go-version-file: original/go.mod}
+      - name: Pin original source Git objects and execute original author client test
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = a21ffc6877f1741603dc36246f309d6cf6c6ed05
+          test "$(git -C original rev-parse HEAD:client/client.go)" = 9f1a4a692507e1c4854cf03f5fb9064351ad6da8
+          test "$(git -C original rev-parse HEAD:client/inprocess.go)" = b7071a07e7ceb6201c859a80b7d600c6ed816521
+          test "$(git -C original rev-parse HEAD:client/inprocess_test.go)" = a2bcee7a3659190d64e6bb58ed9e83ceb1366917
+          mkdir -p out
+          (cd original && go test ./client -run '^TestInProcessMCPClient$' -count=1 -v) 2>&1 | tee out/B41_N1_AUTHOR_TESTS.log
+          echo B41_N1_AUTHOR_CLIENT_PREFLIGHT_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b41-original-mark3labs-preflight, path: out/*, if-no-files-found: warn, retention-days: 90}
+  original-metoro:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: metoro-io/mcp-golang, ref: e5d629c5cd43e3470dcd3bf4cbc675a90bfcf513, path: original, persist-credentials: false}
+      - uses: actions/setup-go@v6
+        with: {go-version: '1.25'}
+      - name: Pin original source and execute original author HTTP client test
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = e5d629c5cd43e3470dcd3bf4cbc675a90bfcf513
+          test "$(git -C original rev-parse HEAD:client.go)" = a0e3536b9cd2a3081b65fa2c97e2b5f6eede86ac
+          test "$(git -C original rev-parse HEAD:server.go)" = b3865b5aea4cc8050f6355f121e277347f60faf6
+          mkdir -p out
+          (cd original && go test . -run '^TestReadResource$' -count=1 -v) 2>&1 | tee out/B41_N2_AUTHOR_TESTS.log
+          echo B41_N2_AUTHOR_CLIENT_PREFLIGHT_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b41-original-metoro-preflight, path: out/*, if-no-files-found: warn, retention-days: 90}
+  original-agentmetry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: blitzcrieg1/agentmetry, ref: 773a5bc6e35f467b21967aff17e5737f2a1f8bc5, path: original/before, persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: blitzcrieg1/agentmetry, ref: ad2de9e44b37738879b7efb2ab862583b53ddd9e, path: original/after, persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Verify original author exact before and after code identities
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = 773a5bc6e35f467b21967aff17e5737f2a1f8bc5
+          test "$(git -C original/after rev-parse HEAD)" = ad2de9e44b37738879b7efb2ab862583b53ddd9e
+          test "$(git -C original/before rev-parse HEAD:apps/orchestrator/agentmetry/hooks/mcp_proxy.py)" = 5654e78bb930a3aa25ac86573cbdecd53d918ea4
+          test "$(git -C original/after rev-parse HEAD:apps/orchestrator/agentmetry/hooks/mcp_proxy.py)" = f6ce68be377a43891947653e670944474b9e5822
+          test "$(git -C original/after rev-parse HEAD:apps/orchestrator/tests/test_mcp_audit_proxy.py)" = d844ce10d6a91636ddca1b85444fed54b44e46df
+          mkdir -p out
+      - name: Install independent original upstream pytest dependencies
+        run: python -m pip install 'pytest>=8' 'pytest-asyncio>=0.24' 'pydantic>=2.9' 'pydantic-settings>=2.6' 'httpx>=0.28' 'pyyaml>=6'
+      - name: Original author positive repair regression (fixed source, original tests)
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after/apps/orchestrator && python -m pytest tests/test_mcp_audit_proxy.py -q) 2>&1 | tee out/B41_P1_AUTHOR_AFTER.log
+          grep -E 'passed' out/B41_P1_AUTHOR_AFTER.log
+          echo B41_P1_AUTHOR_POST_FIX_GREEN
+      - name: Original author test-file-only overlay on unchanged earlier source, expect specific red
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp original/after/apps/orchestrator/tests/test_mcp_audit_proxy.py original/before/apps/orchestrator/tests/test_mcp_audit_proxy.py
+          test "$(git -C original/before rev-parse HEAD:apps/orchestrator/agentmetry/hooks/mcp_proxy.py)" = 5654e78bb930a3aa25ac86573cbdecd53d918ea4
+          set +e
+          (cd original/before/apps/orchestrator && python -m pytest tests/test_mcp_audit_proxy.py -q -k 'result_flagged_is_error_becomes_tool_failed') >out/B41_P1_AUTHOR_BEFORE.log 2>&1
+          code=$?
+          set -e
+          cat out/B41_P1_AUTHOR_BEFORE.log
+          test "$code" -ne 0
+          grep -q 'test_a_result_flagged_is_error_becomes_tool_failed' out/B41_P1_AUTHOR_BEFORE.log
+          grep -Eq 'AssertionError|Failed|failed|assert' out/B41_P1_AUTHOR_BEFORE.log
+          echo B41_P1_ORIGINAL_PRE_FIX_EXPECTED_RED
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b41-original-agentmetry-author-pre-post, path: out/*, if-no-files-found: warn, retention-days: 90}
