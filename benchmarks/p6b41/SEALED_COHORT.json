@@ -1,0 +1,83 @@
+{
+  "schema": "P6_B41_ORIGINAL_CLIENT_COHORT_FROZEN_V1",
+  "preregistration_commit": "4e48e69616c0f3bf259f8d958a7ce7e9682892f2",
+  "public_main": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "checker_commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+  "checker_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+  "source_inspected_before_freeze": false,
+  "cases": [
+    {
+      "id": "N1",
+      "class": "normal",
+      "repo": "mark3labs/mcp-go",
+      "commit": "a21ffc6877f1741603dc36246f309d6cf6c6ed05",
+      "git_blobs": {
+        "client/client.go": "9f1a4a692507e1c4854cf03f5fb9064351ad6da8",
+        "client/inprocess.go": "b7071a07e7ceb6201c859a80b7d600c6ed816521",
+        "client/inprocess_test.go": "a2bcee7a3659190d64e6bb58ed9e83ceb1366917"
+      },
+      "contract": {
+        "status": true,
+        "text": "none",
+        "structured": "none",
+        "media": "none"
+      },
+      "planned": [
+        "success text",
+        "native in-band isError true",
+        "optional structured if actually original supported"
+      ]
+    },
+    {
+      "id": "N2",
+      "class": "normal",
+      "repo": "metoro-io/mcp-golang",
+      "commit": "e5d629c5cd43e3470dcd3bf4cbc675a90bfcf513",
+      "git_blobs": {
+        "client.go": "a0e3536b9cd2a3081b65fa2c97e2b5f6eede86ac",
+        "server.go": "b3865b5aea4cc8050f6355f121e277347f60faf6"
+      },
+      "contract": {
+        "status": true,
+        "text": "none",
+        "structured": "none",
+        "media": "none"
+      },
+      "planned": [
+        "success text",
+        "native in-band isError true",
+        "ineligible if original client does not expose status"
+      ]
+    },
+    {
+      "id": "P1",
+      "class": "positive",
+      "repo": "blitzcrieg1/agentmetry",
+      "pull_request": "https://github.com/blitzcrieg1/agentmetry/pull/427",
+      "before": "773a5bc6e35f467b21967aff17e5737f2a1f8bc5",
+      "after": "ad2de9e44b37738879b7efb2ab862583b53ddd9e",
+      "git_blobs_before": {
+        "apps/orchestrator/agentmetry/hooks/mcp_proxy.py": "5654e78bb930a3aa25ac86573cbdecd53d918ea4",
+        "apps/orchestrator/tests/test_mcp_audit_proxy.py": "4e0c14949273db626e817fa7cb39b0db6907ecb6"
+      },
+      "git_blobs_after": {
+        "apps/orchestrator/agentmetry/hooks/mcp_proxy.py": "f6ce68be377a43891947653e670944474b9e5822",
+        "apps/orchestrator/tests/test_mcp_audit_proxy.py": "d844ce10d6a91636ddca1b85444fed54b44e46df"
+      },
+      "contract": {
+        "status": true,
+        "text": "none",
+        "structured": "none",
+        "media": "none"
+      },
+      "planned": [
+        "isError true before success audit after error audit",
+        "flag absent/false/string true/1 normal under strict boolean policy",
+        "top level JSONRPC error error"
+      ],
+      "success_requires": "matched native wire and real original proxy event"
+    }
+  ],
+  "measured_normal_denominator": null,
+  "generic_detector_unchanged": true
+}
