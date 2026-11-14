@@ -38,6 +38,17 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Select installed .NET 10 SDK explicitly (evaluator-only global.json)
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet --list-sdks
+          # The runner also has .NET 11 which otherwise wins the SDK selection;
+          # ephemeral untracked configuration in both checkouts only.
+          printf '%s\n' '{"sdk":{"version":"10.0.404","rollForward":"disable"}}' > original/after/global.json
+          printf '%s\n' '{"sdk":{"version":"10.0.404","rollForward":"disable"}}' > original/before/global.json
+          test "$(cd original/after && dotnet --version)" = "10.0.404"
+          test "$(cd original/before && dotnet --version)" = "10.0.404"
       - name: Prove pinned original C# source SHA before running any code
         shell: bash
         run: |
