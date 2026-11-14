@@ -1,0 +1,78 @@
+name: "P6-B40 P2 original LangChain MCP client official error ToolMessage regression"
+on:
+  push:
+    branches: [qualification/p6b40-sealed-original-clients-20261114]
+    paths: [.github/workflows/p6b40-p2-langchain-original.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  langchain-original-client:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: langchain-ai/langchainjs
+          ref: 17b6bba8343bdd3f3dfc5c59578e0b72337ec740
+          path: original/before
+          persist-credentials: false
+          submodules: false
+      - uses: actions/checkout@v5
+        with:
+          repository: langchain-ai/langchainjs
+          ref: ba4e7a276b11b57e1cfc21f4ab66289bdd2971f5
+          path: original/after
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: pnpm/action-setup@v4
+        with: {version: '10.14.0'}
+      - name: Validate original pre/post source and author-test Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = 17b6bba8343bdd3f3dfc5c59578e0b72337ec740
+          test "$(git -C original/after rev-parse HEAD)" = ba4e7a276b11b57e1cfc21f4ab66289bdd2971f5
+          test "$(git -C original/before rev-parse HEAD:libs/langchain-mcp-adapters/src/tools.ts)" = 6d5b4b713a3acea3b2b001285e3af8272b9bef9b
+          test "$(git -C original/after rev-parse HEAD:libs/langchain-mcp-adapters/src/tools.ts)" = 2b687c45315d13d9450a33161b1a7e67d36fcbf5
+          test "$(git -C original/after rev-parse HEAD:libs/langchain-mcp-adapters/src/tests/tools.errors.test.ts)" = 29cfd4b63019f0bbd644ee0297f5dd16910f5c8d
+          mkdir -p out
+      - name: Install locked official dependency graph; scripts disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after && pnpm install --frozen-lockfile --ignore-scripts --filter '@langchain/mcp-adapters...')
+          (cd original/before && pnpm install --frozen-lockfile --ignore-scripts --filter '@langchain/mcp-adapters...')
+      - name: Fixed source official original in-band error ToolMessage test (GREEN)
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after && pnpm --filter @langchain/mcp-adapters exec vitest run src/tests/tools.errors.test.ts -t 'reach the model as a failed ToolMessage for a tool call' --reporter verbose) 2>&1 | tee out/B40_P2_AFTER.log
+          grep -E '1 passed|Tests.*passed|Test Files.*passed' out/B40_P2_AFTER.log
+          echo B40_P2_ORIGINAL_MAINTAINER_AFTER_GREEN
+      - name: Original pre-fix source, official author TEST FILE ONLY overlay (expect RED)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp original/after/libs/langchain-mcp-adapters/src/tests/tools.errors.test.ts original/before/libs/langchain-mcp-adapters/src/tests/tools.errors.test.ts
+          test "$(git -C original/before rev-parse HEAD:libs/langchain-mcp-adapters/src/tools.ts)" = 6d5b4b713a3acea3b2b001285e3af8272b9bef9b
+          set +e
+          (cd original/before && pnpm --filter @langchain/mcp-adapters exec vitest run src/tests/tools.errors.test.ts -t 'reach the model as a failed ToolMessage for a tool call' --reporter verbose) >out/B40_P2_BEFORE.log 2>&1
+          code=$?
+          set -e
+          tail -n 100 out/B40_P2_BEFORE.log
+          if [ "$code" -eq 0 ]; then echo B40_P2_UNEXPECTED_PRE_FIX_GREEN; exit 4; fi
+          grep -Eq 'FAIL|AssertionError|failed|Error:' out/B40_P2_BEFORE.log || { echo B40_P2_SETUP_INCOMPLETE; exit 5; }
+          echo B40_P2_ORIGINAL_MAINTAINER_BEFORE_RED
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b40-p2-original-langchain-client-testlogs
+          path: out/B40_P2_*.log
+          if-no-files-found: warn
+          retention-days: 90
