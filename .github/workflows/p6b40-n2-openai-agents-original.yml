@@ -10,7 +10,7 @@ permissions:
 jobs:
   openai-original-client-native:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v5
         with: {persist-credentials: false}
@@ -38,6 +38,14 @@ jobs:
         run: |
           set -euo pipefail
           (cd original && pnpm install --frozen-lockfile --ignore-scripts --filter '@openai/agents-codex...')
+      - name: Prepare and build original checked-out native addon from independently pinned Rust source
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/packages/agents-codex && pnpm run native:prepare)
+          (cd original/packages/agents-codex && pnpm run native:build)
+          test -f original/packages/agents-codex/native/codex.node
+          echo B40_N2_ORIGINAL_UPSTREAM_NATIVE_BUNDLE_BUILT_FROM_PINNED_SOURCES
       - name: Copy maintainer's exact new test to the already-included native Vitest profile path (tests only)
         shell: bash
         run: |
