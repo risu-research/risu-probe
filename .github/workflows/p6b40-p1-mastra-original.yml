@@ -1,0 +1,78 @@
+name: "P6-B40 P1 original Mastra MCPClient real HTTP structured tool-error regression"
+on:
+  push:
+    branches: [qualification/p6b40-sealed-original-clients-20261114]
+    paths: [.github/workflows/p6b40-p1-mastra-original.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  mastra-author-original-real-http:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: mastra-ai/mastra
+          ref: b77f59cc5407b1158a271d579b55514f2ba79145
+          path: original/before
+          persist-credentials: false
+          submodules: false
+      - uses: actions/checkout@v5
+        with:
+          repository: mastra-ai/mastra
+          ref: f6260f8cc50c21a5d78d47fff4e04e55aca57a08
+          path: original/after
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: pnpm/action-setup@v4
+        with: {version: '11.21.0'}
+      - name: Verify original client implementation and author's new test blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = b77f59cc5407b1158a271d579b55514f2ba79145
+          test "$(git -C original/after rev-parse HEAD)" = f6260f8cc50c21a5d78d47fff4e04e55aca57a08
+          test "$(git -C original/before rev-parse HEAD:packages/mcp/src/client/client.ts)" = 1f49e459dca1a9d32fd46c32f8d4139e786c7d98
+          test "$(git -C original/after rev-parse HEAD:packages/mcp/src/client/client.ts)" = 3ae7e66728125e313c2977da2da63c2932be707b
+          test "$(git -C original/after rev-parse HEAD:packages/mcp/src/client/tool-error-structured-content.test.ts)" = 99fd116b5b1630ee2ba8fa7639802e2b9b174fe3
+          mkdir -p out
+      - name: Install original workspace dependencies using the author's lockfiles
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after && pnpm install --frozen-lockfile --ignore-scripts --filter '@mastra/mcp...')
+          (cd original/before && pnpm install --frozen-lockfile --ignore-scripts --filter '@mastra/mcp...')
+      - name: Original independently authored live HTTP MCP client test after official fix
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after/packages/mcp && pnpm exec vitest run --project e2e:packages/mcp src/client/tool-error-structured-content.test.ts --reporter verbose) 2>&1 | tee out/B40_P1_AFTER.log
+          grep -E 'passed|PASS' out/B40_P1_AFTER.log
+          echo B40_P1_MASTRA_OFFICIAL_POST_FIX_NATIVE_HTTP_GREEN
+      - name: Author test file overlay only on unchanged original pre-fix MCP client
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp original/after/packages/mcp/src/client/tool-error-structured-content.test.ts original/before/packages/mcp/src/client/tool-error-structured-content.test.ts
+          test "$(git -C original/before rev-parse HEAD:packages/mcp/src/client/client.ts)" = 1f49e459dca1a9d32fd46c32f8d4139e786c7d98
+          set +e
+          (cd original/before/packages/mcp && pnpm exec vitest run --project e2e:packages/mcp src/client/tool-error-structured-content.test.ts --reporter verbose) >out/B40_P1_BEFORE.log 2>&1
+          code=$?
+          set -e
+          tail -n 115 out/B40_P1_BEFORE.log
+          if [ "$code" -eq 0 ]; then echo B40_P1_UNEXPECTED_GREEN_BEFORE; exit 4; fi
+          grep -Eq 'AssertionError|expected|was not told|VALIDATION_FAILED' out/B40_P1_BEFORE.log || { echo B40_P1_SETUP_INCOMPLETE; exit 5; }
+          echo B40_P1_MASTRA_OFFICIAL_PRE_FIX_NATIVE_HTTP_RED
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b40-p1-original-mastra-live-http
+          path: out/B40_P1_*.log
+          retention-days: 90
+          if-no-files-found: warn
