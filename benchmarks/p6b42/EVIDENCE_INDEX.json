@@ -1,0 +1,203 @@
+{
+  "schema": "risu-p6b42-original-crossorg-evidence-index-v1",
+  "date": "2026-11-14",
+  "source_status": "SUPPLEMENTARY_ORIGINAL_AUTHOR_TEST_CHECK_PENDING",
+  "research_branch": "qualification/p6b42-disjoint-native-status-and-completion-20261114",
+  "registration": {
+    "preregistration": "benchmarks/p6b42/PREREGISTRATION.md",
+    "preregistration_commit": "706c2cbc545bd630dcf13c49ec0329db32dc89eb",
+    "sealed_cohort": "benchmarks/p6b42/SEALED_COHORT.json",
+    "sealed_cohort_commit": "1c838683289633ace51618e45c8f07f1325530e5",
+    "selected_before_source_inspection": true,
+    "no_posthoc_substitution": true
+  },
+  "frozen_product": {
+    "repo": "risu-research/risu-probe",
+    "main_commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+    "main_unmodified": true,
+    "b38_commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+    "b38_source_git_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+    "b38_checker_unmodified": true
+  },
+  "track_a_status_contract": {
+    "expected_original_client_orgs": 2,
+    "eligible_original_client_orgs": 2,
+    "disjoint_external_original_implementations": 2,
+    "native_json_rpc_tool_calls": 4,
+    "native_inband_error_cases": 2,
+    "original_consumer_status_observed": 4,
+    "upstream_native_status_preserved": 4,
+    "frozen_b38_false_alarm_orgs": 0,
+    "normal_fpr_by_source_organization": "0/2",
+    "wilson_95_descriptive": [
+      0,
+      0.65762
+    ],
+    "ecosystem_fpr": "NOT_ESTIMATED",
+    "original_full_production_apps_tested": 0
+  },
+  "track_b_completion_contract": {
+    "id": "C42-COMPLETE-1",
+    "research_only_separate_from_B38": true,
+    "require_original_tool_call_and_stable_id": true,
+    "require_settled_original_tool_execution": true,
+    "require_joined_run": true,
+    "require_post_join_original_immutable_journal": true,
+    "require_exactly_one_matching_terminal_tool_result": true,
+    "missing_while_pending": "INCOMPLETE",
+    "duplicate_or_mispaired_separately_scored": true,
+    "original_source_positive_repair_orgs": 1,
+    "pre_post_original_agent_journal_paired_cases": 6,
+    "positive_repair_verified": 1,
+    "track_b_population_metrics": "NOT_ESTIMATED",
+    "secondary_comparison_eligible_for_same_completion_rule": 0
+  },
+  "cases": [
+    {
+      "id": "N1",
+      "track": "normal_native_status",
+      "repo": "modelcontextprotocol/go-sdk",
+      "original_commit": "0fa5e8407aa3fda65166e4207156c03d084bfd44",
+      "original_git_blob": "7894dd0eee3e18bed7137ed88c9b5016ccc90a74",
+      "original_code_unchanged": true,
+      "original_author_in_memory_test": "PASS",
+      "external_original_client_real_native_jsonrpc": "PASS",
+      "local_peer": "original_go_sdk_server",
+      "wire_capture": "separate actual net.Pipe newline-JSONRPC client/server writer captures",
+      "scenarios": [
+        "b42_success",
+        "b42_denied"
+      ],
+      "native_status_preserved_cases": 2,
+      "false_alarm": false,
+      "eligible": true,
+      "source_tier": "ORIGINAL_CLIENT_NATIVE_JSONRPC_WITH_ORIGINAL_SERVER",
+      "successful_run": 43640340345,
+      "first_harness_run": 43640162371,
+      "first_harness_failure": "Evaluator-defined server tool missing required inputSchema, fixed only evaluator source",
+      "native_json_sha256": "c9ba97fffaddf4020b86f28808dea5a342ee8008ed2859cbe4d70c196a2e48b4",
+      "score_json_sha256": "57b457666bbc0553847625bc07ddb20b63e7670b5622c5d2bafaae8ba1655c35"
+    },
+    {
+      "id": "N2",
+      "track": "normal_native_status",
+      "repo": "PrefectHQ/fastmcp",
+      "original_commit": "a8745d61e650467756bb28b4157822dbfbdfa34f",
+      "original_git_blob": "99cfd750f5a3f76f5fbb3c917850ac4e27345b43",
+      "original_code_unchanged": true,
+      "external_original_client_real_native_jsonrpc": "PASS",
+      "local_peer": "controlled synthetic server from original FastMCP",
+      "wire_capture": "separate evaluator-owned transparent stdio relay captures raw actual JSONRPC lines before forwarding",
+      "scenarios": [
+        "b42_success",
+        "b42_denied"
+      ],
+      "native_status_preserved_cases": 2,
+      "false_alarm": false,
+      "eligible": true,
+      "source_tier": "ORIGINAL_CLIENT_NATIVE_JSONRPC_WITH_ORIGINAL_SERVER",
+      "successful_run": 43640340345,
+      "original_author_test_initial_attempt": "INCOMPLETE missing opentelemetry.sdk dependency, not an upstream regression",
+      "supplementary_author_test_recovery_run": 43640727471,
+      "native_json_sha256": "8fc4ce1fae3652f561020108dacf9dadc1c07d3ee5bdc76092a6ed9422509698",
+      "raw_wire_jsonl_sha256": "56eeba685c153480e9e240a59a4611faa9b92713cb03ed35151718ad9f5c22ae",
+      "score_json_sha256": "c25ee207f6abc9718cb5303ed702854a88bf4bcf826be1f8a0561b7bacf8aba4"
+    },
+    {
+      "id": "C1",
+      "track": "original_completion_repair",
+      "repo": "matthewfae/Personal-Assistant",
+      "official_pr": "https://github.com/matthewfae/Personal-Assistant/pull/37",
+      "original_pre": "241b1cb722af4efed82afd308c1232163517e429",
+      "original_post": "d164e21ceee1596d23ab2a61146457c558005ec9",
+      "original_agent_git_blob_pre": "cae2390364ca5955bfa3f12afdc2cc760b2bfbd4",
+      "original_agent_git_blob_post": "f6d789ce4da435286e93a6ea1dc56530cedaccee",
+      "original_agent_source_unchanged": true,
+      "real_original_agent_run_loop_executed": true,
+      "real_original_immutable_SQLite_journal_used": true,
+      "model_peer": "synthetic scripted model, not live LLM",
+      "mcp_peer": "synthetic task-aware stub, not native wire",
+      "source_tier": "ORIGINAL_AGENT_JOURNAL_SETTLED_WITH_SCRIPTED_MODEL_AND_MCP",
+      "settled_scenarios": [
+        "success",
+        "inband_error",
+        "raised_transport_error"
+      ],
+      "before_results": {
+        "success": "OBSERVED_COMPLETION_PRESERVED",
+        "inband_error": "OBSERVED_COMPLETION_PRESERVED",
+        "raised_transport_error": "OMITTED_TERMINAL_EVENT"
+      },
+      "after_results": {
+        "success": "OBSERVED_COMPLETION_PRESERVED",
+        "inband_error": "OBSERVED_COMPLETION_PRESERVED",
+        "raised_transport_error": "OBSERVED_COMPLETION_PRESERVED"
+      },
+      "property_detected_original_before_omission": true,
+      "original_after_fix_repaired": true,
+      "generic_future_detection_claim": false,
+      "successful_run": 43639787592,
+      "raw_before_json_sha256": "e794856314592208f5698af986a6c77975207a0ee91af040af0e960527ac6b13",
+      "raw_after_json_sha256": "55d960514c6dbb93d72f32b47d10574fe5ae96e46b672d08779f32a0c95c9a10",
+      "score_before_sha256": "1acf089eed939908ef34cafdc8eea93e073a91d0f0a0f8202646ed3659db2261",
+      "score_after_sha256": "e6a5750c31c3e635f0e02bf63ff12dba0e268af4429886bbf749d81f43e8642b",
+      "verdict_sha256": "8258c5b17208df2264a0d924c53e40c003691a69bf63abd197c0b4ebdb05ce87"
+    },
+    {
+      "id": "C2",
+      "track": "completion_scope_control",
+      "repo": "TGPSKI/leather",
+      "official_pr": "https://github.com/TGPSKI/leather/pull/51",
+      "original_pre": "a9cffc50a0425d2217e566f988612b25d1efb6d7",
+      "original_post": "c2d4da6d5022b42be5ff9818dd0f6d8900314769",
+      "original_git_blob_post_owner_test": "c194da6a186a4e360eeb8527fbed50514429a60e",
+      "original_source_unchanged": true,
+      "original_owner_native_client_tool_error_test": "PASS",
+      "original_owner_tooltrace_tests_passed": 4,
+      "source_tier": "ORIGINAL_OWNER_TESTS_AND_REFLECTED_ORIGINAL_TOOLTRACE_TYPE",
+      "meets_C42_complete_1": false,
+      "reason": "Original persisted Turn.ToolCalls is aggregate ToolTrace{Name,Args,Content,Error,Replayed,DurationMs}, not immutable per-call started/terminal events with matching ID",
+      "pre_post_original_repair_reproduced": false,
+      "original_full_run_completed_in_author_controls": true,
+      "excluded_from_completion_accuracy_denominator": true,
+      "successful_run": 43640413237,
+      "source_type_json_sha256": "ebe48c0f2ed595b9d4b8c673a8bbce8b36b54f2d9ad26b8f4b2fbb566ccba875"
+    }
+  ],
+  "runs": {
+    "native_original_primary": {
+      "id": 43640340345,
+      "conclusion": "success",
+      "jobs_success": 2
+    },
+    "original_agent_completion": {
+      "id": 43639787592,
+      "conclusion": "success",
+      "jobs_success": 1
+    },
+    "original_leather_secondary": {
+      "id": 43640413237,
+      "conclusion": "success",
+      "jobs_success": 1
+    },
+    "initial_original_go_harness_failure": {
+      "id": 43640162371,
+      "conclusion": "failure",
+      "retained_in_evidence": true
+    },
+    "supplementary_fastmcp_original_author_tests": {
+      "id": 43640727471,
+      "conclusion": "PENDING"
+    }
+  },
+  "research_limits": [
+    "Small nonrandom convenience/purposive sample (two normal original SDK organizations); not a certified ecosystem FPR.",
+    "No deployed whole external agents on Track A: original SDK clients and synthetic/local peers only.",
+    "Track B original agent real SQLite and logic with synthetic model and MCP stub, no real wire at this layer.",
+    "C2 aggregated ToolTrace cannot satisfy pre-registered per-call paired-event contract; source intentionally omits trace by default.",
+    "Initial N1 failure due test-only missing server schema corrected; no third-party source modifications.",
+    "The initial N2 first-party author test setup lacked opentelemetry.sdk; independent original runtime succeeded.",
+    "Both track populations chosen from official public source PR metadata, no randomness; after this run sources are exposed dev material."
+  ],
+  "B43_direction": "New source-disjoint externally authored deployed agent or proxy that exposes both native in-band IsError and bounded joined per-tool persistent event lifecycle, dual-trace request ID and completion terminal ID, code-frozen prereg first, independent positive and negatives; compare B38 and C42 rule separately."
+}
