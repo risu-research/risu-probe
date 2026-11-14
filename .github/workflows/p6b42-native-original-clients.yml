@@ -1,0 +1,138 @@
+name: P6-B42 two original independent clients, explicit in-band native status FPR
+on:
+  push:
+    branches: [qualification/p6b42-disjoint-native-status-and-completion-20261114]
+    paths:
+      - .github/workflows/p6b42-native-original-clients.yml
+      - benchmarks/p6b42/runners/go_sdk_original_native_test.go
+      - benchmarks/p6b42/runners/fastmcp_original*
+      - benchmarks/p6b42/runners/fastmcp_native_stdio_relay.py
+      - benchmarks/p6b42/runners/score_native_status.py
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  n1-official-go-sdk-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: modelcontextprotocol/go-sdk, ref: 0fa5e8407aa3fda65166e4207156c03d084bfd44, path: original, persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: frozen-b38
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v6
+        with: {go-version-file: original/go.mod, cache: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Verify pinned original client and unchanged frozen checker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = 0fa5e8407aa3fda65166e4207156c03d084bfd44
+          test "$(git -C original rev-parse HEAD:mcp/client.go)" = 7894dd0eee3e18bed7137ed88c9b5016ccc90a74
+          test "$(git -C original rev-parse HEAD:mcp/client_test.go)" = 12bf52e7726f3a66eb8da431862d31b91f16fb76
+          test "$(git -C frozen-b38 rev-parse HEAD:research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+          mkdir -p out
+      - name: Run original Go SDK maintainer in-memory full native JSONRPC test unmodified
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && go test ./mcp -run '^TestInMemory_E2E_DiscoverSuccess$' -count=1 -v) 2>&1 | tee out/B42_N1_ORIGINAL_AUTHOR.log
+      - name: Copy only evaluator test overlay into original external client package
+        shell: bash
+        run: cp benchmarks/p6b42/runners/go_sdk_original_native_test.go original/mcp/b42_original_native_test.go
+      - name: Execute original official Go Client.CallTool via actual native newline JSONRPC
+        shell: bash
+        run: |
+          set -euo pipefail
+          export B42_N1_WITNESS="$PWD/out/B42_N1_ORIGINAL_NATIVE.json"
+          (cd original && go test ./mcp -run '^TestB42OfficialGoOriginalClientNativeIsError$' -count=1 -v) 2>&1 | tee out/B42_N1_NATIVE_RUN.log
+          test -s out/B42_N1_ORIGINAL_NATIVE.json
+      - name: Frozen original B38 audits actual client status, not copied raw result
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b42/runners/score_native_status.py --case N1 \
+            --checker frozen-b38/research/b38_native_contract_auditor.py \
+            --input out/B42_N1_ORIGINAL_NATIVE.json --output out/B42_N1_B38_SCORE.json
+          sha256sum out/B42_N1_*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b42-n1-original-official-go-native-status, path: out/B42_N1_*, if-no-files-found: warn, retention-days: 90}
+
+  n2-prefect-fastmcp-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: PrefectHQ/fastmcp, ref: a8745d61e650467756bb28b4157822dbfbdfa34f, path: original, persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: frozen-b38
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify original source SHA and immutable B38 checker before dependency installation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = a8745d61e650467756bb28b4157822dbfbdfa34f
+          test "$(git -C original rev-parse HEAD:fastmcp_slim/fastmcp/client/client.py)" = 99cfd750f5a3f76f5fbb3c917850ac4e27345b43
+          test "$(git -C original rev-parse HEAD:tests/client/client/test_client.py)" = 846d03bf4271c069f1d8a356573cf8729c3da4aa
+          test "$(git -C frozen-b38 rev-parse HEAD:research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+          mkdir -p out
+      - name: Install original FastMCP source package with original client/server extras
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -e 'original/fastmcp_slim[client,server]' 'pytest>=8.0' 'pytest-asyncio>=1.0'
+          python - <<'PY'
+          import fastmcp, inspect
+          from fastmcp.client import Client
+          import fastmcp.client.client as client
+          print("ORIGINAL_FASTMCP_ROOT",inspect.getfile(Client))
+          print("ORIGINAL_FASTMCP_VERSION",getattr(fastmcp,"__version__","unknown"))
+          PY
+      - name: Run selected original maintainer client test if original suite dependencies allow
+        shell: bash
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          python -m pytest -q original/tests/client/client/test_client.py -k 'test_call_tool_mcp' 2>&1 | tee out/B42_N2_ORIGINAL_AUTHOR.log
+      - name: Execute original FastMCP Client.call_tool on actual stdio JSONRPC through transparent local capture relay
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b42/runners/fastmcp_original_client_witness.py \
+            --output out/B42_N2_ORIGINAL_NATIVE.json --wire out/B42_N2_ORIGINAL_WIRE.jsonl 2>&1 | tee out/B42_N2_NATIVE_RUN.log
+          test -s out/B42_N2_ORIGINAL_NATIVE.json
+          test -s out/B42_N2_ORIGINAL_WIRE.jsonl
+      - name: Run unchanged original B38 checker on independently captured native replies and actual FastMCP returned is_error
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b42/runners/score_native_status.py --case N2 \
+            --checker frozen-b38/research/b38_native_contract_auditor.py \
+            --input out/B42_N2_ORIGINAL_NATIVE.json --output out/B42_N2_B38_SCORE.json
+          sha256sum out/B42_N2_ORIGINAL_NATIVE.json out/B42_N2_B38_SCORE.json out/B42_N2_ORIGINAL_WIRE.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b42-n2-original-prefect-fastmcp-native-status, path: out/B42_N2_*, if-no-files-found: warn, retention-days: 90}
