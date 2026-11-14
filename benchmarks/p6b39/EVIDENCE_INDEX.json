@@ -30,12 +30,14 @@
       "id": "N1",
       "organization": "geolonia/datamodels",
       "role": "original_external_server_plus_controlled_first_party_http_consumer",
-      "execution_status": "ORIGINAL_NATIVE_END_TO_END_SERVER",
+      "execution_status": "ORIGINAL_SOURCE_FUNCTION_NATIVE_PEER",
       "result": "0 declared-contract discrepancies across 7 independent-internal witness instances (one original org); supplemental 3 after additional isolated run",
       "run_id": 43571194001,
       "artifact_id": 14104248933,
       "prior_result_sha256": "208f61210fdc33d73b6fc68188a5d1903621eb34a70088649a20071bafcbc48d",
-      "independent_external_consumer_fpr_eligible": false
+      "independent_external_consumer_fpr_eligible": false,
+      "original_server_http_executed": true,
+      "external_client_original_authorship_proven": false
     },
     {
       "id": "N2",
@@ -73,11 +75,13 @@
       "id": "P1",
       "organization": "punkpeye/fastmcp",
       "role": "original_edge_producer_plus_official_maintainer_test_overlay",
-      "execution_status": "ORIGINAL_NATIVE_END_TO_END_SERVER",
+      "execution_status": "ORIGINAL_SOURCE_FUNCTION_NATIVE_PEER",
       "result": "official owner red-before, green-after for explicit result isError/structured/meta; additional native HTTP pre/post",
       "run_id": 43571728841,
       "artifact_id": 14104636993,
-      "frozen_b38_detector_hit": false
+      "frozen_b38_detector_hit": false,
+      "original_server_http_executed": true,
+      "external_client_original_authorship_proven": false
     },
     {
       "id": "P2",
