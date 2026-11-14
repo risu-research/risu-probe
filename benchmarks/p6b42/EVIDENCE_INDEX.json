@@ -1,7 +1,7 @@
 {
   "schema": "risu-p6b42-original-crossorg-evidence-index-v1",
   "date": "2026-11-14",
-  "source_status": "SUPPLEMENTARY_ORIGINAL_AUTHOR_TEST_CHECK_PENDING",
+  "source_status": "FINAL_ALL_PRIMARY_AND_SUPPLEMENTARY_CHECKS_COMPLETE",
   "research_branch": "qualification/p6b42-disjoint-native-status-and-completion-20261114",
   "registration": {
     "preregistration": "benchmarks/p6b42/PREREGISTRATION.md",
@@ -101,7 +101,16 @@
       "supplementary_author_test_recovery_run": 43640727471,
       "native_json_sha256": "8fc4ce1fae3652f561020108dacf9dadc1c07d3ee5bdc76092a6ed9422509698",
       "raw_wire_jsonl_sha256": "56eeba685c153480e9e240a59a4611faa9b92713cb03ed35151718ad9f5c22ae",
-      "score_json_sha256": "c25ee207f6abc9718cb5303ed702854a88bf4bcf826be1f8a0561b7bacf8aba4"
+      "score_json_sha256": "c25ee207f6abc9718cb5303ed702854a88bf4bcf826be1f8a0561b7bacf8aba4",
+      "original_author_test_recovery": {
+        "status": "PASS",
+        "original_first_party_tests_passed": 3,
+        "original_first_party_tests_deselected": 56,
+        "deprecation_warnings": 1,
+        "first_failed_attempt": "missing opentelemetry.sdk dependency at tests/conftest.py",
+        "supplementary_run": 43640727471,
+        "upstream_source_unchanged": true
+      }
     },
     {
       "id": "C1",
@@ -187,7 +196,7 @@
     },
     "supplementary_fastmcp_original_author_tests": {
       "id": 43640727471,
-      "conclusion": "PENDING"
+      "conclusion": "success"
     }
   },
   "research_limits": [
@@ -199,5 +208,43 @@
     "The initial N2 first-party author test setup lacked opentelemetry.sdk; independent original runtime succeeded.",
     "Both track populations chosen from official public source PR metadata, no randomness; after this run sources are exposed dev material."
   ],
-  "B43_direction": "New source-disjoint externally authored deployed agent or proxy that exposes both native in-band IsError and bounded joined per-tool persistent event lifecycle, dual-trace request ID and completion terminal ID, code-frozen prereg first, independent positive and negatives; compare B38 and C42 rule separately."
+  "B43_direction": "New source-disjoint externally authored deployed agent or proxy that exposes both native in-band IsError and bounded joined per-tool persistent event lifecycle, dual-trace request ID and completion terminal ID, code-frozen prereg first, independent positive and negatives; compare B38 and C42 rule separately.",
+  "artifacts": [
+    {
+      "run_id": 43640340345,
+      "artifact_id": 14131836450,
+      "name": "b42-n1-original-official-go-native-status",
+      "sha256_zip": "5a75d94b471411698950cd797901a5f63157bd0d893c275f51df158ad004abb5"
+    },
+    {
+      "run_id": 43640340345,
+      "artifact_id": 14131063989,
+      "name": "b42-n2-original-prefect-fastmcp-native-status",
+      "sha256_zip": "1b566705d9d0b5fdf9b7e1528d87cf2aac381b5d0ca7ab99c3cc1b43ed40eb9f"
+    },
+    {
+      "run_id": 43639787592,
+      "artifact_id": 14130449444,
+      "name": "b42-c1-original-sqlite-journal-red-green",
+      "sha256_zip": "390264ea7534e863e52dd922e8d07df4e42b627bca4ad81ceb993940612cd26d"
+    },
+    {
+      "run_id": 43640413237,
+      "artifact_id": 14131742039,
+      "name": "b42-c2-original-leather-trace-eligibility",
+      "sha256_zip": "f73d5a388316e66e4a1eac7b2e02432e0e49c6a6381a618b3c1f0a50c87c9491"
+    },
+    {
+      "run_id": 43640727471,
+      "artifact_id": 14131777480,
+      "name": "b42-n2-original-author-test-dependency-recovery",
+      "sha256_zip": "466fba05275e3727a29f48e48d1ece0d09dfc378d7bceb08b36ac4e391935ded"
+    },
+    {
+      "run_id": 43640162371,
+      "artifact_id": 14132025538,
+      "name": "b42-n1-original-official-go-native-status INITIAL HARNESS FAIL",
+      "sha256_zip": "2eed3351f3b69844ca7cd5f17dc497e04b7f50888baaeee131a83d449eb9d169"
+    }
+  ]
 }
