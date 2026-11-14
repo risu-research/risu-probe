@@ -1,0 +1,54 @@
+name: "P6-B40 N2 original OpenAI Agents JS native borrowed MCP error policy controls"
+on:
+  push:
+    branches: [qualification/p6b40-sealed-original-clients-20261114]
+    paths: [.github/workflows/p6b40-n2-openai-agents-original.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  openai-original-client-native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: openai/openai-agents-js
+          ref: 6e11314da6d4560f1143784fba4a58d218ff2080
+          path: original
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: pnpm/action-setup@v4
+        with: {version: '12.6.0'}
+      - name: Verify sealed original source and author real HTTP native client test
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = 6e11314da6d4560f1143784fba4a58d218ff2080
+          test "$(git -C original rev-parse HEAD:packages/agents-codex/src/runtime/selected-mcp.ts)" = fe2cfd65c464f412bf4fb29d943ed2598e4963fe
+          test "$(git -C original rev-parse HEAD:packages/agents-codex/test/native/selected-mcp-errors-native.test.ts)" = 4f1b152f0ba9e685c086046ea85858224fea0b64
+          mkdir -p out
+      - name: Install pinned official workspace dependencies, skip package scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && pnpm install --frozen-lockfile --ignore-scripts --filter '@openai/agents-codex...')
+      - name: Original live local MCP native borrowed policy test, no external model or credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && pnpm exec vitest run --mode full --project '@openai/agents-codex' test/native/selected-mcp-errors-native.test.ts --reporter verbose) 2>&1 | tee out/B40_N2_ORIGINAL_NATIVE_POLICY.log
+          grep -E 'passed|PASS' out/B40_N2_ORIGINAL_NATIVE_POLICY.log
+          echo B40_N2_OPENAI_AGENTS_NATIVE_POLICY_SUCCESS_NOT_B38_STATUS_FPR
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b40-n2-original-openai-agents-native-policy
+          path: out/B40_N2_ORIGINAL_NATIVE_POLICY.log
+          retention-days: 90
+          if-no-files-found: warn
