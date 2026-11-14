@@ -1,0 +1,231 @@
+name: "P6-B39 original HTTP positive + intended normal controls (research only)"
+on:
+  push:
+    branches:
+      - qualification/p6b39-runtime-original-controls-20261114
+    paths:
+      - benchmarks/p6b39/runners/**
+      - .github/workflows/p6b39-original-runtime-controls.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  original-n1-http:
+    name: "N1 original Geolonia native HTTP and JSON mirror"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: geolonia/datamodels
+          ref: d0d2a05cdc60e8e9a106d0f425560a1f1303f21c
+          path: holdout/originals/N1
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '12.14.0'
+      - name: Confirm Git SHA, original source Git blob, and frozen source identity
+        working-directory: holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C originals/N1 rev-parse HEAD)" = "d0d2a05cdc60e8e9a106d0f425560a1f1303f21c"
+          test "$(git -C originals/N1 rev-parse HEAD:worker/mcp.mjs)" = "826ba84d772aec28bc12c002c96608cee19e7e8f"
+      - name: Install pinned original dependencies without running package scripts
+        working-directory: holdout/originals/N1
+        run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Invoke the original unchanged external MCP HTTP server with local synthetic assets
+        working-directory: holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          node benchmarks/p6b39/runners/n1_native_http.mjs originals/N1/worker/mcp.mjs out/N1_ORIGINAL_NATIVE.json
+          test "$(git -C originals/N1 rev-parse HEAD:worker/mcp.mjs)" = "826ba84d772aec28bc12c002c96608cee19e7e8f"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b39-n1-native-http
+          path: holdout/out/N1_ORIGINAL_NATIVE.json
+          retention-days: 90
+          if-no-files-found: error
+
+  original-p1-edge:
+    name: "P1 original FastMCP Edge before-after native HTTP source regression"
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: punkpeye/fastmcp
+          ref: cf6f981305e4f8c11c0a3e1d1401bcdcb1530587
+          path: holdout/originals/P1_before
+          persist-credentials: false
+          submodules: false
+      - uses: actions/checkout@v5
+        with:
+          repository: punkpeye/fastmcp
+          ref: 93c1a2bdb2cfbabb242805e5c1ab02cf5d10f91f
+          path: holdout/originals/P1_after
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '10.22.0'
+      - name: Validate both real source trees and blobs
+        working-directory: holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C originals/P1_before rev-parse HEAD)" = "cf6f981305e4f8c11c0a3e1d1401bcdcb1530587"
+          test "$(git -C originals/P1_after rev-parse HEAD)" = "93c1a2bdb2cfbabb242805e5c1ab02cf5d10f91f"
+          test "$(git -C originals/P1_before rev-parse HEAD:src/edge/index.ts)" = "f16c4f0856d37d36037a9be6e484a25de26be109"
+          test "$(git -C originals/P1_after rev-parse HEAD:src/edge/index.ts)" = "e58f3ebfded3ec2091da5728639087f3d1a76cbe"
+      - name: Install official pre/post locked dependencies with scripts disabled
+        working-directory: holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm --dir originals/P1_before install --frozen-lockfile --ignore-scripts
+          pnpm --dir originals/P1_after install --frozen-lockfile --ignore-scripts
+      - name: Original HTTP wire pre/post (not an existing B38 detector hit)
+        working-directory: holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm dlx tsx@4.20.5 benchmarks/p6b39/runners/p1_edge_native.ts originals/P1_before/src/edge/index.ts before out/P1_BEFORE_NATIVE.json
+          pnpm dlx tsx@4.20.5 benchmarks/p6b39/runners/p1_edge_native.ts originals/P1_after/src/edge/index.ts after out/P1_AFTER_NATIVE.json
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b39-p1-original-edge
+          path: |
+            holdout/out/P1_BEFORE_NATIVE.json
+            holdout/out/P1_AFTER_NATIVE.json
+          retention-days: 90
+          if-no-files-found: error
+
+  original-normal-functions:
+    name: "N3 original Kira budget and N4 Appwrite synthetic redaction (not wire)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: xxynet/KiraAI
+          ref: c69b8eab5e89cb09201723e48dcefb83164b7bd6
+          path: holdout/originals/N3
+          persist-credentials: false
+          sparse-checkout: |
+            core/agent/tool.py
+          sparse-checkout-cone-mode: false
+          submodules: false
+      - uses: actions/checkout@v5
+        with:
+          repository: appwrite/mcp
+          ref: 96d0278df4a2c0917c894d2b25138235e3963488
+          path: holdout/originals/N4
+          persist-credentials: false
+          sparse-checkout: |
+            src/mcp_server_appwrite/redaction.py
+          sparse-checkout-cone-mode: false
+          submodules: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate source SHA, blobs, and import prerequisites
+        working-directory: holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C originals/N3 rev-parse HEAD)" = "c69b8eab5e89cb09201723e48dcefb83164b7bd6"
+          test "$(git -C originals/N4 rev-parse HEAD)" = "96d0278df4a2c0917c894d2b25138235e3963488"
+          test "$(git -C originals/N3 rev-parse HEAD:core/agent/tool.py)" = "cdb1833c8593d45b724fe5c6daddacfde04bacff"
+          test "$(git -C originals/N4 rev-parse HEAD:src/mcp_server_appwrite/redaction.py)" = "4c35901707211c917c8850e03026efb3280ed611"
+          python -m pip install --disable-pip-version-check pydantic==2.12.5
+      - name: Execute unchanged original functions with typed synthetic controls
+        working-directory: holdout
+        run: |
+          python benchmarks/p6b39/runners/normal_policy_source_controls.py originals/N3/core/agent/tool.py originals/N4/src/mcp_server_appwrite/redaction.py out/N3_N4_SOURCE_NORMALS.json
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b39-n3-n4-original-functions
+          path: holdout/out/N3_N4_SOURCE_NORMALS.json
+          retention-days: 90
+          if-no-files-found: error
+
+  frozen-verifier-score:
+    name: "Score original producer normals with unchanged B38 checker, retain tiers"
+    needs: [original-n1-http, original-p1-edge, original-normal-functions]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: holdout/frozen_b38
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: b39-*
+          merge-multiple: true
+          path: holdout/out
+      - name: Verify frozen B38 detector exact Git blob; never modify it
+        working-directory: holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen_b38 rev-parse HEAD)" = "425d3d8272c4e725064010ed8fbf5b8217080cab"
+          test "$(git -C frozen_b38 rev-parse HEAD:research/b38_native_contract_auditor.py)" = "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae"
+      - name: Score precisely predeclared N1 status/structured checks and provenance
+        working-directory: holdout
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b39/runners/audit_b39_native.py \
+            --verifier frozen_b38/research/b38_native_contract_auditor.py \
+            --n1 out/N1_ORIGINAL_NATIVE.json \
+            --before-p1 out/P1_BEFORE_NATIVE.json \
+            --after-p1 out/P1_AFTER_NATIVE.json \
+            --normal-source out/N3_N4_SOURCE_NORMALS.json \
+            --output out/B39_FROZEN_VERIFIER_AUDIT.json
+          sha256sum out/B39_FROZEN_VERIFIER_AUDIT.json
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b39-final-source-tiered-audit
+          path: holdout/out/B39_FROZEN_VERIFIER_AUDIT.json
+          retention-days: 90
+          if-no-files-found: error
