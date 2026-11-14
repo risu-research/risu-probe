@@ -40,6 +40,6 @@ def main():
             f.write(json.dumps({"request":req,"response":r},ensure_ascii=False,
                                sort_keys=True)+"\n");f.flush()
             if r is not None:
-                sys.stdout.write(json.dumps(r,ensure_ascii=False,separators=(",",":"))+"\n")
+                sys.stdout.buffer.write((json.dumps(r,ensure_ascii=True,separators=(",",":"))+"\n").encode("utf-8"))
                 sys.stdout.flush()
 if __name__=="__main__":main()
