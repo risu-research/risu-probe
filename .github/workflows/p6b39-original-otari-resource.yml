@@ -1,0 +1,92 @@
+name: "P6-B39 actual original Otari embedded MCP resource before/after over native stdio"
+on:
+  push:
+    branches:
+      - qualification/p6b39-original-otari-resource-20261114
+    paths:
+      - research/b39_otari_*.py
+      - .github/workflows/p6b39-original-otari-resource.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-original-resource:
+    name: Exact independent Otari original text resource formatter ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: External original Otari first-parent source before official repair
+        uses: actions/checkout@v5
+        with:
+          repository: mozilla-ai/otari
+          ref: 54c67f5986b090db1198ebf43f9c879b3f5779a2
+          path: original/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/gateway/services/mcp_client.py
+          sparse-checkout-cone-mode: false
+      - name: Exact official merged Otari original Git repair after
+        uses: actions/checkout@v5
+        with:
+          repository: mozilla-ai/otari
+          ref: 86267dbf0f22bdeaebad9efdcb6111445c7656a5
+          path: original/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/gateway/services/mcp_client.py
+          sparse-checkout-cone-mode: false
+      - name: Unchanged preregistered B38 source-independent verdict implementation
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: verifier
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Verify exact immutable original source code and prior independent checker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = 54c67f5986b090db1198ebf43f9c879b3f5779a2
+          test "$(git -C original/after rev-parse HEAD)" = 86267dbf0f22bdeaebad9efdcb6111445c7656a5
+          test "$(git -C original/before hash-object src/gateway/services/mcp_client.py)" = 5e61fa7fb8f7df50e71d4b03211a21ec6960e17b
+          test "$(git -C original/after hash-object src/gateway/services/mcp_client.py)" = 5dab897cef5ce34e0d847efe49e59f0abd21e640
+          test "$(git -C verifier hash-object research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+      - name: Use actual official SDK real stdio tool response
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+      - name: Execute original exact Otari pre and post formatter AST on live controlled MCP stdio resource blocks
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/verifier/research"
+          python research/b39_otari_original_resource_stdio.py
+          python -c "import json; r=json.load(open('research/out/B39_OTARI_ORIGINAL_EMBEDDED_RESOURCE_EFFECT.json')); assert r['summary']['embedded_text_resource_body_missing_before'] and r['summary']['embedded_text_resource_body_present_after']"
+      - name: Original protocol wire evidence, actual original code body and repaired output, no third-party dependencies executed
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b39-otari-original-resource-pre-post-${{ matrix.os }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            research/out/B39_OTARI_ORIGINAL_EMBEDDED_RESOURCE_EFFECT.json
+            research/out/B39_OTARI_BEFORE_NATIVE_STDIO.jsonl
+            research/out/B39_OTARI_AFTER_NATIVE_STDIO.jsonl
