@@ -1,0 +1,237 @@
+name: "P6-B38 sealed 8 independent upstream fixes - exact Git blob provenance"
+on:
+  push:
+    branches:
+      - qualification/p6b38-sealed-runtime-holdout-20261113
+    paths:
+      - benchmarks/p6b38/**
+      - .github/workflows/p6b38-original-seal-integrity.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-entire-sealed-original-source-cohort:
+    name: No third-party execution, validate 11 original Git file pairs
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: B38 immutable manifest and source verifier
+        uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Seal integrity original B38A before
+        uses: actions/checkout@v5
+        with:
+          repository: smslavin/waterworks-ai
+          ref: fe373e086d9963c37eeac7139c1c7297b355e594
+          path: holdout/upstream/B38A/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            chat-ui/backend.py
+            chat-ui/mcp_client.py
+            topology-builder/discovery.py
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38A after
+        uses: actions/checkout@v5
+        with:
+          repository: smslavin/waterworks-ai
+          ref: 506154fddca004722efbdb99d6125efcd4cb1052
+          path: holdout/upstream/B38A/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            chat-ui/backend.py
+            chat-ui/mcp_client.py
+            topology-builder/discovery.py
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38B before
+        uses: actions/checkout@v5
+        with:
+          repository: ntin60775/deepseek-harness
+          ref: 6283cefa56b63b79262368f6b911dd2b56d6e57e
+          path: holdout/upstream/B38B/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            packages/mcp/mcp-client/src/tools.ts
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38B after
+        uses: actions/checkout@v5
+        with:
+          repository: ntin60775/deepseek-harness
+          ref: a2e14f5a2623019c297a4d80575bb0a8b4d742b4
+          path: holdout/upstream/B38B/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            packages/mcp/mcp-client/src/tools.ts
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38C before
+        uses: actions/checkout@v5
+        with:
+          repository: thedotmack/claude-mem
+          ref: a453b9940b0af8df8cfbfb1e699da403c86e0f72
+          path: holdout/upstream/B38C/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/integrations/dsh-plugin/worker.ts
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38C after
+        uses: actions/checkout@v5
+        with:
+          repository: thedotmack/claude-mem
+          ref: d3a118c140b615e4e1aa2e2a63869db48410a8a2
+          path: holdout/upstream/B38C/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/integrations/dsh-plugin/worker.ts
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38D before
+        uses: actions/checkout@v5
+        with:
+          repository: lengzhao/agentkit
+          ref: ee66db98ff51b3cf705642e19592bf38f863fa8b
+          path: holdout/upstream/B38D/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            plugins/tool/mcp/mcp.go
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38D after
+        uses: actions/checkout@v5
+        with:
+          repository: lengzhao/agentkit
+          ref: 1e12b2387730354a96c8b8de0de48a2335a8e4c7
+          path: holdout/upstream/B38D/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            plugins/tool/mcp/mcp.go
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38E before
+        uses: actions/checkout@v5
+        with:
+          repository: onyx-dot-app/onyx
+          ref: 0a96b123eebebcbda736b3a9690a432883bec443
+          path: holdout/upstream/B38E/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            backend/onyx/server/features/mcp/client.py
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38E after
+        uses: actions/checkout@v5
+        with:
+          repository: onyx-dot-app/onyx
+          ref: e4ea39563c9fef7ba6c8f4d5a664a526ccd8eb3b
+          path: holdout/upstream/B38E/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            backend/onyx/server/features/mcp/client.py
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38F before
+        uses: actions/checkout@v5
+        with:
+          repository: mark3labs/mcp-go
+          ref: 10d5595143759b4565c00a583651f630c28ad577
+          path: holdout/upstream/B38F/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            mcp/utils.go
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38F after
+        uses: actions/checkout@v5
+        with:
+          repository: mark3labs/mcp-go
+          ref: 61741f7f524fc047eb0c39ff2a2178b670a4096a
+          path: holdout/upstream/B38F/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            mcp/utils.go
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38G before
+        uses: actions/checkout@v5
+        with:
+          repository: Langboard/langboard
+          ref: 751ed96cbe4817d10edf5467212d3ca0833381e5
+          path: holdout/upstream/B38G/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/api/langboard/routes/mcp/McpApi.py
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38G after
+        uses: actions/checkout@v5
+        with:
+          repository: Langboard/langboard
+          ref: 63753a9618aef540b08e72f7e1ca5313ef1e86bf
+          path: holdout/upstream/B38G/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/api/langboard/routes/mcp/McpApi.py
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38H before
+        uses: actions/checkout@v5
+        with:
+          repository: openclaw/openclaw
+          ref: b39848a3e49c39965226a8f7fbd849b5ba71f20c
+          path: holdout/upstream/B38H/before
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agents/mcp-content.ts
+            src/agents/tool-search.ts
+          sparse-checkout-cone-mode: false
+      - name: Seal integrity original B38H after
+        uses: actions/checkout@v5
+        with:
+          repository: openclaw/openclaw
+          ref: bdce9c84ea551c28a89bfb6bddfd4edb31e58add
+          path: holdout/upstream/B38H/after
+          persist-credentials: false
+          submodules: false
+          fetch-depth: 1
+          sparse-checkout: |
+            src/agents/mcp-content.ts
+            src/agents/tool-search.ts
+          sparse-checkout-cone-mode: false
+      - name: Compare original tree blobs against the untouched eight-case seal
+        shell: bash
+        run: |
+          set -euo pipefail
+          python holdout/benchmarks/p6b38/verify_original_seal.py
+          sha256sum holdout/out/B38_ORIGINAL_SOURCE_INTEGRITY.json
+      - name: Preserve source hashes and provenance ONLY, no copied original upstream source
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: risu-b38-eight-external-original-git-provenance
+          retention-days: 90
+          if-no-files-found: error
+          path: holdout/out/B38_ORIGINAL_SOURCE_INTEGRITY.json
