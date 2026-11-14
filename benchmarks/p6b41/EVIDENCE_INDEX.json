@@ -1,0 +1,189 @@
+{
+  "schema": "risu-p6-b41-final-evidence-index-v1",
+  "date": "2026-11-14",
+  "external_original_execution_confirmed": true,
+  "evidence_status": "FINAL_AFTER_POSTEXPOSURE_PROBE",
+  "production_main": {
+    "commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+    "changed": false
+  },
+  "original_preregistration": {
+    "commit": "4e48e69616c0f3bf259f8d958a7ce7e9682892f2",
+    "path": "benchmarks/p6b41/PREREGISTRATION.md"
+  },
+  "immutable_sealed_cohort": {
+    "commit": "41643a236785ae8871b1fdb458500a3b280ef404",
+    "path": "benchmarks/p6b41/SEALED_COHORT.json"
+  },
+  "frozen_b38": {
+    "source_commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+    "source_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+    "modified": false
+  },
+  "github_actions": {
+    "original_maintainer_preflight": {
+      "run": 43635518842,
+      "status": "success",
+      "jobs_success": 3
+    },
+    "original_native_witness": {
+      "run": 43635950974,
+      "status": "success",
+      "jobs_success": 3
+    },
+    "postexposure_typed_channels": {
+      "run": 43636230662,
+      "status": "success",
+      "jobs_success": 1,
+      "development_only": true
+    }
+  },
+  "normal_cohort": {
+    "planned_organizations": 2,
+    "original_independent_client_organizations_executed": 2,
+    "original_inband_native_status_eligible": 1,
+    "original_inband_native_status_ineligible": 1,
+    "false_alarm_eligible_organizations": 0,
+    "denominator_m": 1,
+    "numerator_k": 0,
+    "observed_rate_k_over_m": "0/1",
+    "wilson_95_descriptive": [
+      0,
+      0.793457
+    ],
+    "population_fpr": "NOT_ESTIMATED",
+    "excluded_extra_normal_from_positive_org": true,
+    "source_reuse_across_b34_to_b40": false
+  },
+  "positive_cohort": {
+    "planned_organizations": 1,
+    "upstream_author_post_fix_regression_tests_passed": 17,
+    "upstream_author_test_only_overlay_before_selected_bug_failed": 1,
+    "original_pre_post_parser_executed": true,
+    "distinct_native_relay_variants": 2,
+    "native_synthetic_messages_per_variant": 5,
+    "specific_tool_error_event_before": null,
+    "specific_tool_error_event_after": "tool_failed",
+    "frozen_checker_before_error": "INCOMPLETE_MISSING_EXPLICIT_OBSERVED_OUTCOME",
+    "frozen_checker_after_error": "OBSERVED_CONTRACT_PRESERVED",
+    "generic_checker_new_positive_detected": false,
+    "reason": "Original pre-fix proxy omits post-response failure event. Original tool_called is a request initiation event, not an independently observed successful terminal outcome."
+  },
+  "cases": [
+    {
+      "id": "N1",
+      "repo": "mark3labs/mcp-go",
+      "original_commit": "a21ffc6877f1741603dc36246f309d6cf6c6ed05",
+      "original_client_blob": "9f1a4a692507e1c4854cf03f5fb9064351ad6da8",
+      "proof_tier": "ORIGINAL_EXTERNAL_CLIENT_CONTROLLED_SERVER_NATIVE_INPROCESS_JSONRPC",
+      "original_owner_test": "TestInProcessMCPClient PASS 9 subtests",
+      "native_witness_scenarios": [
+        "b41_success",
+        "b41_denied",
+        "b41_structured"
+      ],
+      "native_scenarios": 3,
+      "channels_scored": [
+        "status"
+      ],
+      "all_status_contracts_preserved": true,
+      "frozen_findings": [],
+      "fp_eligible": true,
+      "fp_org_flag": false,
+      "output_artifact_id": 14130182404,
+      "output_artifact_sha256_zip": "9a0dbf039f3ad28785bde180bbad0ffe8ec9911c4e801d83c6192ac77b92b47b",
+      "native_json_sha256": "86667f1e03d402d403bcc50cb19a1dd699bc2d896599e371e15e9f15d33d89",
+      "score_json_sha256": "9547715833107f64ef363bab895be08ffca7c93d8a4e732a7a51cf8972cfa506"
+    },
+    {
+      "id": "N2",
+      "repo": "metoro-io/mcp-golang",
+      "original_commit": "e5d629c5cd43e3470dcd3bf4cbc675a90bfcf513",
+      "original_client_blob": "a0e3536b9cd2a3081b65fa2c97e2b5f6eede86ac",
+      "proof_tier": "ORIGINAL_EXTERNAL_CLIENT_CONTROLLED_SERVER_NATIVE_HTTP_JSONRPC",
+      "original_owner_test": "TestReadResource PASS",
+      "native_scenarios": 2,
+      "native_witness_scenarios": [
+        "b41_ok",
+        "b41_denied"
+      ],
+      "api_original_ToolResponse_fields": [
+        "Content"
+      ],
+      "api_original_explicit_IsError": false,
+      "real_error_tool_result_isError_true": true,
+      "original_client_call_error_nil_for_tool_error": true,
+      "fp_eligible": false,
+      "fp_org_flag": null,
+      "reason": "No direct original API in-band tool-status observation; B38 scorer deliberately NOT_SCORED. Real representational gap supported by source and live native tool error.",
+      "output_artifact_id": 14129589439,
+      "output_artifact_sha256_zip": "ee773daa4f9f3652124d5bf86c1ac089005e1c57a99d2e2d7d7a4654f0b521d1",
+      "native_json_sha256": "b38ccb0a578b0e06ab7c3303cde2425974c93838bc044d377023c5f8bbec22da",
+      "score_json_sha256": "39cabaa726ffb8aefe176811eca04a2de267d39b0cfa63fab2e05fe22d2008eb"
+    },
+    {
+      "id": "P1",
+      "repo": "blitzcrieg1/agentmetry",
+      "pull_request": "https://github.com/blitzcrieg1/agentmetry/pull/427",
+      "original_pre": "773a5bc6e35f467b21967aff17e5737f2a1f8bc5",
+      "original_post": "ad2de9e44b37738879b7efb2ab862583b53ddd9e",
+      "original_proxy_blob_pre": "5654e78bb930a3aa25ac86573cbdecd53d918ea4",
+      "original_proxy_blob_post": "f6ce68be377a43891947653e670944474b9e5822",
+      "proof_tier": "ORIGINAL_EXTERNAL_PROXY_RELAY_CONTROLLED_NATIVE_SYNTHETIC_STREAM",
+      "after_original_author_tests_passed": 17,
+      "before_test_only_overlay_selected_regression_failed": 1,
+      "paired_original_relay_tool_result_cases": 10,
+      "original_terminal_event_before": null,
+      "original_terminal_event_after": "tool_failed",
+      "b38_before": "INCOMPLETE",
+      "b38_after": "OBSERVED_CONTRACT_PRESERVED",
+      "generic_checker_new_positive": false,
+      "reason": "No before original terminal success observation",
+      "output_artifact_id": 14129433356,
+      "output_artifact_sha256_zip": "841793119a2c3b21c1627b4a7482176eba9be92421029088ac584bd6c5703e82",
+      "before_native_json_sha256": "57991f5cf596adf3e01d4d04fa03603bd6f51369487af16ff470796d9228c813",
+      "after_native_json_sha256": "4dda6d79174ceb054ab0e3be3abbc72a1ad2c4a26a07c35b098f1afeb6aa82ab",
+      "score_json_sha256": "d80d5b728ba5934086afa3ebc8e5b1b4337fbe17f69a572f2799547b4591bfd7"
+    }
+  ],
+  "postexposure_development": {
+    "repo": "mark3labs/mcp-go",
+    "original_commit": "a21ffc6877f1741603dc36246f309d6cf6c6ed05",
+    "status": "success",
+    "new_case_count": 2,
+    "case_channels": [
+      {
+        "name": "b41_structured_exact",
+        "channels": [
+          "status",
+          "text",
+          "structured"
+        ],
+        "classification": "OBSERVED_CONTRACT_PRESERVED"
+      },
+      {
+        "name": "b41_media_exact",
+        "channels": [
+          "status",
+          "text",
+          "media"
+        ],
+        "classification": "OBSERVED_CONTRACT_PRESERVED"
+      }
+    ],
+    "source_is_same_as_N1_holdout": true,
+    "counts_as_new_independent_holdout": false,
+    "normal_org_denominator_increment": 0,
+    "output_score_sha256": "f123443d42933828c5e087f5d25b1da108b77805131de15fdc2cc3649f7242e5",
+    "native_json_sha256": "403adf83b2227b11569988cd4d3383788722361b2a77a271d0c0971ce2857186"
+  },
+  "limitations": [
+    "Normal m=1 Wilson upper bound ~79.3%, too weak for generic low false alarm claim.",
+    "Native SDK in-process loopback is original code but neither external deployment nor original full agent application.",
+    "Metoro in-band isError flag is not exposed by its return type: no eligible original status observation, so cannot score B38 false positive.",
+    "Agentmetry before emits no terminal event. Absence is not observed success, so no generic B38 detection.",
+    "After-exposure typed channel N1 tests are development only; same org cannot inflate independent denominator.",
+    "All original work uses official current source Git SHAs; upstream regression is first-party author test, not independent discovery."
+  ],
+  "next_direction": "B42 source-disjoint original-clients with returned explicit IsError/status API, eligible native tools/call normal cases, observed positive success-event misclassification, declare full outcome before source exposure."
+}
