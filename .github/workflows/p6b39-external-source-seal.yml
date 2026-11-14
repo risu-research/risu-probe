@@ -1,0 +1,241 @@
+name: "P6-B39 preregistered 8 external original repairs and intentional normals, immutable Git provenance"
+on:
+  push:
+    branches:
+      - qualification/p6b39-sealed-independent-controls-20261114
+    paths:
+      - benchmarks/p6b39/**
+      - .github/workflows/p6b39-external-source-seal.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify-eight-original-commits:
+    name: No third-party code execution, validate eight teams and thirteen file entries
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout sealed manifest and read-only verifier
+        uses: actions/checkout@v5
+        with:
+          path: holdout
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Exact original P1 before Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: punkpeye/fastmcp
+          ref: cf6f981305e4f8c11c0a3e1d1401bcdcb1530587
+          path: holdout/original/P1/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/edge/index.ts
+          sparse-checkout-cone-mode: false
+      - name: Exact original P1 after Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: punkpeye/fastmcp
+          ref: 93c1a2bdb2cfbabb242805e5c1ab02cf5d10f91f
+          path: holdout/original/P1/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/edge/index.ts
+          sparse-checkout-cone-mode: false
+      - name: Exact original P2 before Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: mozilla-ai/otari
+          ref: 54c67f5986b090db1198ebf43f9c879b3f5779a2
+          path: holdout/original/P2/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/gateway/services/mcp_client.py
+          sparse-checkout-cone-mode: false
+      - name: Exact original P2 after Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: mozilla-ai/otari
+          ref: 86267dbf0f22bdeaebad9efdcb6111445c7656a5
+          path: holdout/original/P2/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/gateway/services/mcp_client.py
+          sparse-checkout-cone-mode: false
+      - name: Exact original P3 before Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: smart-mcp-proxy/mcpproxy-go
+          ref: 51fd13e072d252238b3c9234c75af97dd7562b31
+          path: holdout/original/P3/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            cmd/mcpproxy/call_cmd.go
+            internal/cliclient/client.go
+          sparse-checkout-cone-mode: false
+      - name: Exact original P3 after Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: smart-mcp-proxy/mcpproxy-go
+          ref: ba5177450f8ffc211636c151c52e9afff619db39
+          path: holdout/original/P3/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            cmd/mcpproxy/call_cmd.go
+            internal/cliclient/client.go
+          sparse-checkout-cone-mode: false
+      - name: Exact original P4 before Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: honua-io/honua-server
+          ref: 645ea3c00a91c2663fe19315ebe64f29f9498059
+          path: holdout/original/P4/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/Honua.Ai/Features/Protocols/Mcp/Mcp/Tools/McpToolHelpers.cs
+            src/Honua.Ai/Features/Protocols/Mcp/Mcp/MapTools/QueryFeaturesTool.cs
+          sparse-checkout-cone-mode: false
+      - name: Exact original P4 after Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: honua-io/honua-server
+          ref: 26907b6789a58452d653680ead834ad363206497
+          path: holdout/original/P4/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/Honua.Ai/Features/Protocols/Mcp/Mcp/Tools/McpToolHelpers.cs
+            src/Honua.Ai/Features/Protocols/Mcp/Mcp/MapTools/QueryFeaturesTool.cs
+          sparse-checkout-cone-mode: false
+      - name: Exact original N1 before Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: geolonia/datamodels
+          ref: 91242612ef426be28e10265406f6cecc3e3f958b
+          path: holdout/original/N1/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            worker/mcp.mjs
+            test/mcp.test.mjs
+          sparse-checkout-cone-mode: false
+      - name: Exact original N1 after Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: geolonia/datamodels
+          ref: d0d2a05cdc60e8e9a106d0f425560a1f1303f21c
+          path: holdout/original/N1/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            worker/mcp.mjs
+            test/mcp.test.mjs
+          sparse-checkout-cone-mode: false
+      - name: Exact original N2 before Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: major/gitlab-mcp
+          ref: 38d0c71d5b3b7c60e5edcfa98c77465c5581f528
+          path: holdout/original/N2/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/gitlab_mcp/tools/mr_threads.py
+          sparse-checkout-cone-mode: false
+      - name: Exact original N2 after Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: major/gitlab-mcp
+          ref: 03b19ec3972a8f55ce29e61db920e03fde09b098
+          path: holdout/original/N2/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/gitlab_mcp/tools/mr_threads.py
+          sparse-checkout-cone-mode: false
+      - name: Exact original N3 before Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: xxynet/KiraAI
+          ref: 5539d9f297b945f5b2486230fe9625b2852e44e0
+          path: holdout/original/N3/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            core/agent/tool.py
+            core/agent/func_tool_manager.py
+          sparse-checkout-cone-mode: false
+      - name: Exact original N3 after Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: xxynet/KiraAI
+          ref: c69b8eab5e89cb09201723e48dcefb83164b7bd6
+          path: holdout/original/N3/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            core/agent/tool.py
+            core/agent/func_tool_manager.py
+          sparse-checkout-cone-mode: false
+      - name: Exact original N4 before Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: appwrite/mcp
+          ref: d0a84db49d43121652183674acd71952754cea2b
+          path: holdout/original/N4/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/mcp_server_appwrite/redaction.py
+            src/mcp_server_appwrite/operator.py
+          sparse-checkout-cone-mode: false
+      - name: Exact original N4 after Git tree
+        uses: actions/checkout@v5
+        with:
+          repository: appwrite/mcp
+          ref: 96d0278df4a2c0917c894d2b25138235e3963488
+          path: holdout/original/N4/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/mcp_server_appwrite/redaction.py
+            src/mcp_server_appwrite/operator.py
+          sparse-checkout-cone-mode: false
+      - name: Verify exact original Git blob and absent before-only files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python holdout/benchmarks/p6b39/verify_original_git_integrity.py
+          sha256sum holdout/out/B39_ORIGINAL_GIT_INTEGRITY.json
+      - name: Preserve integrity record and nonexecution scope
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b39-preregistered-eight-external-git-integrity
+          retention-days: 90
+          if-no-files-found: error
+          path: holdout/out/B39_ORIGINAL_GIT_INTEGRITY.json
