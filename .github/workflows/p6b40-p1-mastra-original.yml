@@ -52,8 +52,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          (cd original/after/packages/core && pnpm run build:lib)
-          (cd original/before/packages/core && pnpm run build:lib)
+          # Original Mastra core imports vendored SDKs and internal packages;
+          # build those unchanged upstream prerequisites before core itself.
+          for checkout in original/after original/before; do
+            for pkg in packages/_vendored/ai_v4 packages/_vendored/ai_v5 packages/_vendored/ai_v6 packages/_vendored/ai_v7; do
+              (cd "$checkout/$pkg" && pnpm run build)
+            done
+            (cd "$checkout/packages/_internal-core" && pnpm run build:lib)
+            (cd "$checkout/packages/schema-compat" && pnpm run build)
+            (cd "$checkout/packages/core" && pnpm run build:lib)
+          done
           test -f original/after/packages/core/dist/agent/index.js
           test -f original/before/packages/core/dist/agent/index.js
       - name: Original independently authored live HTTP MCP client test after official fix
