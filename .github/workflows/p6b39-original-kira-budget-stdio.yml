@@ -1,0 +1,79 @@
+name: "P6-B39 KiraAI original intentional truncation versus wrong exact MCP contract"
+on:
+  push:
+    branches:
+      - qualification/p6b39-original-kira-budget-normal-20261114
+    paths:
+      - research/b39_budget_stdio_peer.py
+      - research/b39_kira_original_budget_stdio.py
+      - .github/workflows/p6b39-original-kira-budget-stdio.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-normal-budget:
+    name: Actual original upstream KiraAI truncation on MCP native stdio ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Exact original KiraAI source from official merged PR
+        uses: actions/checkout@v5
+        with:
+          repository: xxynet/KiraAI
+          ref: c69b8eab5e89cb09201723e48dcefb83164b7bd6
+          path: original
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            core/agent/tool.py
+          sparse-checkout-cone-mode: false
+      - name: Unchanged preregistered B38 generic native tool/consumer checker
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: verifier
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Frozen original Git source and verifier object IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = c69b8eab5e89cb09201723e48dcefb83164b7bd6
+          test "$(git -C original hash-object core/agent/tool.py)" = cdb1833c8593d45b724fe5c6daddacfde04bacff
+          test "$(git -C verifier rev-parse HEAD)" = 425d3d8272c4e725064010ed8fbf5b8217080cab
+          test "$(git -C verifier hash-object research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+      - name: Install original MCP Python SDK 2.3.0 for native stdio
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check 'mcp==2.3.0'
+      - name: Execute unchanged original KiraAI function AST on five real MCP tool calls
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/verifier/research"
+          python research/b39_kira_original_budget_stdio.py
+          python -c "import json; r=json.load(open('research/out/B39_KIRA_ORIGINAL_BUDGET_POLICY_RESULT.json')); assert r['summary']['intentional_truncations']==3 and r['summary']['misconfigured_exact_preservation_warnings_expected']==3"
+      - name: Preserve intended loss, wrong-policy challenge and original source metadata
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b39-original-kira-intentional-budget-${{ matrix.os }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            research/out/B39_KIRA_ORIGINAL_BUDGET_POLICY_RESULT.json
+            research/out/B39_KIRA_ORIGINAL_NATIVE_WIRE.jsonl
