@@ -1,0 +1,99 @@
+name: "P6-B39 original Geolonia MCP HTTP normal policy, unchanged frozen verifier"
+on:
+  push:
+    branches:
+      - qualification/p6b39-original-geolonia-normal-20261114
+    paths:
+      - research/b39_geolonia_*
+      - .github/workflows/p6b39-original-geolonia-policy.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-external-server:
+    name: Original independent Geolonia Worker MCP HTTP test plus frozen B38 scorer
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - name: B39 research-only harness
+        uses: actions/checkout@v5
+        with:
+          path: harness
+          persist-credentials: false
+      - name: Original Geolonia author source, full original tree
+        uses: actions/checkout@v5
+        with:
+          repository: geolonia/datamodels
+          ref: d0d2a05cdc60e8e9a106d0f425560a1f1303f21c
+          path: original
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+      - name: Exact B38 frozen generic source-independent protocol comparator
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: verifier
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Original Git SHA, code and author-owned original integration test unchanged
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = d0d2a05cdc60e8e9a106d0f425560a1f1303f21c
+          test "$(git -C original hash-object worker/mcp.mjs)" = 826ba84d772aec28bc12c002c96608cee19e7e8f
+          test "$(git -C original hash-object test/mcp.test.mjs)" = 8b0d2eebcdc57024387de3918fe66d08524ba865
+          test "$(git -C verifier rev-parse HEAD)" = 425d3d8272c4e725064010ed8fbf5b8217080cab
+          test "$(git -C verifier hash-object research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+      - name: Install pinned original Geolonia dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install --global pnpm@12.14.0
+          (cd original && pnpm install --frozen-lockfile)
+      - name: Run untouched upstream author native HTTP MCP normal/error test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          (cd original && node --test --test-name-pattern="every tool answers with structured content" test/mcp.test.mjs) | tee out/B39_GEOLONIA_ORIGINAL_AUTHOR_TEST.log
+          grep -F 'every tool answers with structured content' out/B39_GEOLONIA_ORIGINAL_AUTHOR_TEST.log
+      - name: Run first-party independent observation adapter on ORIGINAL server HTTP JSON-RPC
+        shell: bash
+        env:
+          B39_GEO_OUTPUT_DIR: ${{ github.workspace }}/out
+        run: |
+          set -euo pipefail
+          cp harness/research/b39_geolonia_original_normal.test.mjs original/test/risu_b39_original_normal.test.mjs
+          (cd original && node --test test/risu_b39_original_normal.test.mjs) | tee out/B39_GEOLONIA_FIRST_PARTY_OBSERVER.log
+          grep 'B39_ORIGINAL_GEOLONIA_NATIVE_HTTP_7_CASES_PASS' out/B39_GEOLONIA_FIRST_PARTY_OBSERVER.log
+      - name: Score only explicitly scoped original policy with frozen B38 detector
+        shell: bash
+        env:
+          B39_GEO_OUTPUT_DIR: ${{ github.workspace }}/out
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/verifier/research"
+          python harness/research/b39_geolonia_score.py
+          sha256sum out/B39_GEOLONIA_NORMAL_POLICY_SCORE.json
+      - name: Keep original author test + raw native HTTP JSON-RPC + scorer, no upstream source
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b39-geolonia-authored-external-server-native-http-normal
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            out/B39_GEOLONIA_ORIGINAL_AUTHOR_TEST.log
+            out/B39_GEOLONIA_FIRST_PARTY_OBSERVER.log
+            out/B39_GEOLONIA_ORIGINAL_HTTP_WIRES.json
+            out/B39_GEOLONIA_NORMAL_POLICY_SCORE.json
