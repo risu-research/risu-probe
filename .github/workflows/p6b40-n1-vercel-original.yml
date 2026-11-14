@@ -1,0 +1,54 @@
+name: "P6-B40 N1 original Vercel Claude Code MCP presentation policy normal"
+on:
+  push:
+    branches: [qualification/p6b40-sealed-original-clients-20261114]
+    paths: [.github/workflows/p6b40-n1-vercel-original.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  vercel-original-normal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: vercel/ai
+          ref: f21945b427472fb2fdca4110b8f1b36c76f7e19f
+          path: original
+          persist-credentials: false
+          submodules: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: pnpm/action-setup@v4
+        with: {version: '11.23.0'}
+      - name: Verify sealed original source and author's test Git blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = f21945b427472fb2fdca4110b8f1b36c76f7e19f
+          test "$(git -C original rev-parse HEAD:packages/harness-claude-code/src/bridge/create-emit-stream-event.ts)" = a9a1720d4b606946afba881a6382e0fea329479f
+          test "$(git -C original rev-parse HEAD:packages/harness-claude-code/src/bridge/create-emit-stream-event.test.ts)" = d8050220055d33311e23d2e485a35a90b8f23101
+          mkdir -p out
+      - name: Install official post-fix dependencies, scripts disabled
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && pnpm install --frozen-lockfile --ignore-scripts --filter '@ai-sdk/harness-claude-code...')
+      - name: Run original author non-text, scalar, parallel model-facing content policy controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/packages/harness-claude-code && pnpm exec vitest --config vitest.node.config.js --run src/bridge/create-emit-stream-event.test.ts -t 'parses external MCP JSON objects while leaving scalars|passes non-text tool result content through unparsed|resolves content when a structured output cannot be paired' --reporter verbose) 2>&1 | tee out/B40_N1_NORMAL_AUTHOR_POLICY.log
+          grep -E 'passed|PASS' out/B40_N1_NORMAL_AUTHOR_POLICY.log
+          echo B40_N1_VERCEL_NORMAL_AUTHOR_TESTS_PASS_NOT_MCP_NATIVE_CLIENT
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b40-n1-vercel-original-harness-normal
+          path: out/B40_N1_NORMAL_AUTHOR_POLICY.log
+          if-no-files-found: warn
+          retention-days: 90
