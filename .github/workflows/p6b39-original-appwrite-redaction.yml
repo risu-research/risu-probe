@@ -1,0 +1,77 @@
+name: "P6-B39 Appwrite original model-secret redaction is intentional, not MCP content loss"
+on:
+  push:
+    branches:
+      - qualification/p6b39-original-appwrite-redaction-20261114
+    paths:
+      - research/b39_appwrite_*.py
+      - .github/workflows/p6b39-original-appwrite-redaction.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-secret-protection:
+    name: Original Appwrite redaction and native MCP normal policy on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Exact original Appwrite maintainer redactor and upstream SDK models
+        uses: actions/checkout@v5
+        with:
+          repository: appwrite/mcp
+          ref: 96d0278df4a2c0917c894d2b25138235e3963488
+          path: original
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            src/mcp_server_appwrite/redaction.py
+          sparse-checkout-cone-mode: false
+      - name: Preregistered frozen B38 source-independent tool result verifier
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: verifier
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Verify original maintainer source and sealed untouched comparison rule
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = 96d0278df4a2c0917c894d2b25138235e3963488
+          test "$(git -C original hash-object src/mcp_server_appwrite/redaction.py)" = 4c35901707211c917c8850e03026efb3280ed611
+          test "$(git -C verifier hash-object research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+      - name: Install original Appwrite Console SDK model metadata and MCP stdio runtime
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check 'appwrite-console>=0.16.0,<0.17' 'mcp==2.3.0'
+      - name: Execute original exact Appwrite secret redactor on synthetic native MCP result
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/verifier/research"
+          python research/b39_appwrite_original_policy.py
+          python -c "import json; r=json.load(open('research/out/B39_APPWRITE_REDACTION_POLICY_AUDIT.json')); assert r['summary']['typed_model_fields_redacted'] and r['summary']['nested_untyped_payload_fields_redacted']"
+      - name: Preserve synthetic native wire and unchanged original redaction observations, no real secret
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b39-original-appwrite-redaction-policy-${{ matrix.os }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            research/out/B39_APPWRITE_REDACTION_POLICY_AUDIT.json
+            research/out/B39_APPWRITE_ORIGINAL_NATIVE_STDIO.jsonl
