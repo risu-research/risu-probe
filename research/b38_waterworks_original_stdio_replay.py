@@ -180,6 +180,8 @@ async def main():
             if scenario in ("normal","multi","normal_again"):
                 testmode["text"]="exact"
                 obs["text"]=observed_text
+            if scenario=="rpc_error":
+                obs["error_text"]=observed_text
             # Rich structured result is not part of Waterworks documented
             # string-return client contract; no silent preservation claim.
             entry={
@@ -202,7 +204,7 @@ async def main():
          "ORIGINAL_ERROR_AS_SUCCESS_NOT_DETECTED")
     must(not post_errors,"AFTER_FIX_STILL_HAS_FALSE_SUCCESS")
     for v in all_cases:
-        if v["scenario"] not in {"refusal","empty_refusal"}:
+        if v["scenario"] not in {"refusal","empty_refusal","structured"}:
             must(not v["verdict"]["findings"],
                  "UNEXPECTED_NORMAL_CONTROL_WARNING_"+v["side"]+"_"+v["scenario"])
     totals={
