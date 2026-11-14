@@ -1,5 +1,5 @@
 {
-  "schema": "risu-b40-interim-evidence-index-v1",
+  "schema": "risu-b40-final-current-original-evidence-index-v2",
   "baseline_public_product": {
     "git_commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
     "released_product_touched": false
@@ -11,7 +11,7 @@
     "git_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
     "changed_for_b40": false
   },
-  "status_description": "Partial snapshot of the current reproducible evidence; P1/N2 original integration jobs under verification. Do not label absent verification as negative detector outcome.",
+  "status_description": "Final observed CI outcomes for the four preregistered original orgs as checked 2026-11-14; all relevant active jobs completed. Original P1 setup remains unverified. Independent eligible native original normal FPR denominator 0.",
   "cases": [
     {
       "id": "P1",
@@ -26,7 +26,7 @@
         43632634864,
         43633045357
       ],
-      "current_evidence": "source exact SHA verified; original test-run failures from test discovery and unresolved original vendored dependencies; no confirmed model semantic outcome",
+      "current_evidence": "NOT VERIFIED: source Git IDs checked; original maintainer HTTP test did not execute due real workspace source dependencies. Final attempt rebuilt original vendored AI SDK/internal packages, but full Mastra core TypeScript compilation remained blocked by missing @internal/external-types, @internal/voice and EE ActorSignal/other exports. No supported semantic result.",
       "generic_b38_detector_scored": false
     },
     {
@@ -79,27 +79,35 @@
         43632174560,
         43632330698
       ],
-      "current_evidence": "Author native HTTP policy tests require pinned original Rust codex.node addon; prior two evaluator runs failed from test discovery / missing addon, current original build running. No verified policy outcome.",
+      "current_evidence": "PASS: exact official original native borrowed MCP client test using independently pinned original Rust codex.node addon. All five policy modes custom/default/disabled/raise/cancel passed under local synthetic HTTP peer and native Agent session. Native API requested tools/call, but error is HTTP 500 transport response, not in-band MCP isError result.",
       "native_inband_tool_call_error": "EXPLICIT_PROTOCOL_TOOL_RESULT_NOT_OBSERVED; proposed upstream scenario is HTTP 500 transport error, not MCP result.isError",
-      "eligible_for_primary_native_in_scope_client_fpr": false
+      "eligible_for_primary_native_in_scope_client_fpr": false,
+      "native_original_author_test_run_id": 43632330698,
+      "original_author_test_results": "5 passed / 0 failed, test-only path relocation for upstream static Vitest include; original selected-mcp.ts source unchanged",
+      "actual_original_code_executed": true,
+      "original_native_addon_built": true
     }
   ],
   "normals": {
     "planned_original_normal_orgs": 2,
-    "normal_orgs_with_confirmed_original_executed_code": 1,
+    "normal_orgs_with_confirmed_original_executed_code": 2,
     "original_native_mcp_consumer_status_eligible_orgs": 0,
     "eligible_normal_fpr_numerator": null,
     "eligible_normal_fpr_denominator": 0,
     "observed_fpr": "UNMEASURED",
     "wilson_95": "NOT_DEFINED",
-    "population_fpr": "UNMEASURED"
+    "population_fpr": "UNMEASURED",
+    "normal_orgs_not_executed": 0,
+    "ineligible_executed_normal_orgs": 2
   },
   "positives": {
     "planned_original_positive_orgs": 2,
     "positive_orgs_with_author_regression_reproduced": 1,
     "positive_orgs_with_original_native_consumer_after_fix_trace": 1,
     "generic_detector_new_discrepancy_positive_orgs": 0,
-    "positive_detection_recall": "NOT_ESTIMABLE"
+    "positive_detection_recall": "NOT_ESTIMABLE",
+    "positive_orgs_original_execution_incomplete": 1,
+    "original_source_client_semantic_bug_reproduced_orgs": 1
   },
   "methodology": [
     "Cannot score original transport exception vs a ToolMessage as an error incorrectly flagged by B38 when native isError remains true.",
@@ -107,7 +115,8 @@
     "Normal bridge policies without native tools/call and original client observation are not independent native normal FPR.",
     "Selected original owners and tests are purposive, not population representative.",
     "Do not count repeated successes or evaluator setup failures as independent organizations.",
-    "Prior original workspace build attempts retained as setup provenance, not a claim of external upstream semantic bug."
+    "Prior original workspace build attempts retained as setup provenance, not a claim of external upstream semantic bug.",
+    "OpenAI Agents JS normal tests use real native backend and local HTTP but HTTP 500 is transport-level failure. Five passing owner tests cannot be silently scored as native tools/call in-band isError FPR."
   ],
   "next_hard_gate": "Acquire a fresh disjoint B41 cohort of original external runnable normal clients with real native MCP tools/call source and consumer observation before any tuning."
 }
