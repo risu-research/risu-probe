@@ -1,0 +1,84 @@
+name: "B38 original AgentKit Go HTTP MCP client: upstream maintainer official red/green test"
+on:
+  push:
+    branches:
+      - qualification/p6b38-original-agentkit-http-20261113
+    paths:
+      - .github/workflows/p6b38-original-agentkit-http.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  genuine-upstream-red-green:
+    name: Official unchanged Go HTTP MCP test on original upstream first parent and fix
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Exact original external AgentKit first-parent before error fix
+        uses: actions/checkout@v5
+        with:
+          repository: lengzhao/agentkit
+          ref: ee66db98ff51b3cf705642e19592bf38f863fa8b
+          path: original/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+      - name: Exact official maintainer merged fix plus original regression test
+        uses: actions/checkout@v5
+        with:
+          repository: lengzhao/agentkit
+          ref: 1e12b2387730354a96c8b8de0de48a2335a8e4c7
+          path: original/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.1'
+          cache: false
+      - name: Verify original upstream source, official after test and original Go modules
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = ee66db98ff51b3cf705642e19592bf38f863fa8b
+          test "$(git -C original/after rev-parse HEAD)" = 1e12b2387730354a96c8b8de0de48a2335a8e4c7
+          test "$(git -C original/before hash-object plugins/tool/mcp/mcp.go)" = 9ba334cc1414c1cb484a4a0d5ad311feeaf09a87
+          test "$(git -C original/after hash-object plugins/tool/mcp/mcp.go)" = 7a0819204fc55e3822b18a1efdb04f9a9ab9d8bd
+          test "$(git -C original/after hash-object plugins/tool/mcp/mcp_error_test.go)" = 196674642cdcbbc84240ab659cd97131b9c74406
+          cp original/after/plugins/tool/mcp/mcp_error_test.go original/before/plugins/tool/mcp/risu_b38_official_redgreen_test.go
+          mkdir -p out
+      - name: EXPECTED red original pre-fix Go HTTP transport and MCP client
+        shell: bash
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -uo pipefail
+          (cd original/before && go test ./plugins/tool/mcp -run '^TestMCPToolCallErrorContract$' -count=1 -v) > out/B38_AGENTKIT_ORIGINAL_BEFORE.log 2>&1
+          code=$?
+          echo "original_before_go_test_exit=$code"
+          if [ "$code" -eq 0 ]; then cat out/B38_AGENTKIT_ORIGINAL_BEFORE.log; exit 3; fi
+          grep -F -- "TestMCPToolCallErrorContract" out/B38_AGENTKIT_ORIGINAL_BEFORE.log || exit 4
+          grep -F -- "Call error" out/B38_AGENTKIT_ORIGINAL_BEFORE.log || exit 5
+          echo "B38_AGENTKIT_ORIGINAL_MAINTAINER_FIX_REGRESSION_RED_CONFIRMED"
+      - name: EXPECTED green exact official post-fix Go HTTP transport and MCP client
+        shell: bash
+        env:
+          GOTOOLCHAIN: local
+        run: |
+          set -euo pipefail
+          (cd original/after && go test ./plugins/tool/mcp -run '^TestMCPToolCallErrorContract$' -count=1 -v) | tee out/B38_AGENTKIT_ORIGINAL_AFTER.log
+          grep -F -- "PASS: TestMCPToolCallErrorContract" out/B38_AGENTKIT_ORIGINAL_AFTER.log
+          echo "B38_AGENTKIT_ORIGINAL_MAINTAINER_FIX_REGRESSION_GREEN_CONFIRMED"
+      - name: Original upstream authenticated code audit logs, not source
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: b38-agentkit-original-go-http-redgreen
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            out/B38_AGENTKIT_ORIGINAL_BEFORE.log
+            out/B38_AGENTKIT_ORIGINAL_AFTER.log
