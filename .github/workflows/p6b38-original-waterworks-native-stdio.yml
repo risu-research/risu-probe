@@ -1,0 +1,92 @@
+name: "B38 actual original Waterworks v2 MCP client error status, native stdio pre-post"
+on:
+  push:
+    branches:
+      - qualification/p6b38-original-waterworks-20261113
+    paths:
+      - research/b38_*
+      - .github/workflows/p6b38-original-waterworks-native-stdio.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  actual-independent-original:
+    name: Original Waterworks v2 client on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Controlled no-network replay
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Original unchanged Waterworks MCP client before fix
+        uses: actions/checkout@v5
+        with:
+          repository: smslavin/waterworks-ai
+          ref: fe373e086d9963c37eeac7139c1c7297b355e594
+          path: original/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            chat-ui/mcp_client.py
+          sparse-checkout-cone-mode: false
+      - name: Original unchanged Waterworks MCP client after maintainer fix
+        uses: actions/checkout@v5
+        with:
+          repository: smslavin/waterworks-ai
+          ref: 506154fddca004722efbdb99d6125efcd4cb1052
+          path: original/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+          sparse-checkout: |
+            chat-ui/mcp_client.py
+          sparse-checkout-cone-mode: false
+      - name: Pre-frozen B38 generic source-independent wire-to-consumer contract checker
+        uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: verifier
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install actual official MCP SDK 2.3.0 and dotenv import only
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check 'mcp==2.3.0' 'python-dotenv==1.1.0'
+      - name: Check immutable original source commitments and frozen verifier
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = fe373e086d9963c37eeac7139c1c7297b355e594
+          test "$(git -C original/after rev-parse HEAD)" = 506154fddca004722efbdb99d6125efcd4cb1052
+          test "$(git -C verifier rev-parse HEAD)" = 425d3d8272c4e725064010ed8fbf5b8217080cab
+          test "$(git -C verifier hash-object research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+      - name: Execute ORIGINAL external third-party client code using real MCP stdio session
+        shell: bash
+        run: |
+          set -euo pipefail
+          export PYTHONPATH="$GITHUB_WORKSPACE/verifier/research"
+          python research/b38_waterworks_original_stdio_replay.py
+          python -c "import json; r=json.load(open('research/out/B38_WATERWORKS_ORIGINAL_NATIVE_RESULTS.json')); assert r['summary']['original_before_false_successes']==2; assert r['summary']['original_after_false_successes']==0"
+      - name: Preserve raw original native wire requests and derived evidence, not source
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: b38-original-Waterworks-native-MCP-${{ matrix.os }}
+          retention-days: 90
+          if-no-files-found: error
+          path: |
+            research/out/B38_WATERWORKS_ORIGINAL_NATIVE_RESULTS.json
+            research/out/WATERWORKS_BEFORE_ORIGINAL_MCP_STDIO.jsonl
+            research/out/WATERWORKS_AFTER_ORIGINAL_MCP_STDIO.jsonl
