@@ -1,0 +1,60 @@
+name: "P6-B39 original GitLab MCP intentional resolved-thread compact output"
+on:
+  push:
+    branches:
+      - qualification/p6b39-original-gitlab-compact-20261114
+    paths:
+      - .github/workflows/p6b39-original-gitlab-compact.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-gitlab-normal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Exact original independent GitLab MCP code after approved compact change
+        uses: actions/checkout@v5
+        with:
+          repository: major/gitlab-mcp
+          ref: 03b19ec3972a8f55ce29e61db920e03fde09b098
+          path: original
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+      - name: Verify unchanged Git blob and preregistered compact policy test
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = 03b19ec3972a8f55ce29e61db920e03fde09b098
+          test "$(git -C original hash-object src/gitlab_mcp/tools/mr_threads.py)" = 5d91a5beeb871bccf93885d26cde804f0686e6ba
+          mkdir -p out
+      - name: Install original owner's Python 3.15 through pinned uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: '0.13.5'
+          enable-cache: false
+      - name: Original project's exact Python runtime and dev dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          uv python install 3.15
+          (cd original && uv sync --frozen)
+      - name: Run original maintainer's resolved compact, full and batch/cursor policy tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && uv run --no-sync pytest tests/test_get_merge_request_threads.py -q -k 'test_all_summarizes_resolved_with_latest_reply or test_resolved_view_scope or test_all_batch_and_cursor_preserve_resolved_view') | tee out/B39_GITLAB_MAINTAINER_ORIGINAL_COMPACT_NORMAL.log
+          grep -E 'passed|PASSED' out/B39_GITLAB_MAINTAINER_ORIGINAL_COMPACT_NORMAL.log
+          echo "B39_GITLAB_ORIGINAL_INTENTIONAL_COMPACT_AND_EXPLICIT_FULL_TESTS_PASS"
+      - name: Save original author fake-API test results, not user GitLab data
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b39-original-gitlab-compact-policy-tests
+          if-no-files-found: warn
+          retention-days: 90
+          path: out/B39_GITLAB_MAINTAINER_ORIGINAL_COMPACT_NORMAL.log
