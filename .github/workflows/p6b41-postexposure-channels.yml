@@ -1,0 +1,83 @@
+name: P6-B41 POST-EXPOSURE original client exact typed channel development probe
+on:
+  push:
+    branches: [qualification/p6b41-sealed-original-client-fpr-20261114]
+    paths:
+      - .github/workflows/p6b41-postexposure-channels.yml
+      - benchmarks/p6b41/runners/mark3labs_postexposure_channels_test.go
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-external-client-exploratory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: mark3labs/mcp-go
+          ref: a21ffc6877f1741603dc36246f309d6cf6c6ed05
+          path: original
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: frozen-b38
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@v6
+        with: {go-version-file: original/go.mod}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Exact source and frozen checker verified before evaluator overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = a21ffc6877f1741603dc36246f309d6cf6c6ed05
+          test "$(git -C original rev-parse HEAD:client/client.go)" = 9f1a4a692507e1c4854cf03f5fb9064351ad6da8
+          test "$(git -C frozen-b38 rev-parse HEAD:research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+          mkdir -p out
+          cp benchmarks/p6b41/runners/mark3labs_native_original_test.go original/client/b41_native_original_test.go
+          cp benchmarks/p6b41/runners/mark3labs_postexposure_channels_test.go original/client/b41_postexposure_original_test.go
+      - name: Run unchanged original client native JSONRPC typed channel comparisons (development-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export B41_EXPLORATORY_WITNESS="$PWD/out/B41_POSTEXPOSURE_NATIVE.json"
+          (cd original && go test ./client -run '^TestB41PostExposureOriginalClientExactChannels$' -count=1 -v) 2>&1 | tee out/B41_POSTEXPOSURE_NATIVE.log
+          test -s out/B41_POSTEXPOSURE_NATIVE.json
+      - name: Apply unchanged frozen B38 to typed observed status text structured media
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json,importlib.util,hashlib
+          from pathlib import Path
+          spec=importlib.util.spec_from_file_location("frozen_b38","frozen-b38/research/b38_native_contract_auditor.py")
+          checker=importlib.util.module_from_spec(spec);spec.loader.exec_module(checker)
+          src=json.loads(Path("out/B41_POSTEXPOSURE_NATIVE.json").read_text())
+          results=[]
+          for item in src["records"]:
+            score=checker.audit_record(item)
+            print(item["tool"],score["classification"],score["channels_tested"],score["findings"])
+            results.append({"tool":item["tool"],"score":score})
+            assert score["classification"]=="OBSERVED_CONTRACT_PRESERVED"
+          out={"schema":"risu-b41-postexposure-typed-channel-score-v1",
+               "exposed_development_only":True,"independent_holdout":False,
+               "b41_normal_org_denominator_increment":0,
+               "original_client_unmodified":True,
+               "frozen_detector_git_blob":"67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+               "results":results}
+          raw=json.dumps(out,indent=2,sort_keys=True)+"\n"
+          Path("out/B41_POSTEXPOSURE_B38_SCORE.json").write_text(raw)
+          print("B41_POSTEXPOSURE_TYPED_PROBE_SHA",hashlib.sha256(raw.encode()).hexdigest())
+          PY
+          sha256sum out/B41_POSTEXPOSURE_*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b41-postexposure-original-client-exact-channels, path: out/B41_POSTEXPOSURE_*, if-no-files-found: warn, retention-days: 90}
