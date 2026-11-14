@@ -47,9 +47,6 @@ def attest(case,side,path,expected):
     raw=git(orig,"cat-file","blob",blob).stdout
     if not(0<len(raw)<MAX) or b"\x00" in raw:
         raise ValueError("BINARY_OR_OVERSIZE_ORIGINAL")
-    if git(orig,"hash-object","--stdin",strict=False).returncode!=0:
-        # A known no-stdin check is not counted as source evidence.
-        pass
     return {"state":"ORIGINAL_GIT_BLOB_VERIFIED","commit":commit,
             "git_blob":blob,"bytes":len(raw),"raw_sha256":sha(raw),
             "utf8_decodable":is_utf8(raw),"original_external_executed":False}
@@ -90,7 +87,7 @@ def main():
     summary={"organizations_preregistered":8,"positive_organizations":4,
              "normal_policy_organizations":4,
              "original_file_entries":sum(len(c["files"]) for c in cases),
-             "verified_file_entries":sum(x["source_originals_verified"] for x in out),
+             "verified_organizations":sum(x["source_originals_verified"] for x in out),
              "original_source_entries_verified":sum(
                  1 for x in out for f in x["files"] if
                  f["before"]["state"] in ("ABSENT_AS_PREREGISTERED",
