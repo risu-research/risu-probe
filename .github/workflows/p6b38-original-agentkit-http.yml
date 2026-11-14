@@ -55,6 +55,7 @@ jobs:
         env:
           GOTOOLCHAIN: local
         run: |
+          set +e
           set -uo pipefail
           (cd original/before && go test ./plugins/tool/mcp -run '^TestMCPToolCallErrorContract$' -count=1 -v) > out/B38_AGENTKIT_ORIGINAL_BEFORE.log 2>&1
           code=$?
