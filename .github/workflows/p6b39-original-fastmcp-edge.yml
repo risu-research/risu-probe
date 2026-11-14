@@ -1,0 +1,94 @@
+name: "P6-B39 original FastMCP Edge HTTP JSON-RPC explicit-result red/green"
+on:
+  push:
+    branches:
+      - qualification/p6b39-original-fastmcp-edge-20261114
+    paths:
+      - .github/workflows/p6b39-original-fastmcp-edge.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-external-edge:
+    name: Exact FastMCP author source red-green on original Edge HTTP handler
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Original external FastMCP Edge server before official fix
+        uses: actions/checkout@v5
+        with:
+          repository: punkpeye/fastmcp
+          ref: cf6f981305e4f8c11c0a3e1d1401bcdcb1530587
+          path: original/before
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+      - name: Exact original FastMCP Edge after PR445 repair + official authored tests
+        uses: actions/checkout@v5
+        with:
+          repository: punkpeye/fastmcp
+          ref: 93c1a2bdb2cfbabb242805e5c1ab02cf5d10f91f
+          path: original/after
+          persist-credentials: false
+          fetch-depth: 1
+          submodules: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pnpm for original author Vitest tests
+        uses: pnpm/action-setup@v4
+        with:
+          version: '10.22.0'
+      - name: Pin original Edge source Git trees and original author test SHA
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = cf6f981305e4f8c11c0a3e1d1401bcdcb1530587
+          test "$(git -C original/after rev-parse HEAD)" = 93c1a2bdb2cfbabb242805e5c1ab02cf5d10f91f
+          test "$(git -C original/before hash-object src/edge/index.ts)" = f16c4f0856d37d36037a9be6e484a25de26be109
+          test "$(git -C original/after hash-object src/edge/index.ts)" = e58f3ebfded3ec2091da5728639087f3d1a76cbe
+          test "$(git -C original/after hash-object src/edge/edge.test.ts)" = 71b195a9ddb1c65fb6518b9c5bb50a5e3ec448f4
+          mkdir -p out
+          cp original/after/src/edge/edge.test.ts original/before/src/edge/edge.test.ts
+      - name: Install exact independently authored original upstream package dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/before && pnpm install --frozen-lockfile)
+          (cd original/after && pnpm install --frozen-lockfile)
+      - name: Author's new behavior regression MUST fail in original pre-fix source
+        shell: bash
+        run: |
+          set +e
+          set -uo pipefail
+          (cd original/before && pnpm exec vitest run src/edge/edge.test.ts -t 'preserves explicit tool result fields' --reporter=verbose) >out/B39_FASTMCP_ORIGINAL_BEFORE.log 2>&1
+          code=$?
+          cat out/B39_FASTMCP_ORIGINAL_BEFORE.log
+          if [ "$code" -eq 0 ]; then echo "B39_UNEXPECTED_ORIGINAL_PRE_FIX_GREEN"; exit 2; fi
+          grep -F 'preserves explicit tool result fields' out/B39_FASTMCP_ORIGINAL_BEFORE.log || exit 3
+          grep -E 'AssertionError|expected|toEqual|Assertion' out/B39_FASTMCP_ORIGINAL_BEFORE.log || exit 4
+          echo "B39_ORIGINAL_FASTMCP_EXPLICIT_RESULT_BEFORE_RED_CONFIRMED"
+      - name: Author's identical behavior regression MUST pass in official repair
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after && pnpm exec vitest run src/edge/edge.test.ts -t 'preserves explicit tool result fields' --reporter=verbose) | tee out/B39_FASTMCP_ORIGINAL_AFTER.log
+          grep -F 'preserves explicit tool result fields' out/B39_FASTMCP_ORIGINAL_AFTER.log
+          echo "B39_ORIGINAL_FASTMCP_EXPLICIT_RESULT_AFTER_GREEN_CONFIRMED"
+      - name: Existing original normal tool error regression MUST pass before and after
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/before && pnpm exec vitest run src/edge/edge.test.ts -t 'reports a tool that throws as a tool execution error' --reporter=verbose) >out/B39_FASTMCP_NORMAL_BEFORE.log 2>&1
+          (cd original/after && pnpm exec vitest run src/edge/edge.test.ts -t 'reports a tool that throws as a tool execution error' --reporter=verbose) >out/B39_FASTMCP_NORMAL_AFTER.log 2>&1
+          echo "B39_ORIGINAL_FASTMCP_NORMAL_TOOL_ERROR_BEFORE_AND_AFTER_PASS"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b39-original-fastmcp-edge-exact-author-redgreen
+          retention-days: 90
+          if-no-files-found: warn
+          path: out/*.log
