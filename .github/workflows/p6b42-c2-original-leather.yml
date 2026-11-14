@@ -1,0 +1,52 @@
+name: P6-B42 C2 external author tool traces and strict completion eligibility
+on:
+  push:
+    branches: [qualification/p6b42-disjoint-native-status-and-completion-20261114]
+    paths:
+      - .github/workflows/p6b42-c2-original-leather.yml
+      - benchmarks/p6b42/runners/leather_trace_eligibility_test.go
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c2-original-leather:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: TGPSKI/leather, ref: c2d4da6d5022b42be5ff9818dd0f6d8900314769, path: original, persist-credentials: false}
+      - uses: actions/setup-go@v6
+        with: {go-version-file: original/go.mod, cache: false}
+      - name: Pin original second author's fix and original owner tests before checking
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = c2d4da6d5022b42be5ff9818dd0f6d8900314769
+          test "$(git -C original rev-parse HEAD:internal/runner/tooltrace_test.go)" = c194da6a186a4e360eeb8527fbed50514429a60e
+          test "$(git -C original rev-parse HEAD:internal/mcp/client.go)" = 20deb3c09cd507b4a182f74f71dc314c4bcd3ee0
+          test "$(git -C original rev-parse HEAD:internal/runner/runner.go)" = 4bceeb4ec382c2daf95bfcb3f071eba000603b93
+          mkdir -p out
+      - name: Run original owner first-party MCP tool-error regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && go test ./internal/mcp -run '^TestMCPClient_CallToolError$' -count=1 -v) 2>&1 | tee out/B42_C2_OWNER_MCP_TEST.log
+      - name: Run original owner first-party settled success and failed tool trace regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && go test ./internal/runner -run '^TestRunner_ToolTrace_(NoneDetailByteIdentical|ToolsDetailPopulatesTraces|FailedToolRecordsError|ReplayedCallMarksReplayed)$' -count=1 -v) 2>&1 | tee out/B42_C2_OWNER_TRACE_TEST.log
+      - name: Run evaluator-only original Go type audit with source implementation untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp benchmarks/p6b42/runners/leather_trace_eligibility_test.go original/internal/model/b42_completion_eligibility_test.go
+          export B42_C2_ELIGIBILITY_FILE="$PWD/out/B42_C2_TYPE_ELIGIBILITY.json"
+          (cd original && go test ./internal/model -run '^TestB42OriginalLeatherCompletionTraceEligibility$' -count=1 -v) 2>&1 | tee out/B42_C2_TYPE_ELIGIBILITY_RUN.log
+          test -s out/B42_C2_TYPE_ELIGIBILITY.json
+          sha256sum out/B42_C2_TYPE_ELIGIBILITY.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b42-c2-original-leather-trace-eligibility, path: out/B42_C2_*, if-no-files-found: warn, retention-days: 90}
