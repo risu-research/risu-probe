@@ -59,7 +59,10 @@ jobs:
           (cd original/before && go test ./plugins/tool/mcp -run '^TestMCPToolCallErrorContract$' -count=1 -v) > out/B38_AGENTKIT_ORIGINAL_BEFORE.log 2>&1
           code=$?
           echo "original_before_go_test_exit=$code"
-          if [ "$code" -eq 0 ]; then cat out/B38_AGENTKIT_ORIGINAL_BEFORE.log; exit 3; fi
+          echo "B38_ORIGINAL_AGENTKIT_PRE_FIX_LOG_BEGIN"
+          sed -n '1,100p' out/B38_AGENTKIT_ORIGINAL_BEFORE.log
+          echo "B38_ORIGINAL_AGENTKIT_PRE_FIX_LOG_END"
+          if [ "$code" -eq 0 ]; then echo "B38_UNEXPECTED_ORIGINAL_TEST_PASS"; exit 3; fi
           grep -F -- "TestMCPToolCallErrorContract" out/B38_AGENTKIT_ORIGINAL_BEFORE.log || exit 4
           grep -F -- "Call error" out/B38_AGENTKIT_ORIGINAL_BEFORE.log || exit 5
           echo "B38_AGENTKIT_ORIGINAL_MAINTAINER_FIX_REGRESSION_RED_CONFIRMED"
@@ -74,7 +77,7 @@ jobs:
           echo "B38_AGENTKIT_ORIGINAL_MAINTAINER_FIX_REGRESSION_GREEN_CONFIRMED"
       - name: Original upstream authenticated code audit logs, not source
         uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: b38-agentkit-original-go-http-redgreen
           retention-days: 90
