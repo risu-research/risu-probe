@@ -1,0 +1,100 @@
+name: P6-B42 original independent completion-event omission red-green audit
+on:
+  push:
+    branches: [qualification/p6b42-disjoint-native-status-and-completion-20261114]
+    paths:
+      - .github/workflows/p6b42-completion-original.yml
+      - benchmarks/p6b42/runners/personal_assistant_original_event_witness.py
+      - benchmarks/p6b42/runners/completion_obligation.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c1-original-sqlite-completion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: matthewfae/Personal-Assistant, ref: 241b1cb722af4efed82afd308c1232163517e429, path: original/before, persist-credentials: false}
+      - uses: actions/checkout@v5
+        with: {repository: matthewfae/Personal-Assistant, ref: d164e21ceee1596d23ab2a61146457c558005ec9, path: original/after, persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Preserve selected original source identities before running
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original/before rev-parse HEAD)" = 241b1cb722af4efed82afd308c1232163517e429
+          test "$(git -C original/after rev-parse HEAD)" = d164e21ceee1596d23ab2a61146457c558005ec9
+          test "$(git -C original/before rev-parse HEAD:bot/agent.py)" = cae2390364ca5955bfa3f12afdc2cc760b2bfbd4
+          test "$(git -C original/after rev-parse HEAD:bot/agent.py)" = f6d789ce4da435286e93a6ea1dc56530cedaccee
+          test "$(git -C original/before rev-parse HEAD:bot/mcp_client.py)" = 2e807771cc0b391bef5b08a5e82ac349d76217e9
+          test "$(git -C original/after rev-parse HEAD:bot/mcp_client.py)" = d6d0ae4ffb0d24befbec7a5a0cda5e7cf0897d62
+          mkdir -p out
+      - name: Install only original module import dependencies
+        shell: bash
+        run: python -m pip install 'anthropic>=0.28.0' 'mcp>=1.2,<3' 'python-dotenv>=1.0'
+      - name: Prove separate predeclared completion scorer handles pending, missing, duplicate and unmatched
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b42/runners/completion_obligation.py --selftest | tee out/B42_C1_POLICY_SELFTEST.log
+      - name: Execute original pre-fix agent and original immutable SQLite event DB (three settled scenarios)
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$PWD/original/before:$PWD/original/before/bot" \
+            python benchmarks/p6b42/runners/personal_assistant_original_event_witness.py --variant before \
+            --output out/B42_C1_BEFORE_ORIGINAL.json 2>&1 | tee out/B42_C1_BEFORE_RUN.log
+          test -s out/B42_C1_BEFORE_ORIGINAL.json
+      - name: Execute original post-fix agent and original SQLite event DB (identical three scenarios)
+        shell: bash
+        run: |
+          set -euo pipefail
+          PYTHONPATH="$PWD/original/after:$PWD/original/after/bot" \
+            python benchmarks/p6b42/runners/personal_assistant_original_event_witness.py --variant after \
+            --output out/B42_C1_AFTER_ORIGINAL.json 2>&1 | tee out/B42_C1_AFTER_RUN.log
+          test -s out/B42_C1_AFTER_ORIGINAL.json
+      - name: Independently evaluate original event journal with frozen C42 obligation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b42/runners/completion_obligation.py --input out/B42_C1_BEFORE_ORIGINAL.json \
+            --output out/B42_C1_BEFORE_SCORE.json | tee out/B42_C1_BEFORE_SCORE.log
+          python benchmarks/p6b42/runners/completion_obligation.py --input out/B42_C1_AFTER_ORIGINAL.json \
+            --output out/B42_C1_AFTER_SCORE.json | tee out/B42_C1_AFTER_SCORE.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          before=json.loads(Path("out/B42_C1_BEFORE_SCORE.json").read_text())
+          after=json.loads(Path("out/B42_C1_AFTER_SCORE.json").read_text())
+          b={x["case"]:x["result"]["classification"] for x in before["records"]}
+          a={x["case"]:x["result"]["classification"] for x in after["records"]}
+          good="OBSERVED_COMPLETION_PRESERVED"
+          assert b=={"success":good,"inband_error":good,"raised_transport_error":"OMITTED_TERMINAL_EVENT"},b
+          assert a=={"success":good,"inband_error":good,"raised_transport_error":good},a
+          # Preserve separate distinction: this is NOT B38 wire-to-client
+          # native status sensitivity evidence and not a population metric.
+          result={"schema":"risu-b42-c1-confirmed-original-repair-v1",
+                  "upstream_before":"241b1cb722af4efed82afd308c1232163517e429",
+                  "upstream_after":"d164e21ceee1596d23ab2a61146457c558005ec9",
+                  "source_tier":"ORIGINAL_AGENT_JOURNAL_SETTLED_WITH_SCRIPTED_MCP",
+                  "pre_fix_original_exception_missing_terminal":True,
+                  "original_post_fix_exception_completed":True,
+                  "independent_C42_rule_tested":True,
+                  "original_model_or_MCP_wire_full_application":False,
+                  "before":b,"after":a,
+                  "population_sensitivity_claim":False}
+          Path("out/B42_C1_VERDICT.json").write_text(json.dumps(result,indent=2,sort_keys=True)+"\n")
+          print("B42_C1_ORIGINAL_UPSTREAM_COMPLETION_REPAIR_CONFIRMED")
+          PY
+          sha256sum out/*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b42-c1-original-sqlite-journal-red-green
+          path: out/B42_C1_*
+          if-no-files-found: warn
+          retention-days: 90
