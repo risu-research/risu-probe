@@ -51,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          (cd original/after && dotnet test tests/dotnet/Honua.Ai.UnitTests/Honua.Ai.UnitTests.csproj --filter 'FullyQualifiedName~McpTaxonomyAlignmentTests.SuccessResult_|FullyQualifiedName~McpTaxonomyAlignmentTests.QueryFeatures_LargePage_ReturnsSummaryThenFullJsonText|FullyQualifiedName~McpTaxonomyAlignmentTests.SuccessJsonElement_' --no-restore=false --verbosity minimal) >out/B39_HONUA_OFFICIAL_AFTER.log 2>&1 || { tail -n 95 out/B39_HONUA_OFFICIAL_AFTER.log; exit 3; }
+          (cd original/after && dotnet test tests/dotnet/Honua.Ai.UnitTests/Honua.Ai.UnitTests.csproj --filter 'FullyQualifiedName~McpTaxonomyAlignmentTests.SuccessResult_|FullyQualifiedName~McpTaxonomyAlignmentTests.QueryFeatures_LargePage_ReturnsSummaryThenFullJsonText|FullyQualifiedName~McpTaxonomyAlignmentTests.SuccessJsonElement_' --verbosity minimal) >out/B39_HONUA_OFFICIAL_AFTER.log 2>&1 || { tail -n 95 out/B39_HONUA_OFFICIAL_AFTER.log; exit 3; }
           tail -n 45 out/B39_HONUA_OFFICIAL_AFTER.log
           grep -E 'Passed!|Passed:|Test summary' out/B39_HONUA_OFFICIAL_AFTER.log
           echo "B39_HONUA_ORIGINAL_CSHARP_FULL_JSON_POST_FIXED_PASS"
