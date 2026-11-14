@@ -1,0 +1,113 @@
+{
+  "schema": "risu-b40-interim-evidence-index-v1",
+  "baseline_public_product": {
+    "git_commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+    "released_product_touched": false
+  },
+  "before_exposure_preregistration_commit": "afe997ea0363c32110091b54bce59eb0940d02b7",
+  "before_exposure_sealed_cohort_commit": "4ab60daab3e33e6a317b7a79d221800948ee0b40",
+  "fixed_source_independent_checker": {
+    "commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+    "git_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+    "changed_for_b40": false
+  },
+  "status_description": "Partial snapshot of the current reproducible evidence; P1/N2 original integration jobs under verification. Do not label absent verification as negative detector outcome.",
+  "cases": [
+    {
+      "id": "P1",
+      "group": "positive",
+      "repo": "mastra-ai/mastra",
+      "source_pre": "b77f59cc5407b1158a271d579b55514f2ba79145",
+      "source_post": "f6260f8cc50c21a5d78d47fff4e04e55aca57a08",
+      "original_maintainer_native_http_tests": "AUTHOR_NEW_TEST_EXISTS_AND_GIT_BLOB_VERIFIED_NOT_YET_EXECUTED",
+      "run_attempts": [
+        43632003561,
+        43632251098,
+        43632634864,
+        43633045357
+      ],
+      "current_evidence": "source exact SHA verified; original test-run failures from test discovery and unresolved original vendored dependencies; no confirmed model semantic outcome",
+      "generic_b38_detector_scored": false
+    },
+    {
+      "id": "P2",
+      "group": "positive",
+      "repo": "langchain-ai/langchainjs",
+      "source_pre": "17b6bba8343bdd3f3dfc5c59578e0b72337ec740",
+      "source_post": "ba4e7a276b11b57e1cfc21f4ab66289bdd2971f5",
+      "original_maintainer_tests_run_id": 43632255010,
+      "original_owner_behavior": "Official original developer test RED before (ToolException thrown), GREEN after (ToolMessage.status error)",
+      "test_layer": "owner unit regression with mocked MCP SDK callTool",
+      "native_protocol_run_id": 43632840674,
+      "native_protocol_layer": "unchanged original LangChain client adapter and official SDK in-memory native JSON-RPC with independent first-party controlled server",
+      "native_jsonrpc_scenarios": 4,
+      "raw_native_before_sha256": "ae05ad55f3bc24debdea44974107818363a4d2f751ebe0029d6b40bdb1de42cf",
+      "raw_native_after_sha256": "1febae080330a4437b8345293ff6c2e60d8524b13175e762434ffb8fe7592926",
+      "frozen_detector_report_sha256": "f863cfd41109fad5ed1f882ae70c59b8d1de1babea3fa2790afcab866e5a0178",
+      "frozen_detector_status_checks": "4/4 OBSERVED_CONTRACT_PRESERVED",
+      "generic_b38_detection_new_positive": false,
+      "reason": "Both original pre thrown ToolException and fixed post error ToolMessage preserve error outcome. Difference is message delivery contract, outside frozen B38 semantic status test."
+    },
+    {
+      "id": "N1",
+      "group": "normal",
+      "repo": "vercel/ai",
+      "source_post": "f21945b427472fb2fdca4110b8f1b36c76f7e19f",
+      "original_author_tests_run_id": 43631951162,
+      "original_test_results": "3 passed /13 skipped (selected exact test expressions)",
+      "actual_original_code_executed": true,
+      "original_client_transport": "ORIGINAL_CLAUDE_CODE_HARNESS_STREAM_BRIDGE_NOT_MCP_NATIVE_CLIENT",
+      "normal_output_policy": "non-text blocks retained as typed values; scalar MCP text stays string",
+      "actual_native_jsonrpc_and_downstream_status_observed": false,
+      "eligible_for_primary_native_in_scope_client_fpr": false
+    },
+    {
+      "id": "N2",
+      "group": "normal",
+      "repo": "openai/openai-agents-js",
+      "source_post": "6e11314da6d4560f1143784fba4a58d218ff2080",
+      "original_upstream_test_path": "packages/agents-codex/test/native/selected-mcp-errors-native.test.ts",
+      "case_policies": [
+        "custom",
+        "default",
+        "disabled",
+        "raise",
+        "cancel"
+      ],
+      "run_attempts": [
+        43632056439,
+        43632174560,
+        43632330698
+      ],
+      "current_evidence": "Author native HTTP policy tests require pinned original Rust codex.node addon; prior two evaluator runs failed from test discovery / missing addon, current original build running. No verified policy outcome.",
+      "native_inband_tool_call_error": "EXPLICIT_PROTOCOL_TOOL_RESULT_NOT_OBSERVED; proposed upstream scenario is HTTP 500 transport error, not MCP result.isError",
+      "eligible_for_primary_native_in_scope_client_fpr": false
+    }
+  ],
+  "normals": {
+    "planned_original_normal_orgs": 2,
+    "normal_orgs_with_confirmed_original_executed_code": 1,
+    "original_native_mcp_consumer_status_eligible_orgs": 0,
+    "eligible_normal_fpr_numerator": null,
+    "eligible_normal_fpr_denominator": 0,
+    "observed_fpr": "UNMEASURED",
+    "wilson_95": "NOT_DEFINED",
+    "population_fpr": "UNMEASURED"
+  },
+  "positives": {
+    "planned_original_positive_orgs": 2,
+    "positive_orgs_with_author_regression_reproduced": 1,
+    "positive_orgs_with_original_native_consumer_after_fix_trace": 1,
+    "generic_detector_new_discrepancy_positive_orgs": 0,
+    "positive_detection_recall": "NOT_ESTIMABLE"
+  },
+  "methodology": [
+    "Cannot score original transport exception vs a ToolMessage as an error incorrectly flagged by B38 when native isError remains true.",
+    "Owner-controlled test harness vs original independent producer and consumer must be distinguished.",
+    "Normal bridge policies without native tools/call and original client observation are not independent native normal FPR.",
+    "Selected original owners and tests are purposive, not population representative.",
+    "Do not count repeated successes or evaluator setup failures as independent organizations.",
+    "Prior original workspace build attempts retained as setup provenance, not a claim of external upstream semantic bug."
+  ],
+  "next_hard_gate": "Acquire a fresh disjoint B41 cohort of original external runnable normal clients with real native MCP tools/call source and consumer observation before any tuning."
+}
