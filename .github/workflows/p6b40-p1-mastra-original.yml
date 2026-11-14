@@ -48,6 +48,14 @@ jobs:
           set -euo pipefail
           (cd original/after && pnpm install --frozen-lockfile --ignore-scripts --filter '@mastra/mcp...')
           (cd original/before && pnpm install --frozen-lockfile --ignore-scripts --filter '@mastra/mcp...')
+      - name: Build original Mastra core exports needed by original MCPClient tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original/after/packages/core && pnpm run build:lib)
+          (cd original/before/packages/core && pnpm run build:lib)
+          test -f original/after/packages/core/dist/agent/index.js
+          test -f original/before/packages/core/dist/agent/index.js
       - name: Original independently authored live HTTP MCP client test after official fix
         shell: bash
         run: |
