@@ -37,6 +37,7 @@ jobs:
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
       RUST_BACKTRACE: '1'
+      RUST_MIN_STACK: '134217728'
     steps:
       - uses: actions/checkout@v5
         with: {persist-credentials: false}
@@ -82,25 +83,35 @@ jobs:
       - name: Original Rust integration harness compile and selected actual app/Postgres/HTTP MCP test (approved)
         shell: bash
         run: |
-          set -o pipefail
+          set +e
+          ulimit -s unlimited
           (cd original/backend && cargo test -p erato --test integration_tests \
             approved_mcp_error --no-default-features -- --nocapture) \
              > out/B43_ERATO_${{ matrix.phase }}_APPROVED.log 2>&1
           code=$?
           tail -n 180 out/B43_ERATO_${{ matrix.phase }}_APPROVED.log
           echo "$code" > out/B43_ERATO_${{ matrix.phase }}_APPROVED_EXIT.txt
+          if grep -Eqi 'stack overflow|fatal runtime error|could not compile|no space left|out of memory' out/B43_ERATO_${{ matrix.phase }}_APPROVED.log 2>/dev/null && [ "$code" -ne 0 ]; then
+            echo "B43_ERATO_ORIGINAL_ENVIRONMENT_OR_STACK_FAILURE_NOT_A_REPRODUCED_BUG"
+            exit 2
+          fi
           if [ "${{ matrix.phase }}" = "after" ]; then test "$code" -eq 0; else test "$code" -ne 0; fi
           echo B43_ERATO_${{ matrix.phase }}_APPROVED_EXPECTED_RUN_VERDICT
       - name: Original Rust full path for uninterrupted native MCP error
         shell: bash
         run: |
-          set -o pipefail
+          set +e
+          ulimit -s unlimited
           (cd original/backend && cargo test -p erato --test integration_tests \
             uninterrupted_mcp_error --no-default-features -- --nocapture) \
              > out/B43_ERATO_${{ matrix.phase }}_UNINTERRUPTED.log 2>&1
           code=$?
           tail -n 160 out/B43_ERATO_${{ matrix.phase }}_UNINTERRUPTED.log
           echo "$code" > out/B43_ERATO_${{ matrix.phase }}_UNINTERRUPTED_EXIT.txt
+          if grep -Eqi 'stack overflow|fatal runtime error|could not compile|no space left|out of memory' out/B43_ERATO_${{ matrix.phase }}_APPROVED.log 2>/dev/null && [ "$code" -ne 0 ]; then
+            echo "B43_ERATO_ORIGINAL_ENVIRONMENT_OR_STACK_FAILURE_NOT_A_REPRODUCED_BUG"
+            exit 2
+          fi
           if [ "${{ matrix.phase }}" = "after" ]; then test "$code" -eq 0; else test "$code" -ne 0; fi
           echo B43_ERATO_${{ matrix.phase }}_UNINTERRUPTED_EXPECTED_RUN_VERDICT
       - uses: actions/upload-artifact@v4
