@@ -1,0 +1,61 @@
+name: P6-B43 independent original agent lifecycle cancel/retry/terminal control
+on:
+  push:
+    branches: [qualification/p6b43-original-agent-status-to-terminal-20261114]
+    paths:
+      - .github/workflows/p6b43-original-agentrun-control.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-agent-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: Parcha-ai/agentrun
+          ref: 90385367d64a581727f2f73bd29a7e69b18c3b90
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Source identity proof before tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = 90385367d64a581727f2f73bd29a7e69b18c3b90
+          test "$(git -C original rev-parse HEAD:packages/serve/src/runner/adapter-loop.ts)" = 1975bd36291b8341204fa7d08d14493cf60f1af0
+          test "$(git -C original rev-parse HEAD:packages/serve/src/runner/conformance/harness.ts)" = 46f2ddc8928dfc96b68d282f2a2cecee35cc25fe
+          test "$(git -C original rev-parse HEAD:packages/serve/test/conformance-facts.test.mjs)" = 9424c2805c8de216c5c04c3cd6d359a6d4837942
+          mkdir -p out
+      - name: Install native original monorepo dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && npm ci --ignore-scripts --no-audit --no-fund) 2>&1 | tee out/B43_N1_ORIGINAL_INSTALL.log
+      - name: Build unmodified original workspace (required original test dist)
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && npm run build) 2>&1 | tee out/B43_N1_ORIGINAL_BUILD.log
+      - name: Execute original independent agent conformance and cancellation/retry controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && node --test \
+            packages/serve/test/conformance-facts.test.mjs \
+            packages/serve/test/adapter-pi-cap-stop.test.mjs \
+            packages/serve/test/adapter-pi-native.test.mjs) \
+            2>&1 | tee out/B43_N1_ORIGINAL_LIFECYCLE.log
+          echo B43_N1_ORIGINAL_AGENT_LIFECYCLE_TESTS_PASS
+          sha256sum out/B43_N1_ORIGINAL_LIFECYCLE.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b43-n1-original-agentrun-cancellation-retry-lifecycle
+          path: out/B43_N1_*
+          if-no-files-found: warn
+          retention-days: 90
