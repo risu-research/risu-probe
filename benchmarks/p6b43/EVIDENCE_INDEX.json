@@ -257,6 +257,11 @@
       "id": 43664758841,
       "experiment": "Invalid duplicate evaluator workflow YAML setup, removed from research branch",
       "conclusion": "FAIL_SETUP_NO_JOBS"
+    },
+    {
+      "id": 43665279219,
+      "experiment": "B43 post-exposure two valid alternate joins with opposite results",
+      "conclusion": "SUCCESS_SYNTHETIC_ONLY"
     }
   ],
   "next_recommendation": "B44: isolate original native connection and request ID, original model tool ID, original authorization identity, durable paired start and end records and effect confirmation in NEW source-disjoint original agent, preregister heldout and use two independent owners for normal FPR. If upstream doesn't expose native ID, no inferred one-to-one tool-name matching. Do not call an ACK an effect.",
@@ -336,6 +341,26 @@
       "run_id": 43663839936,
       "name": "b43-erato-original-http-mcp-postgres-after-runtime-stackoverflow",
       "sha256_zip": "68e0da5024e9f1553ef315ba31367e823493ecddc8876e7bfe4b65f9262bdc83"
+    },
+    {
+      "artifact_id": 14141862652,
+      "run_id": 43665279219,
+      "name": "b43-postexposure-source-independent-identity-collision",
+      "sha256_zip": "930c1aec213e250f4faa0d5aaa8585e02d1107745f6e73bf6c7e54d9291e0b97"
     }
-  ]
+  ],
+  "postexposure_identity_nonidentifiability": {
+    "program": "benchmarks/p6b43/development/identity_collision_counterexample.py",
+    "run": 43665279219,
+    "status": "SUCCESS",
+    "source_tier": "SYNTHETIC_POSTEXPOSURE_IDENTIFIABILITY_COUNTEREXAMPLE_ONLY",
+    "original_external_program_executed": false,
+    "number_compatible_native_to_agent_joins": 2,
+    "identical_observables_across_joinings": true,
+    "one_joining_all_status_preserved": true,
+    "other_joining_has_error_as_success_and_success_as_error": true,
+    "correct_verdict": "INCOMPLETE_CROSS_BOUNDARY_IDENTITY",
+    "json_sha256": "27d20fdc36559d42b28111a87ad518e7cd67463c41ea85d8ffc787a7c9dcb623",
+    "no_population_detection_inference": true
+  }
 }
