@@ -1,0 +1,78 @@
+{
+  "schema": "risu-p6b43-sealed-original-agent-links-v1",
+  "date": "2026-11-14",
+  "prereg_commit": "520961aa3dcc637fe90d0fa6b19a01cba6369341",
+  "main_commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "frozen_b38": {
+    "commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+    "blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae"
+  },
+  "cohort": [
+    {
+      "id": "P1",
+      "repo": "Nano-Collective/nanocoder",
+      "pr": 1926,
+      "pre": "39d8fa2a8cf0a710d192720daf966fd68b6eaf26",
+      "post": "2c87d801ef4779f7e4344c287f3feb9f4b0be054",
+      "blobs_before": {
+        "source/mcp/mcp-client.ts": "eb153d44c9d0cf9c2dafefe36e046c1d17812454",
+        "source/mcp/mcp-client.spec.ts": "75a861ee86f7125bd25c6571e93ddfd380163294",
+        "source/acp/acp-conversation.spec.ts": "98daa2243fd7a4669363fc45d0f0a9e59fc1d4ce"
+      },
+      "blobs_after": {
+        "source/mcp/mcp-client.ts": "1e3a3fd5ba1cbab962f69883789dc725c1a26a0a",
+        "source/mcp/mcp-client.spec.ts": "85e7b05f1d7542b5988a68aaccf911caa862068a",
+        "source/acp/acp-conversation.spec.ts": "1ab85a485a41aa75a845c4797715840099690e7b"
+      },
+      "type": "original_agent_positive_status_misclassification"
+    },
+    {
+      "id": "P2",
+      "repo": "EratoLab/erato",
+      "pr": 1486,
+      "pre": "5c3eac23d6efdff9f275ad45da7cf63e24f77e3d",
+      "post": "f9e5f47bf948e16f441b09b40bcfb4565ce0433c",
+      "blobs_before": {
+        "backend/erato/src/server/api/v1beta/message_streaming.rs": "9895f44f18652c2d67aaf1586bb506fe7826a66d",
+        "backend/erato/tests/integration_tests/api/messages/mcp_file_outputs.rs": "5742b686240d6d01a7f533608009a7055c3813d1"
+      },
+      "blobs_after": {
+        "backend/erato/src/server/api/v1beta/message_streaming.rs": "33d8b04c628f5f465b563c77c4f4296fbc20dd45",
+        "backend/erato/tests/integration_tests/api/messages/mcp_file_outputs.rs": "3943008917fcd7e026267c77ef69bec2b4429c30"
+      },
+      "type": "original_persisted_status_false_success"
+    },
+    {
+      "id": "N1",
+      "repo": "Parcha-ai/agentrun",
+      "pr": 2767,
+      "pre": "a3a0317c38bf3186feb80c5df37bd2c6a9f17733",
+      "post": "90385367d64a581727f2f73bd29a7e69b18c3b90",
+      "blobs_before": {
+        "packages/serve/src/runner/adapter-loop.ts": "012e50405411c62d0e385900b7691d8940e045db",
+        "packages/serve/src/runner/conformance/harness.ts": "56ce99b9f0dcccdca18d6fcd2af7b27be58750d1"
+      },
+      "blobs_after": {
+        "packages/serve/src/runner/adapter-loop.ts": "1975bd36291b8341204fa7d08d14493cf60f1af0",
+        "packages/serve/src/runner/conformance/harness.ts": "46f2ddc8928dfc96b68d282f2a2cecee35cc25fe",
+        "packages/serve/test/conformance-facts.test.mjs": "9424c2805c8de216c5c04c3cd6d359a6d4837942"
+      },
+      "type": "original_lifecycle_comparator_only"
+    },
+    {
+      "id": "N2",
+      "repo": "smart-mcp-proxy/mcpproxy-go",
+      "pr": 1502,
+      "pre": "39a49907b24118bf62b0e04c343a6fc70e2e45fa",
+      "post": "fa4a8a4cc09da1927eff7829d8919e437e129b9d",
+      "blobs_after": {
+        "internal/callerr/classify.go": "f7e579da004d9d7491208fe817349c8cd6822ad1",
+        "internal/callerr/classify_test.go": "e2a2eba551776dd6fddeab1b79ba6f07d1d49923"
+      },
+      "type": "original_external_gateway_classifier_only"
+    }
+  ],
+  "no_posthoc_replacement": true,
+  "implementation_opened_before_cohort_freeze": false,
+  "results": []
+}
