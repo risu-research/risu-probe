@@ -101,6 +101,10 @@ After inspecting Nano's missing native→agent ID and original persistent receip
 
 Feeding actual original Nano after evidence **correctly yields `INCOMPLETE: CONNECTION_ID_NOT_RECOVERABLE`**. No original journal or connection binding was invented. **All twelve cases are synthetic test design after exposure, NOT a B43 independent original-client sample or production functionality.** The exact code is a prospective B44 independent evaluation candidate only.
 
+### Two same-name calls are mathematically unidentifiable without an original join key
+
+A separate **post-exposure synthetic** [counterexample run #43665279219](https://github.com/risu-research/risu-probe/actions/runs/43665279219) systematically enumerated **two valid matchings** of the same observable pair of concurrent `tools/call` requests (same tool name and arguments, native statuses one `isError:true`, one false) to two original-agent-style terminal records (one failed, one completed) with no source-provided native-request-to-agent-ID link. One matching is fully preserved; the other entails both an error-as-success and success-as-error. Both agree with the same observed unlabeled IDs. Thus the correct source-independent verdict is **`INCOMPLETE_CROSS_BOUNDARY_IDENTITY`**. Verified generated JSON SHA-256 `27d20fdc36559d42b28111a87ad518e7cd67463c41ea85d8ffc787a7c9dcb623`. This is a constructed **identifiability demonstration**, not a real original-code fault or extra holdout sample.
+
 ## 6. Research verdict, denominators, and next choice
 
 | Question | Actual executed evidence | Valid conclusion |
