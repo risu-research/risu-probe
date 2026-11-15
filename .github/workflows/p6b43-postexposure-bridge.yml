@@ -1,0 +1,78 @@
+name: P6-B43 POST-EXPOSURE development-only durable native-to-original receipt bridge controls
+on:
+  push:
+    branches: [qualification/p6b43-original-agent-status-to-terminal-20261114]
+    paths:
+      - .github/workflows/p6b43-postexposure-bridge.yml
+      - benchmarks/p6b43/development/verified_receipt_bridge.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  research-development-not-holdout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Run explicit post-exposure contract and 12 positive/negative synthetic boundary controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          python -m py_compile benchmarks/p6b43/development/verified_receipt_bridge.py
+          python benchmarks/p6b43/development/verified_receipt_bridge.py --selftest \
+            2>&1 | tee out/B43_POSTEXPOSURE_BRIDGE_SYNTHETIC.log
+      - uses: actions/download-artifact@v4
+        with:
+          name: b43-nano-native-original-acp-after
+          run-id: '43663669412'
+          repository: risu-research/risu-probe
+          github-token: ${{ github.token }}
+          path: input
+      - name: Explicitly score actual after-fix original Nano evidence as INCOMPLETE under durable-origin-ID requirement
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          src=json.loads(Path("input/B43_NANO_NATIVE_after_WITNESS.json").read_text())
+          case=src["records"][0]
+          assert case["tool"]=="b43_denied"
+          assert src["original_cross_boundary_id_link_available"] is False
+          assert src["durable_completion_record_available"] is False
+          input={
+           "native_wire_pair":{"request":case["original_native_request"],
+                               "response":case["original_native_reply"]},
+           "original_agent_tool_call_id":case["original_agent_tool_call_id"],
+           "original_run_executed":True,
+           "original_attempt_settled":True,
+           "original_run_joined":True,
+           "original_snapshot_after_join":True
+          }
+          Path("out/B43_POSTEXPOSURE_NANO_INPUT.json").write_text(json.dumps(input,sort_keys=True,indent=2)+"\n")
+          PY
+          python benchmarks/p6b43/development/verified_receipt_bridge.py \
+            --input out/B43_POSTEXPOSURE_NANO_INPUT.json \
+            --output out/B43_POSTEXPOSURE_NANO_INCOMPLETE.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path("out/B43_POSTEXPOSURE_NANO_INCOMPLETE.json").read_text())
+          assert result["score"]["verdict"]=="INCOMPLETE"
+          assert result["score"]["reason"]=="CONNECTION_ID_NOT_RECOVERABLE"
+          assert result["not_B43_independent_holdout"] is True
+          print("B43_POSTEXPOSURE_TRUE_ORIGINAL_NANO_STRONG_LINK_NOT_ESTABLISHED")
+          PY
+          sha256sum out/*.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b43-postexposure-strong-original-bridge-development-only
+          path: out/B43_POSTEXPOSURE_*
+          if-no-files-found: warn
+          retention-days: 90
