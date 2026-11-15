@@ -1,0 +1,75 @@
+name: P6-B44 export complete research source, sealed registration, full audit and frozen pre-B44 comparator
+on:
+  push:
+    branches: [qualification/p6b44-sealed-original-native-agent-durable-effect-20261114]
+    paths:
+      - .github/workflows/p6b44-export-source.yml
+      - benchmarks/p6b44/RESULTS_AND_NEXT_DECISION.md
+      - benchmarks/p6b44/EVIDENCE_INDEX.json
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 9dd37df63614416979052b30f3def8bac6f573e6
+          path: frozen-b43
+          persist-credentials: false
+          sparse-checkout: |
+            benchmarks/p6b43/development/verified_receipt_bridge.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Validate original frozen evidence files and create source archive with SHA256 manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          test "$(git -C frozen-b43 rev-parse HEAD:benchmarks/p6b43/development/verified_receipt_bridge.py)" = 3c20076a39ebf3529f600b59c3b38930d3d17d41
+          test -s benchmarks/p6b44/PREREGISTRATION.md
+          test -s benchmarks/p6b44/SEALED_COHORT.json
+          test -s benchmarks/p6b44/RESULTS_AND_NEXT_DECISION.md
+          test -s benchmarks/p6b44/EVIDENCE_INDEX.json
+          python - <<'PY'
+          import hashlib,json,zipfile,subprocess
+          from pathlib import Path
+          keep=list(Path("benchmarks/p6b44").rglob("*"))
+          keep+=list(Path(".github/workflows").glob("p6b44-*.yml"))
+          keep=[p for p in keep if p.is_file()]
+          frozen=Path("frozen-b43/benchmarks/p6b43/development/verified_receipt_bridge.py")
+          keep.append(frozen)
+          assert len(keep)>10,len(keep)
+          manifest={}
+          out=Path("out/B44_RESEARCH_SOURCE_WITH_FROZEN_B43.zip")
+          with zipfile.ZipFile(out,"w",compression=zipfile.ZIP_DEFLATED,compresslevel=9) as z:
+            for path in keep:
+              data=path.read_bytes()
+              name=str(path) if path!=frozen else "FROZEN_B43_SOURCE/verified_receipt_bridge.py"
+              z.writestr(name,data)
+              manifest[name]={"sha256":hashlib.sha256(data).hexdigest(),"bytes":len(data)}
+            meta={"schema":"risu-p6b44-source-handback-v1",
+                  "repo":"risu-research/risu-probe",
+                  "branch":"qualification/p6b44-sealed-original-native-agent-durable-effect-20261114",
+                  "head":subprocess.check_output(["git","rev-parse","HEAD"],text=True).strip(),
+                  "original_public_main":"8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+                  "files":manifest,
+                  "original_sources":"Original third-party owner source files are not copied or altered. Each pinned upstream repo source SHA/blob in SEALED_COHORT.json; official original author logs packaged separately."}
+            z.writestr("B44_RESEARCH_SOURCE_MANIFEST.json",json.dumps(meta,indent=2,sort_keys=True)+"\n")
+          assert zipfile.ZipFile(out).testzip() is None
+          print("B44_SOURCE_ARCHIVE_CREATED",len(keep),"files")
+          print("B44_SOURCE_ARCHIVE_SHA256",hashlib.sha256(out.read_bytes()).hexdigest())
+          PY
+          sha256sum out/B44_RESEARCH_SOURCE_WITH_FROZEN_B43.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: b44-complete-original-source-independent-research-and-frozen-bridge
+          path: out/B44_RESEARCH_SOURCE_WITH_FROZEN_B43.zip
+          if-no-files-found: error
+          retention-days: 90
