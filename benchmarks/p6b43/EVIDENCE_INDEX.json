@@ -3,7 +3,7 @@
   "date": "2026-11-14",
   "repository": "risu-research/risu-probe",
   "research_branch": "qualification/p6b43-original-agent-status-to-terminal-20261114",
-  "experimental_state": "PRIMARY_NANO_AND_CONTROLS_VERIFIED; ERATO_FULL_INTEGRATION_PENDING_COMPILATION",
+  "experimental_state": "NANO_NATIVE_AGENT_AND_INDEPENDENT_EXTERNAL_CONTROLS_VERIFIED; ERATO_FIRST_FULL_TEST_BOTH_RUNTIME_STACK_OVERFLOW; ORIGINAL_SOURCE_UNMODIFIED_128M_STACK_RETRY_IN_PROGRESS",
   "preregistration": {
     "path": "benchmarks/p6b43/PREREGISTRATION.md",
     "commit": "520961aa3dcc637fe90d0fa6b19a01cba6369341"
@@ -131,11 +131,16 @@
       ],
       "original_integration_setup": "original Rust workspace, Postgres 16 service, original Axum HTTP MCP & model stub, author's test-only after file overlaid on before",
       "github_actions_run": 43663839936,
-      "current_status": "IN_PROGRESS_ORIGINAL_RUST_COMPILATION",
+      "current_status": "INITIAL_BOTH_BEFORE_AND_AFTER_TEST_PROCESSES_ABORTED_RUST_STACK_OVERFLOW_SIGABRT; NO_ORIGINAL_STATUS_ASSERTION_REACHED",
       "original_test_passed": null,
       "original_test_failed": null,
       "count_as_end_to_end_original_execution": false,
-      "provenance_note": "No correctness claim until original test produces actual result; PR source patch and test code are NOT actual source execution evidence"
+      "provenance_note": "No correctness claim until original test produces actual result; PR source patch and test code are NOT actual source execution evidence",
+      "initial_failure_class": "RUNTIME_STACK_OVERFLOW_POST_COMPILATION_NOT_ORIGINAL_FIX_RED_GREEN",
+      "initial_before_compilation": "SUCCESS 9m6s",
+      "initial_after_compilation": "SUCCESS 11m21s",
+      "original_128m_stack_recovery_run": 43664983118,
+      "original_128m_stack_recovery_status": "IN_PROGRESS"
     },
     {
       "id": "N1",
@@ -221,7 +226,7 @@
     {
       "id": 43663839936,
       "experiment": "Erato actual original Rust integration with Postgres",
-      "conclusion": "RUNNING_PENDING"
+      "conclusion": "FAILURE_BOTH_ORIGINAL_TESTS_STACK_OVERFLOW_SIGABRT_AFTER_COMPILATION"
     },
     {
       "id": 43664080176,
@@ -242,6 +247,16 @@
       "id": 43664319307,
       "experiment": "B43 POST-EXPOSURE synthetic strong receipt bridge controls",
       "conclusion": "SUCCESS"
+    },
+    {
+      "id": 43664983118,
+      "experiment": "Erato original app+DB original tests without code patches at RUST_MIN_STACK 128MiB",
+      "conclusion": "IN_PROGRESS"
+    },
+    {
+      "id": 43664758841,
+      "experiment": "Invalid duplicate evaluator workflow YAML setup, removed from research branch",
+      "conclusion": "FAIL_SETUP_NO_JOBS"
     }
   ],
   "next_recommendation": "B44: isolate original native connection and request ID, original model tool ID, original authorization identity, durable paired start and end records and effect confirmation in NEW source-disjoint original agent, preregister heldout and use two independent owners for normal FPR. If upstream doesn't expose native ID, no inferred one-to-one tool-name matching. Do not call an ACK an effect.",
@@ -254,5 +269,73 @@
     "Erato full original Rust+Postgres integration not yet proven at initial evidence snapshot.",
     "AgentRun & mcpproxy-Go original controls independent but not unified native→agent→durable sample.",
     "Postexposure twelve synthetic cases are not original external tests and not production product."
+  ],
+  "artifacts": [
+    {
+      "artifact_id": 14140413692,
+      "run_id": 43663478236,
+      "name": "b43-nano-original-author-before",
+      "sha256_zip": "f429b824e23b09a12783446f1577a25b7b3f9ea464511a8e1b6aade7f0fb799f"
+    },
+    {
+      "artifact_id": 14140489920,
+      "run_id": 43663478236,
+      "name": "b43-nano-original-author-after",
+      "sha256_zip": "0a56f3f9d343f831307c4344ac9cee89cfdbc3084b011c62f0a3a99b052b1d16"
+    },
+    {
+      "artifact_id": 14140819300,
+      "run_id": 43663669412,
+      "name": "b43-nano-native-original-acp-before",
+      "sha256_zip": "ac404475b5606bc3068b665483cf522ecf595c39f6c73bd52d92e732d97b0055"
+    },
+    {
+      "artifact_id": 14141550035,
+      "run_id": 43663669412,
+      "name": "b43-nano-native-original-acp-after",
+      "sha256_zip": "e216861903a783f041e78b3f10dd43f063b6b2e2e7cc4bea81237cdfec7e5f78"
+    },
+    {
+      "artifact_id": 14140984153,
+      "run_id": 43663955500,
+      "name": "b43-original-nano-fixed-b38-and-strict-link-score",
+      "sha256_zip": "da09592f174d6ad590c96a0efb1bda2903e1cb980a82c946b3088eb04d9e0c46"
+    },
+    {
+      "artifact_id": 14141915644,
+      "run_id": 43664186939,
+      "name": "b43-n1-original-agentrun-cancellation-retry-lifecycle",
+      "sha256_zip": "487461b8148dc5f0dd82232cde082a991fa8ca54e04b8cd6eba8a51e9ff9e993"
+    },
+    {
+      "artifact_id": 14141940176,
+      "run_id": 43664023070,
+      "name": "b43-n2-original-mcpproxy-classification-only",
+      "sha256_zip": "b545c69b25a6aa75c4cfb9060d837bc8525588ca1f814670e2e6ba6311834519"
+    },
+    {
+      "artifact_id": 14141407223,
+      "run_id": 43664319307,
+      "name": "b43-postexposure-strong-original-bridge-development-only",
+      "sha256_zip": "ec6661e23be662566791e96106baf2c62c6ea95fde0607220fe7cba5215d08cb"
+    },
+    {
+      "artifact_id": 14141580587,
+      "run_id": 43664080176,
+      "name": "b43-n1-original-agentrun-initial-node-setup-failure",
+      "sha256_zip": "4dc3a6b92d1fa9dbc9ab3de1f786cd8cff45b1e29dcd516edd5c7401cde65cf8"
+    },
+    {
+      "artifact_id": 14141846381,
+      "run_id": 43663839936,
+      "name": "b43-erato-original-http-mcp-postgres-before-runtime-stackoverflow",
+      "sha256_zip": "e76aaa9ad432ca9031653f05209f91b37cd622de3fbf94313c16506677d767ef"
+    },
+    {
+      "artifact_id": 14142225569,
+      "run_id": 43663839936,
+      "name": "b43-erato-original-http-mcp-postgres-after-runtime-stackoverflow",
+      "sha256_zip": "68e0da5024e9f1553ef315ba31367e823493ecddc8876e7bfe4b65f9262bdc83"
+    }
   ]
 }
