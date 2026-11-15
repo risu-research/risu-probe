@@ -1,0 +1,48 @@
+name: P6-B43 source-disjoint external MCP gateway original error classification controls
+on:
+  push:
+    branches: [qualification/p6b43-original-agent-status-to-terminal-20261114]
+    paths:
+      - .github/workflows/p6b43-original-gateway-control.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mcpproxy-original-call-error:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: smart-mcp-proxy/mcpproxy-go
+          ref: fa4a8a4cc09da1927eff7829d8919e437e129b9d
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with: {go-version-file: original/go.mod, cache: false}
+      - name: Verify pristine external gateway source and author's classifier test
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = fa4a8a4cc09da1927eff7829d8919e437e129b9d
+          test "$(git -C original rev-parse HEAD:internal/callerr/classify.go)" = f7e579da004d9d7491208fe817349c8cd6822ad1
+          test "$(git -C original rev-parse HEAD:internal/callerr/classify_test.go)" = e2a2eba551776dd6fddeab1b79ba6f07d1d49923
+          mkdir -p out
+      - name: Run original author tool-error and cancellation taxonomy tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && go test ./internal/callerr -count=1 -v) \
+            2>&1 | tee out/B43_N2_ORIGINAL_GATEWAY_AUTHOR_TESTS.log
+          grep -q '--- PASS' out/B43_N2_ORIGINAL_GATEWAY_AUTHOR_TESTS.log || grep -q 'PASS' out/B43_N2_ORIGINAL_GATEWAY_AUTHOR_TESTS.log
+          echo B43_N2_ORIGINAL_ERROR_CLASSIFIER_TESTS_PASS
+          sha256sum out/B43_N2_ORIGINAL_GATEWAY_AUTHOR_TESTS.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b43-n2-original-mcpproxy-classification-only
+          path: out/B43_N2_*
+          if-no-files-found: warn
+          retention-days: 90
