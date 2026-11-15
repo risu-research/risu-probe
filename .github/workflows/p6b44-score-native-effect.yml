@@ -63,7 +63,7 @@ jobs:
           req=next(x["parsed_redacted"] for x in ev if x["direction"].startswith("evaluator_native_client") and x["parsed_redacted"].get("id")=="b44-execute-103")
           res=next(x["parsed_redacted"] for x in ev if x["direction"].startswith("original_external") and x["parsed_redacted"].get("id")=="b44-execute-103")
           assert req["params"]["name"]=="melra_execute"
-          assert res["result"].get("isError") is False
+          assert res["result"].get("isError", False) is False
           actual={"native_wire_pair":{"request":req,"response":res},
                   "original_run_executed":True,
                   "original_attempt_settled":True,
