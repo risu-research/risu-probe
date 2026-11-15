@@ -1,0 +1,41 @@
+name: P6-B43 POST-EXPOSURE synthetic identity collision nonidentifiability proof
+on:
+  push:
+    branches: [qualification/p6b43-original-agent-status-to-terminal-20261114]
+    paths:
+      - .github/workflows/p6b43-identity-collision-proof.yml
+      - benchmarks/p6b43/development/identity_collision_counterexample.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  mathematical-ambiguity-not-a-detector-result:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Verify two logically possible joins with opposite verdict from identical observable original-style records
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          python benchmarks/p6b43/development/identity_collision_counterexample.py \
+            --output out/B43_POSTEXPOSURE_IDENTITY_COLLISION.json \
+            2>&1 | tee out/B43_POSTEXPOSURE_IDENTITY_COLLISION.log
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("out/B43_POSTEXPOSURE_IDENTITY_COLLISION.json")
+          o=json.loads(p.read_text())
+          assert o["compatible_bijection_count"]==2
+          assert o["identifiable_result"]=="INCOMPLETE_CROSS_BOUNDARY_IDENTITY"
+          assert o["evidence_class"].startswith("SYNTHETIC_COUNTEREXAMPLE")
+          print("B43_POSTEXPOSURE_COLLISION_AMBIGUITY_CONFIRMED")
+          PY
+          sha256sum out/B43_POSTEXPOSURE_*
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b43-postexposure-source-independent-identity-collision, path: out/B43_POSTEXPOSURE_*, if-no-files-found: warn, retention-days: 90}
