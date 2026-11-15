@@ -1,0 +1,86 @@
+name: P6-B44 original MELRA MCP receipts and independently verified effect owner suite
+on:
+  push:
+    branches: [qualification/p6b44-sealed-original-native-agent-durable-effect-20261114]
+    paths:
+      - .github/workflows/p6b44-original-melra.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  melra-original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: XAGI-Lab/melra
+          ref: ab59ffa134decd9613a378c7bd8a0e8d495c7e89
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Verify original immutable upstream MCP/verification/receipt Git blobs before tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = ab59ffa134decd9613a378c7bd8a0e8d495c7e89
+          test "$(git -C original rev-parse HEAD:packages/server/src/mcp-server.ts)" = 17e3d6e7f0b63eb8395c4b5a9553dce3505d1a21
+          test "$(git -C original rev-parse HEAD:packages/runtime-core/src/verification-gate.ts)" = 67854f90eda0319580e08ced57e0426afe95e18f
+          test "$(git -C original rev-parse HEAD:packages/receipt-schema/src/index.ts)" = 72c1c5638fd22f6607c7b68988d0b6a44a46cd8d
+          test "$(git -C original rev-parse HEAD:packages/server/test/http-effect.test.ts)" = f9ca067f727469dc4c00893b10e601249a5ce3bc
+          test "$(git -C original rev-parse HEAD:packages/server/test/independent-verification.test.ts)" = 4b4e71c93fe0eb73b62e7295bfa998bc8be474e1
+          test "$(git -C original rev-parse HEAD:packages/storage-sqlite/src/workflow-store.test.ts)" = 710d07293423066a80f34b4fc4904461d165252b
+          mkdir -p out
+          node -v > out/B44_P1_ORIGINAL_NODE_VERSION.txt
+      - name: Original pnpm workspace install no source adaptation
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          (cd original && corepack pnpm install --frozen-lockfile --ignore-scripts) 2>&1 | tee out/B44_P1_ORIGINAL_INSTALL.log
+      - name: Build original workspace and its real executor, SQLite and MCP endpoints
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && corepack pnpm build) 2>&1 | tee out/B44_P1_ORIGINAL_BUILD.log
+      - name: Original author actual effect, independent verifier and MCP receipt tests
+        shell: bash
+        run: |
+          set +e
+          (cd original && corepack pnpm --filter @melra/server exec vitest run \
+            test/http-effect.test.ts \
+            test/independent-verification.test.ts \
+            test/verify-records.test.ts \
+            --reporter verbose) > out/B44_P1_ORIGINAL_SERVER_TESTS.log 2>&1
+          code=$?
+          tail -n 250 out/B44_P1_ORIGINAL_SERVER_TESTS.log
+          printf '%s\n' "$code" > out/B44_P1_ORIGINAL_SERVER_EXIT.txt
+          test "$code" -eq 0
+      - name: Original immutable SQLite persistent receipts
+        shell: bash
+        run: |
+          set +e
+          (cd original && corepack pnpm --filter @melra/storage-sqlite exec vitest run src/workflow-store.test.ts --reporter verbose) \
+            > out/B44_P1_ORIGINAL_STORAGE_TESTS.log 2>&1
+          code=$?
+          tail -n 120 out/B44_P1_ORIGINAL_STORAGE_TESTS.log
+          printf '%s\n' "$code" > out/B44_P1_ORIGINAL_STORAGE_EXIT.txt
+          test "$code" -eq 0
+          echo B44_P1_ORIGINAL_EFFECT_SQLITE_RECEIPT_OWNER_TESTS_PASSED
+      - name: Source tree invariant and raw first-party test hash
+        shell: bash
+        if: success()
+        run: |
+          set -euo pipefail
+          test -z "$(git -C original diff --name-only HEAD)"
+          sha256sum out/B44_P1_ORIGINAL_*TESTS.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b44-p1-original-melra-mcp-effect-sqlite
+          path: out/B44_P1_*
+          if-no-files-found: warn
+          retention-days: 90
