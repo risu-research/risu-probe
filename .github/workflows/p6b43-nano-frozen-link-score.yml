@@ -1,0 +1,75 @@
+name: P6-B43 fixed original B38 and independent LINK-1 on original Nano native-to-ACP prepost evidence
+on:
+  push:
+    branches: [qualification/p6b43-original-agent-status-to-terminal-20261114]
+    paths:
+      - .github/workflows/p6b43-nano-frozen-link-score.yml
+      - benchmarks/p6b43/runners/score_original_link.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-fixed-scoring:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 425d3d8272c4e725064010ed8fbf5b8217080cab
+          path: frozen-b38
+          persist-credentials: false
+          sparse-checkout: |
+            research/b38_native_contract_auditor.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Ensure unchanged independent original B38 file blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen-b38 rev-parse HEAD:research/b38_native_contract_auditor.py)" = 67bbb607d277dda3a1ead60a2ccd9ba807afd7ae
+          mkdir -p out/before out/after
+      - name: Retrieve original source/agent actual live native ACP witness, before
+        uses: actions/download-artifact@v4
+        with:
+          name: b43-nano-native-original-acp-before
+          run-id: '43663669412'
+          repository: risu-research/risu-probe
+          github-token: ${{ github.token }}
+          path: out/before
+      - name: Retrieve original source/agent actual live native ACP witness, after
+        uses: actions/download-artifact@v4
+        with:
+          name: b43-nano-native-original-acp-after
+          run-id: '43663669412'
+          repository: risu-research/risu-probe
+          github-token: ${{ github.token }}
+          path: out/after
+      - name: Assert source-independent B43 preregistered rule against positive and negative controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b43/runners/score_original_link.py --selftest | tee out/B43_LINK_SELFTEST.log
+      - name: Execute unmodified B38 and separate link rule on actual original source native+ACP pre/post
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b43/runners/score_original_link.py \
+            --before out/before/B43_NANO_NATIVE_before_WITNESS.json \
+            --after out/after/B43_NANO_NATIVE_after_WITNESS.json \
+            --b38 frozen-b38/research/b38_native_contract_auditor.py \
+            --output out/B43_NANO_ORIGINAL_B38_AND_LINK_SCORE.json
+          sha256sum out/B43_NANO_ORIGINAL_B38_AND_LINK_SCORE.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b43-original-nano-fixed-b38-and-strict-link-score
+          path: |
+            out/B43_LINK_SELFTEST.log
+            out/B43_NANO_ORIGINAL_B38_AND_LINK_SCORE.json
+          if-no-files-found: warn
+          retention-days: 90
