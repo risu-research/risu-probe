@@ -1,0 +1,202 @@
+{
+  "schema": "risu-p6b44-original-mcp-agent-durable-actual-effect-v1",
+  "date": "2026-11-14",
+  "source": "risu-research/risu-probe",
+  "research_branch": "qualification/p6b44-sealed-original-native-agent-durable-effect-20261114",
+  "public_product_main_sha": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+  "public_product_main_unchanged": true,
+  "pypi_version_unchanged": "0.9.23.dev0",
+  "preregistration": {
+    "commit": "22f32ed6b31fd100ca2b1ddd5a0951951279d49a",
+    "path": "benchmarks/p6b44/PREREGISTRATION.md",
+    "before_external_source_implementation_read": true
+  },
+  "sealed_cohort": {
+    "commit": "d7db9a17a89d6f176b786b95d8b24fb03a5e15eb",
+    "path": "benchmarks/p6b44/SEALED_COHORT.json",
+    "original_organizations": 4,
+    "excluded_previous_B34_B43_originals": true,
+    "post_exposure_replacements": 0
+  },
+  "original_firstparty_owner_runs": [
+    {
+      "id": "P1",
+      "org": "XAGI-Lab/melra",
+      "original_commit": "ab59ffa134decd9613a378c7bd8a0e8d495c7e89",
+      "run_id": 43666801968,
+      "conclusion": "success",
+      "firstparty_tests_executed": 40,
+      "firstparty_tests_passed": 40,
+      "firstparty_tests_failed": 0,
+      "test_groups": [
+        {
+          "name": "original MELRA HTTP governed effect and independent verification",
+          "tests_passed": 25,
+          "log_sha256": "bb0c08a0e2a01f0fb127743a0d192e7fae75fa2ec37e2787d7162d029d1b134b"
+        },
+        {
+          "name": "original MELRA SQLite workflow storage",
+          "tests_passed": 15,
+          "log_sha256": "8282dbf90829251bbd5262abbac4e062874bb862a0ebbcfa93978c3f322a79b3"
+        }
+      ],
+      "artifact": {
+        "id": 14142109953,
+        "name": "b44-p1-original-melra-mcp-effect-sqlite",
+        "zip_digest": "sha256:bac0a868d5833a716cf80de4935f017442d29f1ca267aff771494b582fa49e0c"
+      },
+      "entire_native_agent_model_to_persistent_original_link_proved": false
+    },
+    {
+      "id": "P2",
+      "org": "heggria/taskflow",
+      "original_commit": "f4e29406b78a1e16c9b69a50f62096fb6e4ae74c",
+      "run_id": 43666832524,
+      "conclusion": "success",
+      "firstparty_tests_executed": 86,
+      "firstparty_tests_passed": 86,
+      "firstparty_tests_failed": 0,
+      "log_sha256": "f90ff27a3229abe58954155cad0f11388e2bc71af99888563d10d788a79bf90b",
+      "artifact": {
+        "id": 14141654283,
+        "name": "b44-p2-original-taskflow-mcp-effect-persist",
+        "zip_digest": "sha256:65c318b066fb5467e539f8c0e076c8b2ace0cb9fd875f6f8b05b2ef88e54764c"
+      },
+      "source_boundary": "original native jsonrpc requestId in transport, separate saved runId; no original model/native cross-ID from one invocation proven",
+      "entire_native_agent_model_to_persistent_original_link_proved": false
+    },
+    {
+      "id": "P3",
+      "org": "edgar4/yada",
+      "original_commit": "4066bb21fd3f1dd358d1d82166755671cd8e2b50",
+      "run_id": 43666767778,
+      "conclusion": "success",
+      "firstparty_tests_executed": 57,
+      "firstparty_tests_passed": 57,
+      "firstparty_tests_failed": 0,
+      "log_sha256": "9241dd7b6a61dc2feefdb22d43e7e1a846819d476684b59162018e7ebfe520d7",
+      "artifact": {
+        "id": 14141369871,
+        "name": "b44-p3-original-yada-mcp-durable-write",
+        "zip_digest": "sha256:fec90f2a72e6a9fdf9e693a05e52c0e70c1031f63b6be1d3722243e316f87626"
+      },
+      "source_boundary": "original application operationId embedded in MCP _meta and original reconcile; original wire request id and model call id durable bond not proven",
+      "entire_native_agent_model_to_persistent_original_link_proved": false
+    },
+    {
+      "id": "P4",
+      "org": "haibaoseal/sentinel-mcp",
+      "original_commit": "1692d38a20221da7d62fb6268a3a0097ebb1f523",
+      "run_id": 43666738466,
+      "conclusion": "success",
+      "firstparty_tests_executed": 137,
+      "firstparty_tests_passed": 137,
+      "firstparty_tests_failed": 0,
+      "log_sha256": "ab7b68e76015ab42f817ca92df488737696f2a1ceb2bb047d481e6ee647d214e",
+      "artifact": {
+        "id": 14142560486,
+        "name": "b44-p4-original-sentinel-agent-mcp-audit",
+        "zip_digest": "sha256:8c9a980913492e6d64d1b8e2aeb9443e2ecf2eb1842c1d8a32c24a920a9dc40c"
+      },
+      "source_boundary": "original model ProviderToolCall.id stored only in ProviderMessage; original ToolRequest lacks model id, remote ClientSession.call_tool request id not saved in original audit",
+      "entire_native_agent_model_to_persistent_original_link_proved": false
+    }
+  ],
+  "firstparty_owner_total_tests_executed": 320,
+  "firstparty_owner_total_passed": 320,
+  "firstparty_owner_total_failed": 0,
+  "subsequent_original_melra_author_e2e": {
+    "run_id": 43667423952,
+    "original_selected_tests_passed": 2,
+    "original_selected_tests_failed": 0,
+    "original_same_test_file_skipped_by_pattern": 14,
+    "native_stdio_original_file_effect_and_original_durable_restart_tests_verified": true
+  },
+  "actual_original_native_to_original_storage_effect": {
+    "id": "P1-native-real-effect",
+    "run_id": 43667423952,
+    "original_repo": "XAGI-Lab/melra",
+    "original_commit": "ab59ffa134decd9613a378c7bd8a0e8d495c7e89",
+    "original_mcp_source_git_blob": "17e3d6e7f0b63eb8395c4b5a9553dce3505d1a21",
+    "source_modified": false,
+    "witness_json_sha256": "98e2fc70617a5fa620cdebab88c3fe3c65729afa8bee65c8357cadb09ed07baa",
+    "original_native_jsonrpc_request_ids": [
+      "b44-plan-101",
+      "b44-denied-102",
+      "b44-execute-103",
+      "b44-receipt-104",
+      "b44-status-105"
+    ],
+    "actual_native_request_response_count": 5,
+    "actual_native_wire_extraction": "true original stdio stdin/stdout newline-delimited JSON-RPC bytes, digest before redacting ephemeral approval phrase; test-owned client",
+    "actual_native_inband_denial_isError": true,
+    "actual_native_denied_effect_absent": true,
+    "actual_native_approved_original_melra_status": "verified_success",
+    "actual_native_original_task_id": "83d2923b-6fab-4865-b3bc-0ee02bba820b",
+    "actual_native_original_certificate_digest": "0f3684e6aa2ee0a71c693757ed24c98fa4d3d837b3ac15fac600c4dc4300412c",
+    "independent_original_file_effect_sha256": "5dfb18d66bc68dacedf3d62ef83d612bc763068619d6637d1c95cd8574cc45e2",
+    "independent_original_file_effect_exact": true,
+    "original_melra_process_clean_exit": true,
+    "original_sqlite_readonly_reopened_after_process_exit": true,
+    "original_sqlite_task_rows_for_task": 1,
+    "original_sqlite_receipt_rows_for_task": 1,
+    "original_sqlite_certificate_rows_for_task": 1,
+    "original_sqlite_task_status": "verified_success",
+    "original_stored_receipt_schema_has_startedAt_and_endedAt": true,
+    "actual_original_model_agent_tool_call_id_observed": false,
+    "original_model_agent_id_to_native_request_id_mapping": false,
+    "original_per_native_request_durable_start": false,
+    "original_per_native_request_durable_terminal": false,
+    "not_eligible_original_model_agent_route": true,
+    "actual_external_business_provider_effect": false,
+    "strong_chain_flags": {
+      "W": true,
+      "A": false,
+      "S": false,
+      "T": false,
+      "E": true
+    },
+    "strong_chain_verdict": "LINK_INCOMPLETE",
+    "original_app_task_level_receipt_proved": true,
+    "artifact": {
+      "id": 14142996419,
+      "name": "b44-p1-original-melra-native-stdio-sqlite-file-effect",
+      "zip_digest": "sha256:faee2b4ed69b5fc244ba9d5e21e09a148132ab0fb040c9c39aeddb748ebeb7b1"
+    }
+  },
+  "original_witness_conservative_scoring": {
+    "run_id": 43667744634,
+    "conclusion": "success",
+    "score_source": "benchmarks/p6b44/runners/score_original_native_effect.py",
+    "evaluator_created_after_source_exposure": true,
+    "negative_mutation_selftests_only": 6,
+    "strict_original_score": "LINK_INCOMPLETE",
+    "original_witness_eval_sha256": "1042ac0ca958ec13b49de7ebea91078ad4e1e47cc096239a06d01173a249485e",
+    "frozen_B43_source_commit": "9dd37df63614416979052b30f3def8bac6f573e6",
+    "frozen_B43_source_blob": "3c20076a39ebf3529f600b59c3b38930d3d17d41",
+    "frozen_B43_source_unchanged": true,
+    "frozen_B43_original_missing_link_score": "INCOMPLETE",
+    "frozen_B43_original_missing_link_reason": "CONNECTION_ID_NOT_RECOVERABLE",
+    "frozen_B43_output_sha256": "e9635e1744ea88f833dc1dda74d4d0a685b88e15a0125f426fba6734cfd47887",
+    "artifact": {
+      "id": 14142946276,
+      "name": "b44-p1-independent-original-melra-native-durable-effect-strict-score",
+      "zip_digest": "sha256:7113c10062419ebea43e72fd0b2696ea683036733fc2d4a5d482fd1050e35403"
+    },
+    "failed_setup_run": {
+      "run_id": 43667675115,
+      "reason": "test-only harness asserted explicit isError false even though original MCP normal result omitted optional isError; fixed harness get(isError, false), no source/contract change",
+      "scope": "EVALUATOR_ONLY_ASSERTION_SETUP_NOT_EXTERNAL_APP_DEFECT"
+    }
+  },
+  "actual_full_original_five_edge_eligible_organizations": 0,
+  "actual_full_original_five_edge_verified_organizations": 0,
+  "population_full_chain_accuracy_claim": "UNMEASURED_0_ELIGIBLE",
+  "population_false_positive_rate_claim": "UNMEASURED",
+  "source_disjoint_original_owners_executed": 4,
+  "actual_original_native_to_durable_task_receipt_to_file_effect_organizations": 1,
+  "all_four_originals_full_chain_verified": false,
+  "no_claim_of_actual_external_agent_model_id_binding": true,
+  "no_original_impl_patched": true,
+  "next_research": "B45 preregister NEW non-overlap original agent with model call ID and original native request ID and original per-attempt durable start/end and independently read real effect, or explicitly build and externally evaluate an instrumentation-layer bridge; do not assume missing native↔model link."
+}
