@@ -1,0 +1,81 @@
+name: P6-B44 original Taskflow MCP durable control journal real effect author suites
+on:
+  push:
+    branches: [qualification/p6b44-sealed-original-native-agent-durable-effect-20261114]
+    paths:
+      - .github/workflows/p6b44-original-taskflow.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  taskflow-original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: heggria/taskflow
+          ref: f4e29406b78a1e16c9b69a50f62096fb6e4ae74c
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '26'}
+      - name: Verify original MCP JSON-RPC and stored journal, original effect and test Git blob identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = f4e29406b78a1e16c9b69a50f62096fb6e4ae74c
+          test "$(git -C original rev-parse HEAD:packages/taskflow-mcp-core/src/mcp/jsonrpc.ts)" = c79c7c67845d4a1accd0c7229ef6dbd6fae8f9c5
+          test "$(git -C original rev-parse HEAD:packages/taskflow-mcp-core/src/mcp/server.ts)" = af8c198f654582c1f1dc4835e813ef2fd4c8833d
+          test "$(git -C original rev-parse HEAD:packages/taskflow-control/src/store/journal.ts)" = be847b22f41d37da15379ebdb692af9405589bf6
+          test "$(git -C original rev-parse HEAD:packages/taskflow-core/src/effects/runtime-apply.ts)" = 2e3b4dfd80ab848acd377cf1f45b767b127e7186
+          test "$(git -C original rev-parse HEAD:packages/taskflow-core/test/runtime-terminal-persist.test.ts)" = db4bdae88ba0ccd18df448fc11ec6273ad1f7f4f
+          test "$(git -C original rev-parse HEAD:packages/taskflow-core/test/effects-trusted.test.ts)" = 6b6bfc397bd6e2c6615c777fa73012362b2d8220
+          mkdir -p out
+          node -v > out/B44_P2_ORIGINAL_NODE_VERSION.txt
+      - name: Install original repo workspaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          (cd original && corepack pnpm install --frozen-lockfile --ignore-scripts) \
+             2>&1 | tee out/B44_P2_ORIGINAL_INSTALL.log
+      - name: Compile original project packages
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && corepack pnpm build) 2>&1 | tee out/B44_P2_ORIGINAL_BUILD.log
+      - name: Run original durable terminal and effects before/after tests and original MCP call runtime suite
+        shell: bash
+        run: |
+          set +e
+          (cd original && PI_TASKFLOW_BUILTIN_AGENTS_DIR= node --conditions=development --experimental-strip-types --test \
+            packages/taskflow-core/test/runtime-terminal-persist.test.ts \
+            packages/taskflow-core/test/effects-trusted.test.ts \
+            packages/taskflow-core/test/effects-gateway-bypass.test.ts \
+            packages/taskflow-core/test/idempotent.test.ts \
+            packages/taskflow-mcp-core/test/jsonrpc-cancellation.test.ts \
+            packages/taskflow-mcp-core/test/checkpoint-durability.test.ts \
+            packages/taskflow-control/test/control-mcp.test.ts) \
+             > out/B44_P2_ORIGINAL_OWNER_TESTS.log 2>&1
+          code=$?
+          tail -n 230 out/B44_P2_ORIGINAL_OWNER_TESTS.log
+          printf '%s\n' "$code" > out/B44_P2_ORIGINAL_EXIT.txt
+          test "$code" -eq 0
+          echo B44_P2_ORIGINAL_NATIVE_MCP_JOURNAL_EFFECT_TESTS_PASSED
+      - name: Verify source invariance and evidence hash
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C original diff --name-only HEAD)"
+          sha256sum out/B44_P2_ORIGINAL_OWNER_TESTS.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b44-p2-original-taskflow-mcp-effect-persist
+          path: out/B44_P2_*
+          if-no-files-found: warn
+          retention-days: 90
