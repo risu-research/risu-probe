@@ -1,0 +1,73 @@
+name: P6-B44 original Sentinel agent MCP audit effect first-party tests
+on:
+  push:
+    branches: [qualification/p6b44-sealed-original-native-agent-durable-effect-20261114]
+    paths:
+      - .github/workflows/p6b44-original-sentinel.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sentinel-original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: haibaoseal/sentinel-mcp
+          ref: 1692d38a20221da7d62fb6268a3a0097ebb1f523
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Prove exact untouched external source before running its real tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = 1692d38a20221da7d62fb6268a3a0097ebb1f523
+          test "$(git -C original rev-parse HEAD:apps/api/app/agent/loop.py)" = 83c30f614f6b0c6c8909643faed7f2c50e56dcf3
+          test "$(git -C original rev-parse HEAD:apps/api/app/mcp/client.py)" = 0d9c011a8d8ca0ae46c8cc56c9789620a7406f37
+          test "$(git -C original rev-parse HEAD:apps/api/app/mcp/server.py)" = fdf22c15e3e80f472dcc31967c98f90af15077d3
+          test "$(git -C original rev-parse HEAD:apps/api/app/audit/logger.py)" = 55664a6a1c4861180ac69ceb159a26a35342c55c
+          test "$(git -C original rev-parse HEAD:apps/api/app/tests/test_agent_loop.py)" = 112883b9ee0556ab90a47d854f4df8f52155ff14
+          test "$(git -C original rev-parse HEAD:apps/api/app/tests/test_audit_chain.py)" = 91b7c2446fcada578788e33c28d8a572bbcee332
+          test "$(git -C original rev-parse HEAD:apps/api/app/tests/test_mcp_gateway.py)" = c9ffcfcbc5763b824fad2837cf8e9bf571db3825
+          mkdir -p out
+          python -V > out/B44_P4_ORIGINAL_PYTHON_VERSION.txt
+      - name: Install selected original author's own test dependencies no project source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && python -m pip install -e '.[dev]') 2>&1 | tee out/B44_P4_ORIGINAL_INSTALL.log
+      - name: Execute official original agent MCP server, gateway, audit hash chain and real-effect test suites
+        shell: bash
+        run: |
+          set +e
+          (cd original && python -m pytest -q \
+            apps/api/app/tests/test_agent_loop.py \
+            apps/api/app/tests/test_audit_chain.py \
+            apps/api/app/tests/test_mcp_gateway.py \
+            apps/api/app/tests/test_mcp_server.py \
+            apps/api/app/tests/test_real_tools.py) \
+            > out/B44_P4_ORIGINAL_OWNER_TESTS.log 2>&1
+          code=$?
+          cat out/B44_P4_ORIGINAL_OWNER_TESTS.log
+          printf '%s\n' "$code" > out/B44_P4_ORIGINAL_EXIT_CODE.txt
+          test "$code" -eq 0
+      - name: Confirm code was not modified during original owner's tests
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -z "$(git -C original diff --name-only HEAD)"
+          sha256sum out/B44_P4_ORIGINAL_OWNER_TESTS.log
+          echo B44_P4_ORIGINAL_AUTHOR_SUITES_EXECUTED_WITHOUT_SOURCE_PATCH
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b44-p4-original-sentinel-agent-mcp-audit
+          path: out/B44_P4_*
+          if-no-files-found: warn
+          retention-days: 90
