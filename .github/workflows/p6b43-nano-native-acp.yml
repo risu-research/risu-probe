@@ -1,0 +1,90 @@
+name: P6-B43 Nano ORIGINAL native MCP stdio through original ACP agent terminal red-green
+on:
+  push:
+    branches: [qualification/p6b43-original-agent-status-to-terminal-20261114]
+    paths:
+      - .github/workflows/p6b43-nano-native-acp.yml
+      - benchmarks/p6b43/runners/nano_original_native_to_acp.spec.ts
+      - benchmarks/p6b43/runners/nano_native_mcp_server.mjs
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-native-acp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - phase: before
+            ref: 39d8fa2a8cf0a710d192720daf966fd68b6eaf26
+            blob: eb153d44c9d0cf9c2dafefe36e046c1d17812454
+          - phase: after
+            ref: 2c87d801ef4779f7e4344c287f3feb9f4b0be054
+            blob: 1e3a3fd5ba1cbab962f69883789dc725c1a26a0a
+    name: original-nano-native-acp-${{ matrix.phase }}
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: Nano-Collective/nanocoder
+          ref: ${{ matrix.ref }}
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Freeze original implementation before test-only overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = "${{ matrix.ref }}"
+          test "$(git -C original rev-parse HEAD:source/mcp/mcp-client.ts)" = "${{ matrix.blob }}"
+          mkdir -p out
+      - name: Install original project dependencies (no source patch)
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          (cd original && corepack pnpm install --frozen-lockfile --ignore-scripts) 2>&1 | tee out/B43_NANO_NATIVE_${{ matrix.phase }}_INSTALL.log
+      - name: Overlay only independent evaluator native MCP server and ACP integration test
+        shell: bash
+        run: |
+          cp benchmarks/p6b43/runners/nano_native_mcp_server.mjs original/source/acp/b43-native-mcp-server.mjs
+          cp benchmarks/p6b43/runners/nano_original_native_to_acp.spec.ts original/source/acp/b43-original-native-to-acp.spec.ts
+          test "$(git -C original rev-parse HEAD:source/mcp/mcp-client.ts)" = "${{ matrix.blob }}"
+      - name: Execute native STDIO transport and original ACP session pre/post with explicit native and ACP IDs
+        shell: bash
+        run: |
+          set -euo pipefail
+          export B43_NANO_PHASE="${{ matrix.phase }}"
+          export B43_NANO_NATIVE_ACP="$PWD/out/B43_NANO_NATIVE_${{ matrix.phase }}_WITNESS.json"
+          (cd original && corepack pnpm exec ava source/acp/b43-original-native-to-acp.spec.ts) \
+            2>&1 | tee out/B43_NANO_NATIVE_${{ matrix.phase }}_RUN.log
+          test -s out/B43_NANO_NATIVE_${{ matrix.phase }}_WITNESS.json
+          python - <<'PY'
+          import json,hashlib,os
+          from pathlib import Path
+          f=Path(os.environ["B43_NANO_NATIVE_ACP"])
+          j=json.loads(f.read_text())
+          assert j["original_MCPClient_native_sdk_and_acp_all_executed"]
+          assert len(j["records"])==2
+          record={x["tool"]:x for x in j["records"]}
+          phase=os.environ["B43_NANO_PHASE"]
+          assert record["b43_denied"]["original_agent_terminal_status"]==("failed" if phase=="after" else "completed")
+          assert record["b43_success"]["original_agent_terminal_status"]=="completed"
+          assert record["b43_denied"]["original_native_reply"]["result"]["isError"] is True
+          assert record["b43_success"]["original_native_reply"]["result"]["isError"] is False
+          assert record["b43_denied"]["original_agent_terminal_count"]==1
+          assert record["b43_success"]["original_agent_terminal_count"]==1
+          print("B43_NANO_ORIGINAL_NATIVE_TO_ACP",phase,"sha256",hashlib.sha256(f.read_bytes()).hexdigest())
+          PY
+          sha256sum out/B43_NANO_NATIVE_${{ matrix.phase }}_WITNESS.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b43-nano-native-original-acp-${{ matrix.phase }}
+          path: out/B43_NANO_NATIVE_${{ matrix.phase }}_*
+          if-no-files-found: warn
+          retention-days: 90
