@@ -1,0 +1,258 @@
+{
+  "schema": "risu-p6-b43-original-native-agent-link-evidence-v1",
+  "date": "2026-11-14",
+  "repository": "risu-research/risu-probe",
+  "research_branch": "qualification/p6b43-original-agent-status-to-terminal-20261114",
+  "experimental_state": "PRIMARY_NANO_AND_CONTROLS_VERIFIED; ERATO_FULL_INTEGRATION_PENDING_COMPILATION",
+  "preregistration": {
+    "path": "benchmarks/p6b43/PREREGISTRATION.md",
+    "commit": "520961aa3dcc637fe90d0fa6b19a01cba6369341"
+  },
+  "sealed_cohort": {
+    "path": "benchmarks/p6b43/SEALED_COHORT.json",
+    "commit": "cb8715d60e29716ef2ce96f5387d12724a6ff71a"
+  },
+  "product": {
+    "public_main_commit": "8d622b792b4ae58b7157fd81ee5f95d6febcfd53",
+    "public_main_modified": false,
+    "release_modified": false
+  },
+  "frozen_b38": {
+    "source_commit": "425d3d8272c4e725064010ed8fbf5b8217080cab",
+    "source_git_blob": "67bbb607d277dda3a1ead60a2ccd9ba807afd7ae",
+    "source_modified": false
+  },
+  "interpretation": {
+    "independent_source_organizations_selected": 4,
+    "original_executed_control_organizations": 3,
+    "original_native_mcp_to_original_agent_organizations": 1,
+    "original_native_mcp_to_original_agent_versions": 2,
+    "original_native_mcp_to_original_agent_cases": 4,
+    "original_native_mcp_to_original_agent_error_cases": 2,
+    "explicit_status_false_success_pre_fix": 1,
+    "explicit_status_false_success_post_fix": 0,
+    "original_agent_terminal_events_per_test_case": 1,
+    "strong_native_request_id_to_agent_call_id_original_links": 0,
+    "strong_original_durable_receipt_original_links": 0,
+    "strong_B43_link_completed_cases": 0,
+    "strong_B43_link_cases_incomplete": 4,
+    "original_full_agent_postgres_persisted_attempt": "P2 Erato original Rust CI pending",
+    "absent_link_do_not_infer_correctness": true,
+    "generic_detection_performance": "NOT_ESTIMATED",
+    "real_business_effect_verification": "NOT_TESTED",
+    "operational_deployment_proof": "NOT_TESTED"
+  },
+  "cases": [
+    {
+      "id": "P1",
+      "repository": "Nano-Collective/nanocoder",
+      "original_pr": "https://github.com/Nano-Collective/nanocoder/pull/1926",
+      "original_before_commit": "39d8fa2a8cf0a710d192720daf966fd68b6eaf26",
+      "original_after_commit": "2c87d801ef4779f7e4344c287f3feb9f4b0be054",
+      "original_impl_git_blob_before": "eb153d44c9d0cf9c2dafefe36e046c1d17812454",
+      "original_impl_git_blob_after": "1e3a3fd5ba1cbab962f69883789dc725c1a26a0a",
+      "original_author_red_green": {
+        "run": 43663478236,
+        "result": "PASS before FAIL expected in 2 selected author tests; after both PASS",
+        "owner_test_before_source_overlay_only": true,
+        "upstream_source_unchanged": true
+      },
+      "actual_native_original_agent": {
+        "run": 43663669412,
+        "status": "SUCCESS BOTH ORIGINAL VERSIONS",
+        "source_tier": "ORIGINAL_SDK_STDIO_LOGICAL_NATIVE_JSONRPC_TO_ORIGINAL_MCPCLIENT_AND_ACP_WITH_SCRIPTED_MODEL",
+        "native_wire_logical_message_pairs": "matched tools/call 2 in each version",
+        "original_native_body_bytes_independently_captured": false,
+        "original_sdk_transport": "StdioClientTransport",
+        "original_application": "MCPClient + runAcpConversation + AcpSession",
+        "scenarios": {
+          "before": {
+            "inband_error": {
+              "native_isError": true,
+              "original_ACP_final": "completed",
+              "original_terminal_count": 1,
+              "content_preserved": true
+            },
+            "success": {
+              "native_isError": false,
+              "original_ACP_final": "completed",
+              "original_terminal_count": 1
+            }
+          },
+          "after": {
+            "inband_error": {
+              "native_isError": true,
+              "original_ACP_final": "failed",
+              "original_terminal_count": 1,
+              "content_preserved": true
+            },
+            "success": {
+              "native_isError": false,
+              "original_ACP_final": "completed",
+              "original_terminal_count": 1
+            }
+          }
+        },
+        "witness_sha256_before": "911226bc57174fc2d8f91888309554acb4c0f71f37ab9d64832aa81f16fbe453",
+        "witness_sha256_after": "3f10dfa534825d9633c65cfe13afa5e08ba7ed35cb138c9b1547e0622a5bbd37",
+        "native_json_rpc_ids_recorded_but_not_original_bound_to_ACP_ids": true,
+        "original_cross_boundary_native_to_agent_id_mapping_available": false,
+        "original_persistent_agent_receipt_available": false,
+        "no_effect_confirmation": true
+      },
+      "separate_checker": {
+        "run": 43663955500,
+        "unchanged_B38_status": "BEFORE APPLICATION_ERROR_AS_SUCCESS, AFTER PRESERVED",
+        "independent_B43_LINK_1": "FOUR LINK_INCOMPLETE due original cross-ID and no original durable receipt",
+        "original_native_witness_source_retained": true,
+        "score_sha256": "2d216f26d3d005df4ad418039f7971566337c630f69fc8ecd4a7f67ee3c669e9",
+        "scorer_selftest_count": 7
+      },
+      "first_harness_failure": {
+        "run": 43663411643,
+        "reason": "setup-node npm cache pnpm requested before corepack pnpm installed",
+        "resolved_in_evaluator_only": true
+      }
+    },
+    {
+      "id": "P2",
+      "repository": "EratoLab/erato",
+      "original_pr": "https://github.com/EratoLab/erato/pull/1486",
+      "original_before": "5c3eac23d6efdff9f275ad45da7cf63e24f77e3d",
+      "original_after": "f9e5f47bf948e16f441b09b40bcfb4565ce0433c",
+      "original_src_blob_before": "9895f44f18652c2d67aaf1586bb506fe7826a66d",
+      "original_src_blob_after": "33d8b04c628f5f465b563c77c4f4296fbc20dd45",
+      "original_firstparty_test_blob_after": "3943008917fcd7e026267c77ef69bec2b4429c30",
+      "original_owner_PR_code_verified_through_patch": true,
+      "original_source_intended_actual_path": "native HTTP MCP response result.isError -> Rust agent -> persisted Postgres Messages row.tool_use.status -> emitted SSE tool_call_update.status",
+      "original_firstparty_test_names": [
+        "approved_mcp_error",
+        "uninterrupted_mcp_error"
+      ],
+      "original_integration_setup": "original Rust workspace, Postgres 16 service, original Axum HTTP MCP & model stub, author's test-only after file overlaid on before",
+      "github_actions_run": 43663839936,
+      "current_status": "IN_PROGRESS_ORIGINAL_RUST_COMPILATION",
+      "original_test_passed": null,
+      "original_test_failed": null,
+      "count_as_end_to_end_original_execution": false,
+      "provenance_note": "No correctness claim until original test produces actual result; PR source patch and test code are NOT actual source execution evidence"
+    },
+    {
+      "id": "N1",
+      "repository": "Parcha-ai/agentrun",
+      "original_pr": "https://github.com/Parcha-ai/agentrun/pull/2767",
+      "original_post_commit": "90385367d64a581727f2f73bd29a7e69b18c3b90",
+      "original_run": 43664186939,
+      "original_source_unchanged": true,
+      "selected_original_test_count": 17,
+      "original_test_passed": 17,
+      "original_test_failed": 0,
+      "test_topics": [
+        "original native tool execution booking",
+        "stop/cancellation",
+        "reclaim and reuse of original task ID without recomputation",
+        "agent harness conformance facts"
+      ],
+      "actual_original_native_MCP_status_to_durable_receipt_link_evaluated": false,
+      "B43_strong_chain_eligible": false,
+      "source_tier": "ORIGINAL_EXTERNAL_AGENT_LIFECYCLE_OWNER_TEST_ONLY",
+      "initial_harness_failure": {
+        "run": 43664080176,
+        "reason": "github node 24.22.2 below original source >=24.22.3; fixed test-only Node 26"
+      },
+      "log_sha256": "867066f20186c5c7c7c3a2938e0d5df1c24ec158289bcb95496569a1e234a0fb"
+    },
+    {
+      "id": "N2",
+      "repository": "smart-mcp-proxy/mcpproxy-go",
+      "original_pr": "https://github.com/smart-mcp-proxy/mcpproxy-go/pull/1502",
+      "original_post_commit": "fa4a8a4cc09da1927eff7829d8919e437e129b9d",
+      "original_run": 43664023070,
+      "original_classifier_git_blob": "f7e579da004d9d7491208fe817349c8cd6822ad1",
+      "original_source_unchanged": true,
+      "original_classification_tests_passed": true,
+      "original_classification_test_functions_passed": 11,
+      "count_of_passed_go_subtests": 58,
+      "original_distinguishes": [
+        "native tool isError",
+        "network",
+        "http non2xx",
+        "jsonrpc",
+        "cancelled"
+      ],
+      "source_tier": "ORIGINAL_EXTERNAL_GATEWAY_ERROR_CLASSIFIER_OWNER_TESTS",
+      "actual_original_agent_tested": false,
+      "B43_strong_chain_eligible": false
+    }
+  ],
+  "postexposure_dev_only": {
+    "source": "benchmarks/p6b43/development/verified_receipt_bridge.py",
+    "workflow_run": 43664319307,
+    "source_written_after_exposure": true,
+    "future_B44_potential": true,
+    "synthetic_selftests_passed": 12,
+    "original_nano_after_evidence_classification": "INCOMPLETE",
+    "reason": "CONNECTION_ID_NOT_RECOVERABLE",
+    "original_nano_absent_connection_and_persistent_receipt_never_fabricated": true,
+    "no_independent_external_generalization": true,
+    "original_nano_incomplete_sha256": "e9635e1744ea88f833dc1dda74d4d0a685b88e15a0125f426fba6734cfd47887"
+  },
+  "github_actions": [
+    {
+      "id": 43663411643,
+      "experiment": "Nano original owner initial evaluator cache setup",
+      "conclusion": "FAIL_SETUP"
+    },
+    {
+      "id": 43663478236,
+      "experiment": "Nano official owner original tests pre/post",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "id": 43663669412,
+      "experiment": "Nano real native SDK to original ACP before/after",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "id": 43663955500,
+      "experiment": "Nano unchanged B38 and independent B43 link audit",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "id": 43663839936,
+      "experiment": "Erato actual original Rust integration with Postgres",
+      "conclusion": "RUNNING_PENDING"
+    },
+    {
+      "id": 43664080176,
+      "experiment": "Original AgentRun initial node-version setup",
+      "conclusion": "FAIL_SETUP"
+    },
+    {
+      "id": 43664186939,
+      "experiment": "Original AgentRun source owner lifecycle controls",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "id": 43664023070,
+      "experiment": "Original MCP gateway call error taxonomy controls",
+      "conclusion": "SUCCESS"
+    },
+    {
+      "id": 43664319307,
+      "experiment": "B43 POST-EXPOSURE synthetic strong receipt bridge controls",
+      "conclusion": "SUCCESS"
+    }
+  ],
+  "next_recommendation": "B44: isolate original native connection and request ID, original model tool ID, original authorization identity, durable paired start and end records and effect confirmation in NEW source-disjoint original agent, preregister heldout and use two independent owners for normal FPR. If upstream doesn't expose native ID, no inferred one-to-one tool-name matching. Do not call an ACK an effect.",
+  "scientific_limitations": [
+    "Intentional selection of known original upstream fixes is not blind sensitivity, and cases are exposed dev sources.",
+    "Original Nano native JSON-RPC frame hook is parsed message observation, not independent raw bytes.",
+    "Original Nano sends two distinct names (one call each); no original strong native request ID-to-agent tool ID mapping.",
+    "Original Nano ACP update callback is an event, not independently verified persistent original journal.",
+    "No original external user/business effect observed.",
+    "Erato full original Rust+Postgres integration not yet proven at initial evidence snapshot.",
+    "AgentRun & mcpproxy-Go original controls independent but not unified native→agent→durable sample.",
+    "Postexposure twelve synthetic cases are not original external tests and not production product."
+  ]
+}
