@@ -16,7 +16,7 @@ import {AcpSession} from '@/acp/acp-session';
 import {runAcpConversation} from '@/acp/acp-conversation';
 import {MCPClient} from '@/mcp/mcp-client';
 import {setToolRegistryGetter,setToolManagerGetter} from '@/message-handler';
-import type {LLMClient} from '@/types/index';
+import type {LLMClient} from '@/types/core';
 
 const fixture = fileURLToPath(new URL('./b43-native-mcp-server.mjs',import.meta.url));
 const phase = process.env.B43_NANO_PHASE;
