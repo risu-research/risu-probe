@@ -1,0 +1,94 @@
+name: P6-B43 Nano original author MCP to ACP red-green source audit
+on:
+  push:
+    branches: [qualification/p6b43-original-agent-status-to-terminal-20261114]
+    paths:
+      - .github/workflows/p6b43-nano-owner-redgreen.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-author-redgreen:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - phase: before
+            ref: 39d8fa2a8cf0a710d192720daf966fd68b6eaf26
+            impl_blob: eb153d44c9d0cf9c2dafefe36e046c1d17812454
+          - phase: after
+            ref: 2c87d801ef4779f7e4344c287f3feb9f4b0be054
+            impl_blob: 1e3a3fd5ba1cbab962f69883789dc725c1a26a0a
+    name: original-nanocoder-${{ matrix.phase }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: Nano-Collective/nanocoder
+          ref: ${{ matrix.ref }}
+          path: original
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: Nano-Collective/nanocoder
+          ref: 2c87d801ef4779f7e4344c287f3feb9f4b0be054
+          path: original-author-tests
+          persist-credentials: false
+          sparse-checkout: |
+            source/mcp/mcp-client.spec.ts
+            source/acp/acp-conversation.spec.ts
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: 'pnpm', cache-dependency-path: original/pnpm-lock.yaml}
+      - name: Verify exact selected original implementation before any evaluator test-only overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = "${{ matrix.ref }}"
+          test "$(git -C original rev-parse HEAD:source/mcp/mcp-client.ts)" = "${{ matrix.impl_blob }}"
+          test "$(git -C original-author-tests rev-parse HEAD:source/mcp/mcp-client.spec.ts)" = 85e7b05f1d7542b5988a68aaccf911caa862068a
+          test "$(git -C original-author-tests rev-parse HEAD:source/acp/acp-conversation.spec.ts)" = 1ab85a485a41aa75a845c4797715840099690e7b
+          mkdir -p out
+      - name: Install official project source workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          (cd original && corepack pnpm install --frozen-lockfile --ignore-scripts) 2>&1 | tee out/B43_NANO_${{ matrix.phase }}_INSTALL.log
+      - name: Overlay only official author's new tests onto original before version
+        if: matrix.phase == 'before'
+        shell: bash
+        run: |
+          cp original-author-tests/source/mcp/mcp-client.spec.ts original/source/mcp/mcp-client.spec.ts
+          cp original-author-tests/source/acp/acp-conversation.spec.ts original/source/acp/acp-conversation.spec.ts
+          test "$(git -C original rev-parse HEAD:source/mcp/mcp-client.ts)" = eb153d44c9d0cf9c2dafefe36e046c1d17812454
+      - name: Run source-external first-party MCP tool error flag regression
+        shell: bash
+        run: |
+          set +e
+          (cd original && corepack pnpm exec ava source/mcp/mcp-client.spec.ts --match '*carries a server isError flag*') > out/B43_NANO_${{ matrix.phase }}_MCP_OWNER.log 2>&1
+          code=$?
+          cat out/B43_NANO_${{ matrix.phase }}_MCP_OWNER.log
+          echo "${code}" > out/B43_NANO_${{ matrix.phase }}_MCP_EXIT.txt
+          if [ "${{ matrix.phase }}" = "after" ]; then test "$code" -eq 0; else test "$code" -ne 0; fi
+          echo B43_NANO_${{ matrix.phase }}_MCP_EXPECTED_SOURCE_OUTCOME_CONFIRMED
+      - name: Run source-external first-party original ACP error and normal tool-ID regression
+        shell: bash
+        run: |
+          set +e
+          (cd original && corepack pnpm exec ava source/acp/acp-conversation.spec.ts --match '*an MCP result with isError is failed*') > out/B43_NANO_${{ matrix.phase }}_ACP_OWNER.log 2>&1
+          code=$?
+          cat out/B43_NANO_${{ matrix.phase }}_ACP_OWNER.log
+          echo "${code}" > out/B43_NANO_${{ matrix.phase }}_ACP_EXIT.txt
+          if [ "${{ matrix.phase }}" = "after" ]; then test "$code" -eq 0; else test "$code" -ne 0; fi
+          echo B43_NANO_${{ matrix.phase }}_ACP_EXPECTED_SOURCE_OUTCOME_CONFIRMED
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b43-nano-original-author-${{ matrix.phase }}
+          path: out/B43_NANO_*
+          if-no-files-found: warn
+          retention-days: 90
