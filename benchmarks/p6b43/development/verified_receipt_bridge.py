@@ -79,9 +79,9 @@ def verify(record:dict)->dict:
        "note":"Application cancellation is distinct from native tool error and business effect"}
     if final=="unknown":return incomplete("FINAL_OUTCOME_UNKNOWN")
     source="error" if result.get("isError",False) else "success"
-    verdict="PRESERVED_ORIGINAL_NATIVE_TO_DURABLE_TERMINAL" if final==source else
-      "ORIGINAL_ERROR_AS_SUCCESS" if source=="error" and final=="success" else
-      "ORIGINAL_SUCCESS_AS_ERROR"
+    verdict=("PRESERVED_ORIGINAL_NATIVE_TO_DURABLE_TERMINAL" if final==source else
+             "ORIGINAL_ERROR_AS_SUCCESS" if source=="error" and final=="success" else
+             "ORIGINAL_SUCCESS_AS_ERROR")
     return {"verdict":verdict,"native_status":source,"original_terminal":final,
       "original_native_request_id":request["id"],"original_agent_tool_call_id":agent_id,
       "original_start_event_id":start["event_id"],"original_terminal_event_id":terminal[0]["event_id"],
