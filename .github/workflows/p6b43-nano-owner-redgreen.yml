@@ -42,7 +42,7 @@ jobs:
             source/acp/acp-conversation.spec.ts
           sparse-checkout-cone-mode: false
       - uses: actions/setup-node@v4
-        with: {node-version: '24', cache: 'pnpm', cache-dependency-path: original/pnpm-lock.yaml}
+        with: {node-version: '24'}
       - name: Verify exact selected original implementation before any evaluator test-only overlay
         shell: bash
         run: |
