@@ -1,0 +1,94 @@
+name: P6-B44 independently score actual original MELRA native SQLite effect and unchanged frozen B43 strong-identity bridge
+on:
+  push:
+    branches: [qualification/p6b44-sealed-original-native-agent-durable-effect-20261114]
+    paths:
+      - .github/workflows/p6b44-score-native-effect.yml
+      - benchmarks/p6b44/runners/score_original_native_effect.py
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  independent-source-evidence-score:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: risu-research/risu-probe
+          ref: 9dd37df63614416979052b30f3def8bac6f573e6
+          path: frozen-b43
+          sparse-checkout: |
+            benchmarks/p6b43/development/verified_receipt_bridge.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Prove previously frozen original B43 comparator source and B44 pre-committed protocol untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C frozen-b43 rev-parse HEAD)" = 9dd37df63614416979052b30f3def8bac6f573e6
+          test "$(git -C frozen-b43 rev-parse HEAD:benchmarks/p6b43/development/verified_receipt_bridge.py)" = 3c20076a39ebf3529f600b59c3b38930d3d17d41
+          test "$(git -C . rev-parse HEAD:benchmarks/p6b44/SEALED_COHORT.json)" = "$(git hash-object benchmarks/p6b44/SEALED_COHORT.json)"
+          mkdir -p input out
+      - uses: actions/download-artifact@v4
+        with:
+          name: b44-p1-original-melra-native-stdio-sqlite-file-effect
+          run-id: '43667423952'
+          repository: risu-research/risu-probe
+          github-token: ${{ github.token }}
+          path: input
+      - name: Score original execution from independent original raw stdio, original SQLite receipt, independent effect bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b44/runners/score_original_native_effect.py \
+            --input input/B44_P1_ORIGINAL_NATIVE_SQLITE_FILE_WITNESS.json \
+            --output out/B44_P1_ORIGINAL_EVIDENCE_STRICT_SCORE.json \
+            --selftest 2>&1 | tee out/B44_P1_STRICT_SCORE_LOG.txt
+          sha256sum out/B44_P1_ORIGINAL_EVIDENCE_STRICT_SCORE.json
+      - name: Run unchanged frozen original B43 bridge on observed real original wire, without fabricating native-to-model ID or original per-native-call ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          j=json.loads(Path("input/B44_P1_ORIGINAL_NATIVE_SQLITE_FILE_WITNESS.json").read_text())
+          ev=j["native_stdio_raw_frame_redacted_witnesses"]
+          req=next(x["parsed_redacted"] for x in ev if x["direction"].startswith("evaluator_native_client") and x["parsed_redacted"].get("id")=="b44-execute-103")
+          res=next(x["parsed_redacted"] for x in ev if x["direction"].startswith("original_external") and x["parsed_redacted"].get("id")=="b44-execute-103")
+          assert req["params"]["name"]=="melra_execute"
+          assert res["result"].get("isError") is False
+          actual={"native_wire_pair":{"request":req,"response":res},
+                  "original_run_executed":True,
+                  "original_attempt_settled":True,
+                  "original_run_joined":True,
+                  "original_snapshot_after_join":True}
+          Path("out/B44_P1_ORIGINAL_B43_FROZEN_INPUT.json").write_text(json.dumps(actual,sort_keys=True,indent=2)+"\n")
+          PY
+          python frozen-b43/benchmarks/p6b43/development/verified_receipt_bridge.py \
+            --input out/B44_P1_ORIGINAL_B43_FROZEN_INPUT.json \
+            --output out/B44_P1_ORIGINAL_B43_FROZEN_OUTPUT.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("out/B44_P1_ORIGINAL_B43_FROZEN_OUTPUT.json")
+          j=json.loads(p.read_text())
+          assert j["score"]["verdict"]=="INCOMPLETE"
+          assert j["score"]["reason"]=="CONNECTION_ID_NOT_RECOVERABLE"
+          assert j["not_B43_independent_holdout"] is True
+          print("B44_FROZEN_ORIGINAL_B43_STRONG_MODEL_ID_TO_PERSISTED_RECEIPT_INCOMPLETE_CORRECT")
+          PY
+          sha256sum out/B44_P1_ORIGINAL_B43_FROZEN_OUTPUT.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b44-p1-independent-original-melra-native-durable-effect-strict-score
+          path: out/B44_P1_*
+          if-no-files-found: warn
+          retention-days: 90
