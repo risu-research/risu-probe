@@ -1,0 +1,90 @@
+name: P6-B44 real byte-serialized original MELRA MCP to durable SQLite and independently read file effect
+on:
+  push:
+    branches: [qualification/p6b44-sealed-original-native-agent-durable-effect-20261114]
+    paths:
+      - .github/workflows/p6b44-melra-serialized-native-effect.yml
+      - benchmarks/p6b44/runners/melra_original_serialized_native_effect.py
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-external-native-mcp-durable-effect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: XAGI-Lab/melra
+          ref: ab59ffa134decd9613a378c7bd8a0e8d495c7e89
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Verify exact original implementation blobs before running selected owner
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = ab59ffa134decd9613a378c7bd8a0e8d495c7e89
+          test "$(git -C original rev-parse HEAD:packages/server/src/mcp-server.ts)" = 17e3d6e7f0b63eb8395c4b5a9553dce3505d1a21
+          test "$(git -C original rev-parse HEAD:packages/storage-sqlite/src/workflow-store.test.ts)" = 710d07293423066a80f34b4fc4904461d165252b
+          test "$(git -C original rev-parse HEAD:packages/receipt-schema/src/index.ts)" = 72c1c5638fd22f6607c7b68988d0b6a44a46cd8d
+          test "$(git -C original rev-parse HEAD:packages/server/test/e2e.test.ts)" = "$(git -C original hash-object original/packages/server/test/e2e.test.ts)" || test "$(git -C original rev-parse HEAD:packages/server/test/e2e.test.ts)" = "$(git -C original hash-object packages/server/test/e2e.test.ts)"
+          mkdir -p out
+          python -V > out/B44_P1_NATIVE_PYTHON_VERSION.txt
+          node -v > out/B44_P1_NATIVE_NODE_VERSION.txt
+      - name: Install & compile unchanged original MELRA server and CLI + original SQLite
+        shell: bash
+        run: |
+          set -euo pipefail
+          corepack enable
+          (cd original && corepack pnpm install --frozen-lockfile --ignore-scripts) 2>&1 | tee out/B44_P1_NATIVE_ORIGINAL_INSTALL.log
+          (cd original && corepack pnpm build) 2>&1 | tee out/B44_P1_NATIVE_ORIGINAL_BUILD.log
+          test -f original/apps/cli/dist/bin.js
+      - name: Execute author's own original native MCP file effect and restart persistence cases
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && corepack pnpm --filter @melra/server exec vitest run \
+             test/e2e.test.ts \
+             --testNamePattern "enforces scoped approval and verifies a real file effect|resumes an approval-gated verified workflow in a new MCP process" \
+             --reporter verbose) > out/B44_P1_NATIVE_ORIGINAL_OWNER_E2E.log 2>&1
+          tail -n 150 out/B44_P1_NATIVE_ORIGINAL_OWNER_E2E.log
+      - name: Execute raw serialized actual JSON-RPC to original MELRA and inspect independent filesystem and original SQLite after process shutdown
+        shell: bash
+        run: |
+          set -euo pipefail
+          python benchmarks/p6b44/runners/melra_original_serialized_native_effect.py \
+            --original original \
+            --output out/B44_P1_ORIGINAL_NATIVE_SQLITE_FILE_WITNESS.json \
+            2>&1 | tee out/B44_P1_NATIVE_CHAIN_EXECUTION.log
+          test -s out/B44_P1_ORIGINAL_NATIVE_SQLITE_FILE_WITNESS.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          j=json.loads(Path("out/B44_P1_ORIGINAL_NATIVE_SQLITE_FILE_WITNESS.json").read_text())
+          assert j["original_commit"]=="ab59ffa134decd9613a378c7bd8a0e8d495c7e89"
+          assert j["strict_five_edge_w"] and j["strict_five_edge_e"]
+          assert not j["strict_five_edge_a"] and not j["strict_five_edge_s"] and not j["strict_five_edge_t"]
+          assert j["full_chain_verdict"]=="LINK_INCOMPLETE"
+          assert j["persisted_original_sqlite"]["independently_reopened_after_original_process_exit"]
+          assert j["effect"]["authorized_effect_content_exact"]
+          assert j["effect"]["wrong_approval_did_not_mutate"]
+          assert len(j["source_runtime_native_calls"])==5
+          print("B44_FIRST_LOOK_ORIGINAL_NATIVE_AND_EFFECT_REAL_FULL_CHAIN_ID_GAP_CONFIRMED")
+          PY
+          sha256sum out/B44_P1_ORIGINAL_NATIVE_SQLITE_FILE_WITNESS.json
+          sha256sum out/B44_P1_NATIVE_ORIGINAL_OWNER_E2E.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b44-p1-original-melra-native-stdio-sqlite-file-effect
+          path: |
+            out/B44_P1_NATIVE*
+            out/B44_P1_ORIGINAL_NATIVE_SQLITE_FILE_WITNESS.json
+          if-no-files-found: warn
+          retention-days: 90
