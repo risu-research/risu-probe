@@ -1,0 +1,73 @@
+name: P6-B44 original Yada MCP durable approved write external controls
+on:
+  push:
+    branches: [qualification/p6b44-sealed-original-native-agent-durable-effect-20261114]
+    paths:
+      - .github/workflows/p6b44-original-yada.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  yada-original:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: edgar4/yada
+          ref: 4066bb21fd3f1dd358d1d82166755671cd8e2b50
+          path: original
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '26'}
+      - name: Verify original pinned MCP client/agent/approval and first-party test Git blobs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = 4066bb21fd3f1dd358d1d82166755671cd8e2b50
+          test "$(git -C original rev-parse HEAD:src/connectors/mcp/rpc.ts)" = 37944406413d5fd53c9015d65ac4f7181b2dcab4
+          test "$(git -C original rev-parse HEAD:src/connectors/mcp/write.ts)" = 6d64fbe2502459775991a0b912825f42f75c3b10
+          test "$(git -C original rev-parse HEAD:src/core/agent-tool.ts)" = bea03ef85e9bb0f6f94d79c2e6f40643d19cd2a2
+          test "$(git -C original rev-parse HEAD:tests/mcp-write-durable.test.ts)" = f4573c47edae2ce3bbed9490c547914781c9b7af
+          test "$(git -C original rev-parse HEAD:tests/mcp-write-http.test.ts)" = 297461b71a7556e8ccd9be1d0a650b1234552127
+          test "$(git -C original rev-parse HEAD:tests/mcp-write-protocol.test.ts)" = 78b182adc21a79689ed01420e5aad0a1e2e07432
+          mkdir -p out
+          node -v > out/B44_P3_ORIGINAL_NODE_VERSION.txt
+      - name: Install original author dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd original && npm ci --no-audit --no-fund) 2>&1 | tee out/B44_P3_ORIGINAL_INSTALL.log
+      - name: Execute original author's real MCP write protocol, HTTP transport, durable, approval and reconnect tests
+        shell: bash
+        run: |
+          set +e
+          (cd original && npx vitest run \
+            tests/mcp-write-durable.test.ts \
+            tests/mcp-write-http.test.ts \
+            tests/mcp-write-protocol.test.ts \
+            tests/mcp-write-boundaries.test.ts \
+            tests/mcp-write-policy.test.ts \
+            tests/mcp-write-reconnect.test.ts \
+            --reporter verbose) > out/B44_P3_ORIGINAL_OWNER_TESTS.log 2>&1
+          code=$?
+          tail -n 240 out/B44_P3_ORIGINAL_OWNER_TESTS.log
+          printf '%s\n' "$code" > out/B44_P3_ORIGINAL_EXIT_CODE.txt
+          test "$code" -eq 0
+      - name: Persist provenance and sanity checks
+        shell: bash
+        if: success()
+        run: |
+          set -euo pipefail
+          test -z "$(git -C original diff --name-only HEAD)"
+          sha256sum out/B44_P3_ORIGINAL_OWNER_TESTS.log
+          echo B44_P3_ORIGINAL_EXTERNAL_DURABLE_MCP_WRITE_OWNER_TESTS_PASS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b44-p3-original-yada-mcp-durable-write
+          path: out/B44_P3_*
+          if-no-files-found: warn
+          retention-days: 90
