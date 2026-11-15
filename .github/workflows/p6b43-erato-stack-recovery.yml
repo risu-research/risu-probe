@@ -1,0 +1,125 @@
+name: P6-B43 Erato original app PostgreSQL MCP controlled large-stack test recovery
+on:
+  push:
+    branches: [qualification/p6b43-original-agent-status-to-terminal-20261114]
+    paths:
+      - .github/workflows/p6b43-erato-stack-recovery.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  original-rust-postgres-no-source-patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - phase: before
+            ref: 5c3eac23d6efdff9f275ad45da7cf63e24f77e3d
+            srcblob: 9895f44f18652c2d67aaf1586bb506fe7826a66d
+          - phase: after
+            ref: f9e5f47bf948e16f441b09b40bcfb4565ce0433c
+            srcblob: 33d8b04c628f5f465b563c77c4f4296fbc20dd45
+    name: original-erato-stack-recovery-${{ matrix.phase }}
+    services:
+      postgres:
+        image: postgres:16
+        env: {POSTGRES_DB: erato, POSTGRES_USER: eratouser, POSTGRES_PASSWORD: eratopw}
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U eratouser -d erato"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 8
+    env:
+      DATABASE_URL: postgres://eratouser:eratopw@127.0.0.1:5432/erato
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      RUST_BACKTRACE: '1'
+      RUST_MIN_STACK: '134217728'
+    steps:
+      - uses: actions/checkout@v5
+        with: {persist-credentials: false}
+      - uses: actions/checkout@v5
+        with:
+          repository: EratoLab/erato
+          ref: ${{ matrix.ref }}
+          path: original
+          persist-credentials: false
+      - uses: actions/checkout@v5
+        with:
+          repository: EratoLab/erato
+          ref: f9e5f47bf948e16f441b09b40bcfb4565ce0433c
+          path: original-author-tests
+          sparse-checkout: |
+            backend/erato/tests/integration_tests/api/messages/mcp_file_outputs.rs
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Verify official original app sources and original author tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C original rev-parse HEAD)" = "${{ matrix.ref }}"
+          test "$(git -C original rev-parse HEAD:backend/erato/src/server/api/v1beta/message_streaming.rs)" = "${{ matrix.srcblob }}"
+          test "$(git -C original-author-tests rev-parse HEAD:backend/erato/tests/integration_tests/api/messages/mcp_file_outputs.rs)" = 3943008917fcd7e026267c77c4f4296fbc20dd45 || \
+            test "$(git -C original-author-tests rev-parse HEAD:backend/erato/tests/integration_tests/api/messages/mcp_file_outputs.rs)" = 3943008917fcd7e026267c77ef69bec2b4429c30
+          mkdir -p out
+          echo "B43_RECOVERY_STRESS: only 128MiB Rust test thread stack, original source untouched" > out/B43_ERATO_${{ matrix.phase }}_RECOVERY_NOTE.txt
+      - name: Original native libraries required by original Rust workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends pkg-config libssl-dev libclang-dev clang cmake protobuf-compiler libpq-dev
+      - name: Overlay official post-PR regression test file only onto original before implementation
+        if: matrix.phase == 'before'
+        shell: bash
+        run: |
+          cp original-author-tests/backend/erato/tests/integration_tests/api/messages/mcp_file_outputs.rs \
+             original/backend/erato/tests/integration_tests/api/messages/mcp_file_outputs.rs
+          test "$(git -C original rev-parse HEAD:backend/erato/src/server/api/v1beta/message_streaming.rs)" = "${{ matrix.srcblob }}"
+      - name: Run original selected app/HTTP native MCP/Postgres test with restored Rust test thread stack
+        shell: bash
+        run: |
+          set +e
+          ulimit -s unlimited
+          (cd original/backend && cargo test -p erato --test integration_tests approved_mcp_error \
+             --no-default-features -- --nocapture --test-threads=1) \
+             > out/B43_ERATO_${{ matrix.phase }}_APPROVED.log 2>&1
+          code=$?
+          tail -n 150 out/B43_ERATO_${{ matrix.phase }}_APPROVED.log
+          echo "$code" > out/B43_ERATO_${{ matrix.phase }}_APPROVED_EXIT.txt
+          if [ "$code" -ne 0 ]; then
+             if grep -Eqi 'stack overflow|fatal runtime error|could not compile|error: test failed.*signal|linking with.*failed|out of memory|no space left' \
+                out/B43_ERATO_${{ matrix.phase }}_APPROVED.log; then
+                echo B43_ERATO_${{ matrix.phase }}_TEST_RUNTIME_OR_SETUP_INCOMPLETE
+                exit 1
+             fi
+          fi
+          if [ "${{ matrix.phase }}" = "after" ]; then test "$code" -eq 0; else test "$code" -ne 0; fi
+          echo B43_ERATO_${{ matrix.phase }}_ORIGINAL_APPROVED_OWNER_SOURCE_VERDICT_REPRODUCED
+      - name: Run distinct original uninterrupted application/Postgres/status test
+        shell: bash
+        run: |
+          set +e
+          ulimit -s unlimited
+          (cd original/backend && cargo test -p erato --test integration_tests uninterrupted_mcp_error \
+            --no-default-features -- --nocapture --test-threads=1) \
+            > out/B43_ERATO_${{ matrix.phase }}_UNINTERRUPTED.log 2>&1
+          code=$?
+          tail -n 150 out/B43_ERATO_${{ matrix.phase }}_UNINTERRUPTED.log
+          echo "$code" > out/B43_ERATO_${{ matrix.phase }}_UNINTERRUPTED_EXIT.txt
+          if [ "$code" -ne 0 ]; then
+            if grep -Eqi 'stack overflow|fatal runtime error|could not compile|error: test failed.*signal|linking with.*failed|out of memory|no space left' \
+               out/B43_ERATO_${{ matrix.phase }}_UNINTERRUPTED.log; then
+               echo B43_ERATO_${{ matrix.phase }}_TEST_RUNTIME_OR_SETUP_INCOMPLETE
+               exit 1
+            fi
+          fi
+          if [ "${{ matrix.phase }}" = "after" ]; then test "$code" -eq 0; else test "$code" -ne 0; fi
+          echo B43_ERATO_${{ matrix.phase }}_ORIGINAL_UNINTERRUPTED_OWNER_SOURCE_VERDICT_REPRODUCED
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: {name: b43-erato-original-rust-app-128mstack-${{ matrix.phase }}, path: out/B43_ERATO_${{ matrix.phase }}_*, if-no-files-found: warn, retention-days: 90}
