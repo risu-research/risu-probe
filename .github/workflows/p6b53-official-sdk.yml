@@ -3,11 +3,15 @@ on:
   push:
     branches: [qualification/p6b53-official-sdk-transport-20261127]
     paths: ['benchmarks/p6b53/**', '.github/workflows/p6b53-official-sdk.yml']
+  pull_request:
+    branches: [qualification/p6b44-sealed-original-native-agent-durable-effect-20261114]
+    paths: ['benchmarks/p6b53/**', '.github/workflows/p6b53-official-sdk.yml']
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   official-sdk:
+    if: github.event_name != 'pull_request' || github.head_ref == 'qualification/p6b53-official-sdk-transport-20261127'
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
