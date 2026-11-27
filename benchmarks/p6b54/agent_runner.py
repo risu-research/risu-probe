@@ -3,7 +3,8 @@ Only normalized model responses are scripted. No live model/API calls."""
 import asyncio, importlib.metadata, json, pathlib, sqlite3, sys, uuid
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey as Key
 from cryptography.hazmat.primitives import serialization
-from agents import Agent, Runner, RunConfig, ToolContext, function_tool
+from agents import Agent, Runner, RunConfig, function_tool
+from agents.tool_context import ToolContext
 from agents.testing import ScriptedModel, assistant_message, function_call
 from mcp import Client, StdioServerParameters
 from sdk_probe import HERE, rows, tool_calls
