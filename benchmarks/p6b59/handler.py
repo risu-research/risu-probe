@@ -44,7 +44,7 @@ def plan_reading(query:str,list_name:str,ctx:Context)->dict:
     rid=ctx.request_context.request_id
     if type(rid) not in (int,str):raise ValueError('NATIVE_ID')
     meta=ctx.request_context.meta
-    md=meta.model_dump(by_alias=True,exclude_none=True) if meta is not None else {}
+    md=meta if isinstance(meta,dict) else (meta.model_dump(by_alias=True,exclude_none=True) if meta is not None else {})
     env=md.get('risu_b59')
     log(dict(event='PARENT',id=rid,connection=conn,arguments=dict(query=query,list_name=list_name),envelope=env))
     if not isinstance(env,dict):raise ValueError('MISSING_INTENT')
