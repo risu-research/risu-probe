@@ -1,0 +1,54 @@
+name: B57 CampusReads external application qualification
+on:
+  push:
+    branches: [qualification/p6b57-campusreads-integration-20261127]
+    paths: ['benchmarks/p6b57/**', '.github/workflows/p6b57-campusreads.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  external:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Acquire pinned external application
+        run: |
+          set -euxo pipefail
+          mkdir -p b57-work b57-evidence
+          git clone --no-checkout https://github.com/Joud158/campusreads-mcp-toolkit.git b57-work/upstream
+          git -C b57-work/upstream checkout --detach 99ea07d1074eb06885ec1107029e48d83fe05e78
+          git -C b57-work/upstream rev-parse HEAD | tee b57-evidence/upstream-commit.txt
+      - name: Install hash-pinned SDKs and upstream dependency
+        run: |
+          set -euxo pipefail
+          python -m pip download --only-binary=:all: --no-deps --dest b57-work mcp==2.3.0 openai-agents==0.26.0
+          echo 'dd0c44c089d16453e8ae31a3877a0054d7a2314caaa81f5e0541b9b1734b2377  b57-work/mcp-2.3.0-py3-none-any.whl' | sha256sum -c -
+          echo 'c3f9545035e46a5a17c88eec789e2301efe26eca230fccab0fc4a6961c0f02e1  b57-work/openai_agents-0.26.0-py3-none-any.whl' | sha256sum -c -
+          python -m pip install b57-work/mcp-2.3.0-py3-none-any.whl b57-work/openai_agents-0.26.0-py3-none-any.whl fastmcp==4.1.4 python-dotenv==1.2.4 cryptography
+          python -m pip freeze > b57-evidence/dependencies.txt
+      - name: Execute original application host and server
+        run: |
+          set -o pipefail
+          python benchmarks/p6b57/harness.py b57-work/upstream b57-evidence/run 2>&1 | tee b57-evidence/RUN.txt
+      - name: Audit captured evidence
+        run: |
+          set -o pipefail
+          python benchmarks/p6b57/audit.py b57-evidence/run 2>&1 | tee b57-evidence/AUDIT.txt
+      - name: Preserve evidence
+        if: always()
+        run: |
+          mkdir -p b57-evidence
+          git rev-parse HEAD > b57-evidence/research-commit.txt
+          find b57-evidence -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > b57-evidence/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b57-campusreads-evidence
+          path: b57-evidence/
+          retention-days: 90
