@@ -1,0 +1,50 @@
+name: B58 destination boundary qualification
+on:
+  push:
+    branches: [qualification/p6b58-destination-boundary-20261127]
+    paths: ['benchmarks/p6b58/**', '.github/workflows/p6b58-destination.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  destination:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Acquire exact external source
+        run: |
+          set -euxo pipefail
+          mkdir -p b58-work b58-evidence
+          git clone --no-checkout https://github.com/Joud158/campusreads-mcp-toolkit.git b58-work/upstream
+          git -C b58-work/upstream checkout --detach 99ea07d1074eb06885ec1107029e48d83fe05e78
+          git -C b58-work/upstream rev-parse HEAD | tee b58-evidence/upstream-commit.txt
+      - name: Install official MCP and upstream FastMCP
+        run: |
+          set -euxo pipefail
+          python -m pip download --only-binary=:all: --no-deps --dest b58-work mcp==2.3.0
+          echo 'dd0c44c089d16453e8ae31a3877a0054d7a2314caaa81f5e0541b9b1734b2377  b58-work/mcp-2.3.0-py3-none-any.whl' | sha256sum -c -
+          python -m pip install b58-work/mcp-2.3.0-py3-none-any.whl fastmcp==4.1.4 cryptography
+          python -m pip freeze > b58-evidence/dependencies.txt
+      - name: Execute original service, native MCP and actual UID-separated broker
+        run: |
+          set -o pipefail
+          sudo env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD/b58-work/upstream" "$(command -v python)" benchmarks/p6b58/qualify.py b58-work/upstream b58-evidence/run 2>&1 | tee b58-evidence/RUN.txt
+      - name: Preserve evidence
+        if: always()
+        run: |
+          mkdir -p b58-evidence
+          sudo chown -R "$(id -u):$(id -g)" b58-evidence
+          git rev-parse HEAD > b58-evidence/research-commit.txt
+          find b58-evidence -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > b58-evidence/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b58-destination-evidence
+          path: b58-evidence/
+          retention-days: 90
