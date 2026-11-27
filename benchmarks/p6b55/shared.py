@@ -131,4 +131,4 @@ async def exercise(out):
         import shutil;shutil.rmtree(ep)
 if __name__=='__main__':
     if sys.argv[1]=='proxy':proxy(sys.argv[2])
-    else:asyncio.run(exercise(sys.argv[2]))
+    else:asyncio.run(exercise(sys.argv[1]))
