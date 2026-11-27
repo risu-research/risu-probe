@@ -1,0 +1,53 @@
+name: B61 native lifecycle qualification
+on:
+  push:
+    branches: [qualification/p6b61-native-lifecycle-20261127]
+    paths: ['benchmarks/p6b61/**', '.github/workflows/p6b61-lifecycle.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  external:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Acquire pinned external application
+        run: |
+          set -euxo pipefail
+          mkdir -p b61-work b61-evidence
+          git clone --no-checkout https://github.com/Joud158/campusreads-mcp-toolkit.git b61-work/upstream
+          git -C b61-work/upstream checkout --detach 99ea07d1074eb06885ec1107029e48d83fe05e78
+          git -C b61-work/upstream rev-parse HEAD | tee b61-evidence/upstream-commit.txt
+      - name: Install hash-pinned SDKs and upstream dependency
+        run: |
+          set -euxo pipefail
+          python -m pip download --only-binary=:all: --no-deps --dest b61-work mcp==2.3.0 openai-agents==0.26.0
+          echo 'dd0c44c089d16453e8ae31a3877a0054d7a2314caaa81f5e0541b9b1734b2377  b61-work/mcp-2.3.0-py3-none-any.whl' | sha256sum -c -
+          echo 'c3f9545035e46a5a17c88eec789e2301efe26eca230fccab0fc4a6961c0f02e1  b61-work/openai_agents-0.26.0-py3-none-any.whl' | sha256sum -c -
+          python -m pip install b61-work/mcp-2.3.0-py3-none-any.whl b61-work/openai_agents-0.26.0-py3-none-any.whl fastmcp==4.1.4 python-dotenv==1.2.4 cryptography
+          python -m pip freeze > b61-evidence/dependencies.txt
+      - name: Verify frozen B60 engine
+        run: echo '9592a40a28e021c75ddaa238566dedd4c15ceaef241e1b3c0919856bc12661e0  benchmarks/p6b61/lifecycle.py' | sha256sum -c -
+      - name: Execute native SDK and original composite service
+        run: |
+          set -o pipefail
+          sudo env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD/b61-work/upstream" "$(command -v python)" benchmarks/p6b61/qualify61.py b61-work/upstream b61-evidence/run 2>&1 | tee b61-evidence/RUN.txt
+      - name: Preserve evidence
+        if: always()
+        run: |
+          mkdir -p b61-evidence
+          sudo chown -R "$(id -u):$(id -g)" b61-evidence
+          git rev-parse HEAD > b61-evidence/research-commit.txt
+          find b61-evidence -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > b61-evidence/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b61-campusreads-evidence
+          path: b61-evidence/
+          retention-days: 90
