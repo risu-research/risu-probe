@@ -1,0 +1,54 @@
+name: B55 shared transport qualification
+on:
+  push:
+    branches: [qualification/p6b55-shared-connection-20261127]
+    paths: ['benchmarks/p6b55/**', '.github/workflows/p6b55-shared.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  external-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore frozen B53 and B52
+        run: |
+          set -euxo pipefail
+          mkdir -p b55-work b55-evidence
+          base64 -d benchmarks/p6b53/frozen_b52_src.b64 > b55-work/frozen.zip
+          echo '976870182cd87d286788328360e0ed874957bcefc7e2ea153166565c35d332e9  b55-work/frozen.zip' | sha256sum -c -
+          python -m zipfile -e b55-work/frozen.zip b55-work
+          base64 -d benchmarks/p6b53/sdk_probe.b64 > b55-work/sdk_probe.py
+          echo 'afcee0cb29dc3ffa6ac333966eea59acc08a4aa5fbce5fce049d0c1bf9344b96  b55-work/sdk_probe.py' | sha256sum -c -
+          cp benchmarks/p6b55/shared.py b55-work/
+      - name: Install hash-pinned official packages
+        run: |
+          set -euxo pipefail
+          python -m pip download --only-binary=:all: --no-deps --dest b55-work mcp==2.3.0 openai-agents==0.26.0
+          echo 'dd0c44c089d16453e8ae31a3877a0054d7a2314caaa81f5e0541b9b1734b2377  b55-work/mcp-2.3.0-py3-none-any.whl' | sha256sum -c -
+          echo 'c3f9545035e46a5a17c88eec789e2301efe26eca230fccab0fc4a6961c0f02e1  b55-work/openai_agents-0.26.0-py3-none-any.whl' | sha256sum -c -
+          python -m pip install b55-work/mcp-2.3.0-py3-none-any.whl b55-work/openai_agents-0.26.0-py3-none-any.whl cryptography
+          python -m pip freeze > b55-evidence/dependencies.txt
+      - name: Execute original Runner and official MCP
+        run: |
+          set -o pipefail
+          python b55-work/shared.py b55-evidence/run 2>&1 | tee b55-evidence/RUN.txt
+      - name: Preserve evidence
+        if: always()
+        run: |
+          rm -rf b55-evidence/run/ephemeral b55-evidence/run/effect.git
+          mkdir -p b55-evidence
+          git rev-parse HEAD > b55-evidence/research-commit.txt
+          find b55-evidence -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > b55-evidence/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b55-external-agent-evidence
+          path: b55-evidence/
+          retention-days: 90
