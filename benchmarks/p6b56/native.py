@@ -27,7 +27,7 @@ def proxy(config):
         with lock:
             save(c['delivered_reply'],raw);sys.stdout.buffer.write(raw);sys.stdout.buffer.flush()
     def refuse(rid,reason):
-        msg=dict(jsonrpc='2.0',id=rid,result=dict(isError=True,content=[dict(type='text',text='RISU_DENIED:'+reason)]))
+        msg=dict(jsonrpc='2.0',id=rid,result=dict(isError=True,resultType='complete',_meta={'io.modelcontextprotocol/serverInfo':{'name':'risu-b56-proxy','version':'0.1.0'}},content=[dict(type='text',text='RISU_DENIED:'+reason)]))
         send(enc(msg)+b'\n')
     def pump():
         try:
@@ -118,6 +118,7 @@ async def exercise(out):
             await asyncio.wait_for(Runner.run(agent,'Execute fixture calls.',run_config=RunConfig(tracing_disabled=True)),40)
             model.assert_complete()
             outputs=[x for x in model.last_call.input if isinstance(x,dict) and x.get('type')=='function_call_output']
+        (d/'model_outputs.json').write_bytes(enc(outputs))
         assert len(outputs)==5 and {x['call_id'] for x in outputs}==set(calls)
         assert set(seen)==set(calls)
         pre=tool_calls(logs['client_wire']);post=tool_calls(logs['server_wire']);cx=rows(logs['context_log']);decisions=rows(logs['decisions'])
