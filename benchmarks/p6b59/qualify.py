@@ -89,6 +89,9 @@ async def main(src,out):
                     o=[x for x in model.last_call.input if isinstance(x,dict) and x.get('type')=='function_call_output']
                     assert len(o)==1 and o[0]['call_id']==cid
                     outputs.extend(o);(out/'outputs.json').write_bytes(enc(outputs))
+            for f,n in [(base/'ingress.jsonl','ingress.jsonl'),(base/'reply.jsonl','reply.jsonl'),(base/'handler'/'events.jsonl','handler.jsonl')]:
+                if f.exists():shutil.copyfile(f,out/n)
+            (out/'resolution.json').write_bytes(enc(resolution))
             ingress=[x for x in rows(base/'ingress.jsonl') if x.get('method')=='tools/call']
             rawreply=rows(base/'reply.jsonl');replies={enc(x['id']):x['result'] for x in rawreply if 'id' in x and 'result'in x}
             events=rows(base/'handler'/'events.jsonl');parents=[x for x in events if x['event']=='PARENT']
@@ -99,7 +102,14 @@ async def main(src,out):
                 assert (wire['params'].get('_meta') or {}).get('risu_b59')==par['envelope']==e==res['envelope']
                 r=replies[enc(wire['id'])];assert bool(r.get('isError',False))==bad,(cid,r)
                 if not bad:
-                    assert json.loads(o['output'])==r['structuredContent']
+                    value=o['output']
+                    if isinstance(value,list):
+                        assert len(value)==1 and value[0]['type']=='input_text'
+                        assert value[0]['text']==r['content'][0]['text']
+                        value=value[0]['text']
+                    parsed=json.loads(value)
+                    assert parsed==json.loads(r['content'][0]['text'])
+                    if r.get('structuredContent') is not None:assert parsed==r['structuredContent']
                 else:assert o['output'],cid
                 print('B59_NATIVE',cid,wire['id'],'ERROR' if bad else 'SUCCESS',flush=True)
             assert len({x['connection'] for x in parents})==1
