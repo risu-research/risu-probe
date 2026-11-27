@@ -52,7 +52,7 @@ def proxy(config):
                     used.add(call)
                     g=c['grants'][a['operation']]
                     a=dict(grant=g,execute=request(actor,g),dispatch=dispatch(actor,sc['scope'],g,sc['connection'],rid,c['agent_run'],call),agent_run=c['agent_run'],model_call=call)
-                    m['params']=dict(name=TOOL,arguments=a)
+                    m['params']=dict(name=TOOL,arguments=a,_meta={k:v for k,v in m['params']['_meta'].items() if k!=META})
                     raw=enc(m)+b'\n'
                     save(c['decisions'],enc(dict(id=rid,decision='FORWARD',call=call))+b'\n')
                 save(c['server_wire'],raw);p.stdin.write(raw);p.stdin.flush()
