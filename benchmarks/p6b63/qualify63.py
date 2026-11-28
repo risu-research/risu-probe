@@ -103,8 +103,8 @@ async def main(src,out):
                 return G.enc(v).decode()
             model=ScriptedModel([[function_call('plan_reading',args,call_id=cid)],[function_call('recover_operation',{'operation':op,'attempt':cid},call_id=name+'-q')],[assistant_message('fixture finished')]])
             before=rowcount()
-            async with MCPServerStdio(params={'command':sys.executable,'args':[str(code/'relay63.py'),str(base),name]},name='B63-native',tool_meta_resolver=resolver,use_structured_content=True,cache_tools_list=True,max_retry_attempts=0,client_session_timeout_seconds=10) as server:
-                await server.list_tools()
+            async with MCPServerStdio(params={'command':sys.executable,'args':[str(code/'relay63.py'),str(base),name]},name='B63-native',tool_filter={'allowed_tool_names':['plan_reading']},tool_meta_resolver=resolver,use_structured_content=True,cache_tools_list=True,max_retry_attempts=0,client_session_timeout_seconds=10) as server:
+                exposed=await server.list_tools();assert [t.name for t in exposed]==['plan_reading']
                 await asyncio.wait_for(Runner.run(Agent(name='B63',model=model,mcp_servers=[server],tools=[recover_operation]),'Execute then inspect the result.',run_config=RunConfig(tracing_disabled=True)),45)
                 model.assert_complete()
                 outputs=[x for x in model.last_call.input if isinstance(x,dict) and x.get('type')=='function_call_output']
@@ -125,7 +125,7 @@ async def main(src,out):
                 r=replies[0]['result'];assert bool(r.get('isError',False))==bool(tool_error)
                 if tool_error:assert tool_error in json.dumps(r) and tool_error in json.dumps(outputs[cid])
                 else:assert json.loads(val(outputs[cid]))==json.loads(r['content'][0]['text'])
-            records.append(dict(name=name,call=cid,op=op,crash=crash,exit=rc,outputs=outputs,observation=qval[0],envelope=signed,observed=obs,before=before,after=rowcount()))
+            records.append(dict(exposed_tools=[t.name for t in exposed],name=name,call=cid,op=op,crash=crash,exit=rc,outputs=outputs,observation=qval[0],envelope=signed,observed=obs,before=before,after=rowcount()))
             (out/'cases.json').write_bytes(G.enc(records));print('B63_CASE',name,crash,expected,'rows',rowcount(),flush=True)
         try:
             a=opened('admit','B001')
