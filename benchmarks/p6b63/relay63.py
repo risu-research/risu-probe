@@ -22,4 +22,4 @@ threading.Thread(target=pump,daemon=True).start()
 with (d/'reply.jsonl').open('ab') as f:
     for line in p.stdout:
         f.write(line);f.flush();sys.stdout.buffer.write(line);sys.stdout.buffer.flush()
-rc=p.wait();(d/'exit.txt').write_text(str(rc));sys.exit(rc)
+rc=p.wait();(d/'exit.txt').write_text(str(rc));os._exit(rc if 0<=rc<=255 else 1)
