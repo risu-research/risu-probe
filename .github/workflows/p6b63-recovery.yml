@@ -1,0 +1,61 @@
+name: B63 native recovery qualification
+on:
+  push:
+    branches: [qualification/p6b63-native-recovery-20261127]
+    paths: ['benchmarks/p6b63/**', '.github/workflows/p6b63-recovery.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  external:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Acquire pinned external application
+        run: |
+          set -euxo pipefail
+          mkdir -p b63-work b63-evidence
+          git clone --no-checkout https://github.com/Joud158/campusreads-mcp-toolkit.git b63-work/upstream
+          git -C b63-work/upstream checkout --detach 99ea07d1074eb06885ec1107029e48d83fe05e78
+          git -C b63-work/upstream rev-parse HEAD | tee b63-evidence/upstream-commit.txt
+      - name: Install hash-pinned SDKs and upstream dependency
+        run: |
+          set -euxo pipefail
+          python -m pip download --only-binary=:all: --no-deps --dest b63-work mcp==2.3.0 openai-agents==0.26.0
+          echo 'dd0c44c089d16453e8ae31a3877a0054d7a2314caaa81f5e0541b9b1734b2377  b63-work/mcp-2.3.0-py3-none-any.whl' | sha256sum -c -
+          echo 'c3f9545035e46a5a17c88eec789e2301efe26eca230fccab0fc4a6961c0f02e1  b63-work/openai_agents-0.26.0-py3-none-any.whl' | sha256sum -c -
+          python -m pip install b63-work/mcp-2.3.0-py3-none-any.whl b63-work/openai_agents-0.26.0-py3-none-any.whl fastmcp==4.1.4 python-dotenv==1.2.4 cryptography
+          python -m pip freeze > b63-evidence/dependencies.txt
+      - name: Verify frozen B60 and B62 sources
+        run: |
+          set -euxo pipefail
+          cp benchmarks/p6b61/lifecycle.py benchmarks/p6b63/lifecycle.py
+          base64 -d benchmarks/p6b63/frozen.b64 > b63-work/frozen.zip
+          echo '192a8ca6885fb552e88871e70ae0e59f8e944697d809a792fd6a598dbbf38704  b63-work/frozen.zip' | sha256sum -c -
+          python -m zipfile -e b63-work/frozen.zip benchmarks/p6b63
+          echo '9592a40a28e021c75ddaa238566dedd4c15ceaef241e1b3c0919856bc12661e0  benchmarks/p6b63/lifecycle.py' | sha256sum -c -
+          echo '04e38256dc84a2dd2cb41c361db87f18b6010070462353e8c4aa81db113f1195  benchmarks/p6b63/gate62.py' | sha256sum -c -
+          echo '983ae95b6b553087e34083abd58ea4f1c64ca8c90bf98cecfd97e83395925387  benchmarks/p6b63/client62.py' | sha256sum -c -
+      - name: Execute native SDK and original composite service
+        run: |
+          set -o pipefail
+          sudo env GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.directory GIT_CONFIG_VALUE_0="$PWD/b63-work/upstream" "$(command -v python)" benchmarks/p6b63/qualify63.py b63-work/upstream b63-evidence/run 2>&1 | tee b63-evidence/RUN.txt
+      - name: Preserve evidence
+        if: always()
+        run: |
+          mkdir -p b63-evidence
+          sudo chown -R "$(id -u):$(id -g)" b63-evidence
+          git rev-parse HEAD > b63-evidence/research-commit.txt
+          find b63-evidence -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > b63-evidence/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: b63-campusreads-evidence
+          path: b63-evidence/
+          retention-days: 90
